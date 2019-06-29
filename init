@@ -1,0 +1,41 @@
+#!/bin/rc
+
+rfork e
+
+fn usage{
+	echo git/init [-b] name >[1=2]
+	echo '	-b	init bare repository' >[1=2]
+	exit usage
+}
+
+sub='/.git'
+upstream=()
+while(~ $1 -*){
+	switch($1){
+	case '-b';
+		sub=''
+	case '-u';
+		shift
+		if(~ $#* 0)
+			usage
+		upstream=$1
+		shift
+	case *;
+		usage
+	}
+	shift
+}
+
+if (~ $#* 0)
+	dir=.
+if not if(~ $#* 1)
+	dir=$1
+if not
+	usage
+
+mkdir -p $dir$sub
+dircp /sys/lib/git/template $dir/$sub
+if(! ~ $#upstream 0){
+	echo '[remote "origin"]' >> $dir/$sub/config
+	echo '	url='$upstream >> $dir/$sub/config
+}

@@ -1,0 +1,81 @@
+#!/bin/rc -e
+
+rfork en
+
+fn usage{
+	echo usage: $argv0 [-b base] [-o origin] new >[2=1]
+	echo '	'-b base:	use "base" for branch (default: current branch) >[2=1]
+	echo '	'-o origin:	use "origin" for remote branch >[2=1]
+	echo '	'new:		name of new branch
+	exit usage
+}
+
+if(! cd `{git/conf -r}){
+	exit 'not in git repository'
+	exit notgit
+}
+git/fs
+
+nl='
+'
+stay=''
+create=''
+cur=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -c; create=true
+	case -s; stay=true
+	case -o; origin=$1
+	case *; usage
+	}
+	shift
+}
+if(~ $1 --) shift
+
+if(~ $#* 0){
+	echo $cur
+	exit
+}
+if(! ~ $#* 1)
+	usage
+new=$1
+
+if(~ $create ''){
+	if(! test -e .git/refs/heads/$new){
+		echo branch $new: does not exist >[1=2]
+		exit exists
+	}
+}
+if not{
+	if(test -e .git/refs/heads/$new){
+		echo could not create $new: already exists >[1=2]
+		exit exists
+	}
+	branched=''
+	candidates=(.git/refs/$cur .git/refs/heads/$cur .git/refs/remotes/$cur .git/refs/remotes/*/$cur)
+	for(br in $candidates){
+		if(test -f $br){
+			echo 'creating new branch '$new
+			cp $br .git/refs/heads/$new
+			branched="ok"
+		}
+	}
+	if(~ $branched ''){
+		echo 'could not find branch '$cur >[1=2]
+		exit notfound
+	}
+}
+
+if(~ $stay ''){
+	rm -f `$nl{git/walk -cfT}
+	echo 'ref: refs/heads/'$new > .git/HEAD
+	tree=/mnt/git/HEAD/tree
+	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
+	for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
+		if(! ~ $#f 0){
+			idx=.git/index9/tracked/$f
+			mkdir -p `{basename -d $idx}
+			walk -eq $f > $idx
+		}
+	}
+}

@@ -1,0 +1,40 @@
+#!/bin/rc
+
+rfork e
+
+fn usage{
+	echo git/diff '[-b branch] [file ...]' >[2=1]
+	exit usage
+}
+
+if(! cd `{git/conf -r}){
+	echo 'not a git repository' >[1=2]
+	exit notgit
+}
+git/fs
+
+while(~ $1 -*){
+	switch($1){
+	case -b; branch=$2; shift
+	case *; usage
+	}
+	shift
+}
+
+if(~ $#branch 0)
+	branch=`{git/branch}
+dirty=`{git/walk | awk '/^[MAR]/ {print $2}'}
+if(! ~ $#* 0){
+	echo $dirty | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.dirty
+	echo $* | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.args
+	dirty=`{join /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args}
+}
+for(f in $dirty){
+	orig=/mnt/git/branch/$branch/tree/$f
+	if(! test -f $orig)
+		orig=/dev/null
+	if(! test -f $f)
+		f=/dev/null
+	ape/diff -up $orig $f
+}
+rm -f /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args

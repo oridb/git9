@@ -1,0 +1,37 @@
+#!/bin/rc -e
+
+rfork ne
+
+fn merge{
+	ourbr=$1/tree
+	basebr=$2/tree
+	theirbr=$3/tree
+
+	all=`{walk -f $ourbr $basebr $theirbr | \
+		 sed 's@^('$ourbr'|'$basebr'|'$theirbr')/*@@g' | sort | uniq}
+	for(f in $all){
+		if(! test -f $ourbr/$f)
+			ours=/dev/null
+		if(! test -f $basebr/$f)
+			base=/dev/null
+		if(! test -f $theirbr/$f)
+			theirs=/dev/null
+		if(! ape/diff3 -m $ourbr/$f $basebr/$f $theirbr/$f > $f)
+			echo merge needed: $f
+	}
+}
+
+fn usage{
+	echo usage: $argv0 theirs
+	exit usage
+}
+
+if(! ~ $#* 1)
+	usage
+
+git/fs
+theirs=`{git/query $1}
+ours=`{git/query HEAD}
+base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
+
+merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs

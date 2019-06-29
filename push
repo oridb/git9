@@ -1,0 +1,53 @@
+#!/bin/rc
+
+rfork en
+
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+
+git/fs
+fn usage {
+	echo 'usage: git/push [-a] [-u upstream] [-b branch] [-r rmbranch]' >[1=2]
+	echo '	-a:		push all' >[1=2]
+	echo '	-u upstream:	push to repo "upstream" (default: origin)' >[1=2]
+	echo '	-b branch:	push branch "branch" (default: current branch)' >[1=2]
+	exit usage
+}
+
+remote=()
+sendall=''
+remove=()
+upstream='origin'
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -u;
+		shift
+		upstream=$1
+	case -a;
+		sendall=true
+	case -b;
+		shift
+		branch=$1
+	case -r;
+		shift
+		remove=(-r$1 $remove);
+	case *; usage
+	}
+	shift
+}
+
+if(! ~ $#* 0)
+	usage
+if(~ $#remote 0)
+	remote=`{git/conf 'remote "'$upstream'".url'}
+if(~ $#remote 0)
+	remote=$upstream
+if(~ $#remote 0){
+	echo 'no idea where to push'
+	exit upstream
+}
+if(~ $sendall '')
+	git/send -b $branch  $remove $remote
+if not
+	git/send  $remove -a $remote

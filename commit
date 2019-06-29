@@ -1,0 +1,119 @@
+#!/bin/rc
+
+rfork ne
+
+nl='
+'
+
+fn whoami{
+	name=`{git/conf user.name}
+	email=`{git/conf user.email}
+	msgfile=.git/git-msg.$pid
+	if(test -f /adm/keys.who){
+		if(~ $name '')
+			name=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $3}'}
+		if(~ $email '')
+			email=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $5}'}
+	}
+	if(~ $name '')
+		name=glenda
+	if(~ $email '')
+		email=glenda@9front.local
+}
+
+fn findbranch{
+	branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+	if(test -e /mnt/git/branch/$branch/tree){
+		refpath=.git/refs/$branch
+		initial=false
+	}
+	if not if(test -e /mnt/git/object/$branch/tree){
+		refpath=.git/HEAD
+		initial=false
+	}
+	if not if(! test -e /mnt/git/HEAD/tree){
+		refpath=.git/refs/$branch
+		initial=true
+	}
+	if not{
+		echo invalid branch $branch >[1=2]
+		exit badbranch
+	}
+
+}
+
+fn editmsg{
+	echo '' > $msgfile.tmp
+	echo '# Commit message goes here.' >> $msgfile.tmp
+	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
+	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR} >> $msgfile.tmp
+	sam $msgfile.tmp
+	if(! test -s $msgfile.tmp || ~ `{wc -l <{grep -v '^[ 	]*[\n#]' $msgfile.tmp}} 0){
+		echo 'cancelling commit: empty message' >[1=2]
+		exit 'nocommit'
+	}
+	grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
+}
+
+fn parents{
+	if(test -f .git/index9/merge-parents)
+		parents=`{cat .git/index9/merge-parents}
+	if not if(~ $initial true)
+		parents=()
+	if not
+		parents=$branch
+}
+
+fn commit{
+	msg=`"{cat $msgfile}
+	if(! ~ $#parents 0)
+		pflags='-p'^$parents
+	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags}
+	st=$status
+	if(~ $hash '')
+		exit nocommit
+}
+
+fn update{
+	mkdir -p `{basename -d $refpath}
+	echo $hash > $refpath
+	for(f in `$nl{git/walk -cfAM}){
+		mkdir -p `{basename -d $f}
+		walk -eq $f > .git/index9/tracked/$f
+	}
+	for(f in `$nl{git/walk -cfR}){
+		rm -f .git/index9/tracked/$f
+		rm -f .git/index9/removed/$f
+	}
+
+}
+
+fn cleanup{
+	rm -f $msgfile
+	rm -f .git/index9/merge-parents
+}
+
+msgfile=/tmp/git-msg.$pid
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+git/fs
+mkdir -p .git/refs
+if(git/walk -q){
+	echo no changes to commit >[1=2]
+	exit clean
+}
+@{
+	flag e +
+	whoami
+	findbranch
+	parents
+	editmsg
+	commit
+	update
+	cleanup
+}
+st=$status
+if(! ~ $status ''){
+	echo 'could not commit:' $st >[1=2]
+	exit $st
+}

@@ -1,0 +1,26 @@
+#!/bin/rc -e
+
+rfork en
+
+base=/mnt/git/object/
+branch=$1
+if(~ $1 '')
+	branch='master'
+if(! test -e /mnt/git/ctl)
+	git/fs
+
+commits=(`{git/query $branch})
+while(! ~$#commits 0){
+	c=$commits(1)
+	
+	echo 'Hash:	' `{cat $base/$c/hash}
+	echo 'Author:	' `{cat $base/$c/author}
+	cat $base/$c/msg | sed 's/^/	/g'
+	echo ''
+
+	commits=($commits(2-) `{cat $base/$c/parent >[2]/dev/null})
+	if(! ~ $#commits 0)
+		commits=`{mtime $base^$commits |
+			sort -rn | uniq |
+			awk -F/ '{print $NF}'}
+}

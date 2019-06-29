@@ -1,0 +1,46 @@
+#!/bin/rc -e
+
+rfork ne
+
+fn usage {
+	echo 'usage: '$argv0' [-r] files..' >[1=2]
+	echo '	-r:		remove instead of adding' >[1=2]
+}
+
+add='tracked'
+del='removed'
+while(~ $1 -*){
+	switch($1){
+	case -r
+		add='removed'
+		del='tracked'
+	case --
+		break
+	case *; usage
+	}
+	shift
+}
+
+dir=`{pwd}
+base=`{git/conf -r}
+if(! ~ $status ''){
+	echo 'not in git repository' `{pwd} >[1=2]
+	exit notrepo
+}
+
+cd $base
+rel=`{sed 's@^'$base'/*@@' <{echo $dir}}
+if(~ $#rel 0)
+	rel=''
+for(f in $*){
+	if(! test -f $base/$rel/$f){
+		echo 'could not add '$base/$rel/$f': does not exist' >[1=2]
+		exit 'nofile'
+	}
+	addpath=.git/index9/$add/$rel/$f
+	delpath=.git/index9/$del/$rel/$f
+	mkdir -p `{basename -d $addpath}
+	mkdir -p `{basename -d $delpath}
+	touch $addpath
+	rm -f $delpath
+}

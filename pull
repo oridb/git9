@@ -1,0 +1,96 @@
+#!/bin/rc -e
+
+rfork en
+
+nl='
+'
+
+fn update{
+	update=$1
+	branch=$2
+	upstream=$3
+	url=$4
+	dir=$5
+	
+	{git/fetch -b $branch -u $upstream $url >[2=3] | awk -v 'update='^$update '
+		function writeref(ref, hash)
+		{
+			outfile = ".git/"ref
+			system("mkdir -p `{basename -d "outfile"}")
+			print hash > outfile
+			close(outfile)
+		}
+
+		/^remote/{
+			if($2=="HEAD")
+				next
+
+			if(update)
+				writeref($2, $3)
+			gsub("^refs/heads", "refs/remotes/'$remote'", $2)
+			writeref($2, $3)
+		}
+	'} |[3] tr '\x0d' '\x0a'
+}
+
+fn usage{
+	echo 'usage: $argv0 [-a] [-u upstream] [-b branch]' >[1=2]
+	echo '	-u up:	pull from upstream "up" (default: origin)' >[1=2]
+	echo '	-f:	fetch without updating working copy' >[1=2]
+	exit usage
+}
+
+git/fs
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+remote=()
+update='true'
+upstream=origin
+while(~ $1 -*){
+	switch($1){
+	case -u;
+		shift
+		remote=$1
+		upstream=SOMEONE
+	case -b:
+		shift
+		branch=$1
+	case -f;
+		update=''
+	case *;
+		usage
+	}
+	shift
+}
+
+if(! ~ $#* 0)
+	usage
+if(~ $#remote 0)
+	remote=`{git/conf 'remote "'$upstream'".url'}
+if(~ $#remote 0){
+	echo 'no idea from where to pull'
+	exit upstream
+}
+
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+
+dir=/mnt/git/branch/$branch/tree
+if(! git/walk -q){
+	echo $status
+	echo 'repository is dirty: commit before pulling' >[1=2]
+	exit 'dirty'
+}
+oldfiles=`$nl{git/walk -cfT}
+update $update  $branch $upstream $remote $dir
+if(! ~ $update 0){
+	rm -f $oldfiles
+	tree=/mnt/git/HEAD/tree
+	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
+	for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
+		if(! ~ $#f 0){
+			idx=.git/index9/tracked/$f
+			mkdir -p `{basename -d $idx}
+			walk -eq $f > $idx
+		}
+	}
+}
