@@ -143,5 +143,3 @@ source. Notably missing functionality includes:
 
 	git/patch -c:	Generate a 'git am' compatible patch.
 	git/patch -a:	Apply a diff.
-	git/log:	Need to figure out how to make it filter
-			by files.

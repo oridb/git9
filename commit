@@ -48,10 +48,8 @@ fn editmsg{
 	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
 	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR} >> $msgfile.tmp
 	sam $msgfile.tmp
-	if(! test -s $msgfile.tmp || ~ `{wc -l <{grep -v '^[ 	]*[\n#]' $msgfile.tmp}} 0){
-		echo 'cancelling commit: empty message' >[1=2]
-		exit 'nocommit'
-	}
+	if(~ `{grep -v '^[ 	]*($|#.*$)' $msgfile.tmp | wc -l} 0)
+		exit 'empty commit message'
 	grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
 }
 

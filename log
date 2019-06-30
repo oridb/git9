@@ -3,24 +3,50 @@
 rfork en
 
 base=/mnt/git/object/
-branch=$1
-if(~ $1 '')
-	branch='master'
-if(! test -e /mnt/git/ctl)
-	git/fs
+branch=master
+git/fs
 
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -b;
+		shift
+		branch=$1
+	case -*;
+		exit usage
+	}
+	shift
+}
 commits=(`{git/query $branch})
+
+# Logging a directory needs a recursive list.
+files=()
+for(f in $*){
+	if(test -d $f)
+		files=($files `{walk -f $f})
+	if not
+		files=($files $f)
+}
+
+if(! ~ $#files 0)
+	nids=`{sha1sum $base/$commits(1)^/tree/$files | awk '{print $1}' >[2]/dev/null}
 while(! ~$#commits 0){
+	ids=$nids
 	c=$commits(1)
-	
-	echo 'Hash:	' `{cat $base/$c/hash}
-	echo 'Author:	' `{cat $base/$c/author}
-	cat $base/$c/msg | sed 's/^/	/g'
-	echo ''
+	if(! ~ $#files 0)
+		nids=`{sha1sum $base/$commits(1)^/tree/$files | awk '{print $1}' >[2]/dev/null}
 
 	commits=($commits(2-) `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`{mtime $base^$commits |
 			sort -rn | uniq |
 			awk -F/ '{print $NF}'}
+
+	if(~ $#files 0 || ! ~ $"ids $"nids || ~ $#commits 0){
+		echo 'Hash:	' `{cat $base/$c/hash}
+		echo 'Author:	' `{cat $base/$c/author}
+		cat $base/$c/msg | sed 's/^/	/g'
+		echo ''
+	}
+
+
 }
