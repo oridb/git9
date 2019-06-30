@@ -20,6 +20,7 @@ fn usage {
 remote=()
 sendall=''
 remove=()
+force=()
 upstream='origin'
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
@@ -35,6 +36,8 @@ while(~ $1 -* && ! ~ $1 --){
 	case -r;
 		shift
 		remove=(-r$1 $remove);
+	case -f;
+		force=-f
 	case *; usage
 	}
 	shift
@@ -51,9 +54,9 @@ if(~ $#remote 0){
 	exit upstream
 }
 if(~ $sendall '')
-	updates=`$nl{git/send -b $branch  $remove $remote}
+	updates=`$nl{git/send $force -b $branch  $remove $remote}
 if not
-	updates=`$nl{git/send  $remove -a $remote}
+	updates=`$nl{git/send $force $remove -a $remote}
 if(! ~ $status '')
 	exit $status
 

@@ -122,26 +122,17 @@ hnode(XObject *ht[], Object *o)
 	return h;
 }
 
-int
-ancestor(Eval *ev)
+Object*
+ancestor(Object *a, Object *b)
 {
-	Object *a, *b, *o, *p;
+	Object *o, *p, *r;
 	XObject *ht[256];
 	XObject *h, *q, *q1, *q2;
-	int i, r;
+	int i;
 
-	if(ev->nstk < 2){
-		werrstr("ancestor needs 2 objects");
-		return -1;
-	}
-	a = pop(ev);
-	b = pop(ev);
-	if(a == b){
-		push(ev, a);
-		return 0;
-	}
-
-	r = -1;
+	if(a == b)
+		return a;
+	r = nil;
 	memset(ht, 0, sizeof(ht));
 	q1 = nil;
 
@@ -166,8 +157,7 @@ ancestor(Eval *ev)
 				h = hnode(ht, p);
 				if(h->mark != nil){
 					if(h->mark != q->mark){
-						push(ev, h->obj);
-						r = 0;
+						r = h->obj;
 						goto done;
 					}
 				} else {
@@ -192,6 +182,25 @@ done:
 	}
 	return r;
 }
+
+int
+lca(Eval *ev)
+{
+	Object *a, *b, *o;
+
+	if(ev->nstk < 2){
+		werrstr("ancestor needs 2 objects");
+		return -1;
+	}
+	a = pop(ev);
+	b = pop(ev);
+	o = ancestor(a, b);
+	if(o == nil)
+		return -1;
+	push(ev, o);
+	return 0;
+}
+
 
 int
 parent(Eval *ev)
@@ -349,7 +358,7 @@ evalpostfix(Eval *ev)
 			break;
 		case '@':
 			ev->p++;
-			if(ancestor(ev) == -1)
+			if(lca(ev) == -1)
 				return -1;
 			break;
 		default:

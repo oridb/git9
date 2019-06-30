@@ -32,6 +32,7 @@ struct Update {
 };
 
 int sendall;
+int force;
 char *curbranch = "refs/heads/master";
 char *removed[128];
 int nremoved;
@@ -289,6 +290,7 @@ sendpack(int fd)
 	int i, n, r, nupd, nsp, updating;
 	char buf[65536], *sp[3];
 	Update *upd, *u;
+	Object *a, *b;
 
 	if((nupd = readours(&upd)) == -1)
 		sysfatal("read refs: %r");
@@ -310,12 +312,17 @@ sendpack(int fd)
 		snprint(u->ref, sizeof(u->ref), sp[1]);
 	}
 
+	r = 0;
 	updating = 0;
 	for(i = 0; i < nupd; i++){
 		u = &upd[i];
-		if(!hasheq(&u->theirs, &Zhash) && readobject(u->theirs) == nil){
-			fprint(2, "remote has diverged: pull and try again\n");
-			updating = 0;
+		a = readobject(u->theirs);
+		b = readobject(u->ours);
+		if((!force || hasheq(&u->theirs, &Zhash)) && (a == nil || ancestor(a, b) != a)){
+			fprint(2, "remote has diverged\n");
+			werrstr("force needed");
+			updating=0;
+			r = -1;
 			break;
 		}
 		if(hasheq(&u->ours, &Zhash)){
@@ -348,7 +355,6 @@ sendpack(int fd)
 		updating = 1;
 	}
 	flushpkt(fd);
-	r = 0;
 	if(updating){
 		if(writepack(fd, upd, nupd) == -1)
 			return -1;
@@ -395,6 +401,7 @@ main(int argc, char **argv)
 	default:	usage();	break;
 	case 'a':	sendall++;	break;
 	case 'd':	chattygit++;	break;
+	case 'f':	force++;	break;
 	case 'r':
 		if(nremoved == nelem(removed))
 			sysfatal("too many deleted branches");

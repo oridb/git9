@@ -199,6 +199,7 @@ void gitinit(void);
 /* object io */
 int	resolverefs(Hash **, char *);
 int	resolveref(Hash *, char *);
+Object	*ancestor(Object *, Object *);
 Object	*readobject(Hash);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
