@@ -27,7 +27,7 @@ fn update{
 
 			if(update)
 				writeref($2, $3)
-			gsub("^refs/heads", "refs/remotes/'$remote'", $2)
+			gsub("^refs/heads", "refs/remotes/'$upstream'", $2)
 			writeref($2, $3)
 		}
 	'} |[3] tr '\x0d' '\x0a'
