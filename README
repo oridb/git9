@@ -141,11 +141,7 @@ TODOs
 Documentation has not yet been written.  You'll need to read the
 source. Notably missing functionality includes:
 
-	git/mkpatch:	Generate a 'git am' compatible patch.
-	git/apply:	Apply a diff.
-	git/diff:	Wrapper wrapper around git/walk that
-			diffs the changed files.
-	git/merge:	Yup, what it says on the label. Should
-			also be a script around git/fs.
+	git/patch -c:	Generate a 'git am' compatible patch.
+	git/patch -a:	Apply a diff.
 	git/log:	Need to figure out how to make it filter
 			by files.
