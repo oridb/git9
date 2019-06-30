@@ -121,7 +121,6 @@ dialssh(char *host, char *, char *path, char *direction)
 	int pid, pfd[2];
 	char cmd[64];
 
-	print("dialing via ssh %s...\n", host);
 	if(pipe(pfd) == -1)
 		sysfatal("unable to open pipe: %r");
 	pid = fork();
@@ -147,7 +146,6 @@ dialgit(char *host, char *port, char *path, char *direction)
 	int fd, l;
 
 	ds = netmkaddr(host, "tcp", port);
-	print("dialing %s...\n", ds);
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;

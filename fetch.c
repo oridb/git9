@@ -39,7 +39,7 @@ resolveremote(Hash *h, char *ref)
 
 	if(r == -1 && strstr(buf, "ref:") == buf)
 		return resolveremote(h, buf + strlen("ref:"));
-	
+	print("resolved remote: %s\n", ref);
 	return r;
 }
 
@@ -138,13 +138,12 @@ branchmatch(char *br, char *pat)
 int
 fetchpack(int fd, int pfd, char *packtmp)
 {
-	char buf[65536];
-	char idxtmp[256];
-	char *sp[3];
+	char buf[65536], idxtmp[256], *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
 	int i, n, req;
 	vlong packsz;
+	Object *o;
 
 	nref = 0;
 	refsz = 16;
@@ -180,6 +179,10 @@ fetchpack(int fd, int pfd, char *packtmp)
 	for(i = 0; i < nref; i++){
 		if(memcmp(have[i].h, want[i].h, sizeof(have[i].h)) == 0)
 			continue;
+		if((o = readobject(want[i])) != nil){
+			unref(o);
+			continue;
+		}
 		n = snprint(buf, sizeof(buf), "want %H", want[i]);
 		print("want %H\n", want[i]);
 		if(writepkt(fd, buf, n) == -1)

@@ -64,8 +64,6 @@ pack(Objset *send, Objset *skip, Object *o)
 	case GTree:
 		for(i = 0; i < o->tree->nent; i++){
 			e = &o->tree->ent[i];
-			if(e->modref)
-				print("wtf, a link? %s\n", e->name);
 			if ((s = readobject(e->h)) == nil)
 				sysfatal("could not read entry %H: %r", e->h);
 			pack(send, skip, s);
@@ -288,10 +286,9 @@ readours(Update **ret)
 int
 sendpack(int fd)
 {
-	char buf[65536];
-	char *sp[3], *p;
+	int i, n, r, nupd, nsp, updating;
+	char buf[65536], *sp[3];
 	Update *upd, *u;
-	int i, n, nupd, nsp, updating;
 
 	if((nupd = readours(&upd)) == -1)
 		sysfatal("read refs: %r");
@@ -322,14 +319,14 @@ sendpack(int fd)
 			break;
 		}
 		if(hasheq(&u->ours, &Zhash)){
-			print("%s: deleting\n", u->ref);
+			print("removed %s\n", u->ref);
 			continue;
 		}
 		if(hasheq(&u->theirs, &u->ours)){
-			print("%s: up to date\n", u->ref);
+			print("uptodate %s\n", u->ref);
 			continue;
 		}
-		print("%s: %H => %H\n", u->ref, u->theirs, u->ours);
+		print("update %s %H %H\n", u->ref, u->theirs, u->ours);
 		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
 
 		/*
@@ -351,6 +348,7 @@ sendpack(int fd)
 		updating = 1;
 	}
 	flushpkt(fd);
+	r = 0;
 	if(updating){
 		if(writepack(fd, upd, nupd) == -1)
 			return -1;
@@ -363,15 +361,20 @@ sendpack(int fd)
 				continue;
 			if(nsp < 3)
 				sp[2] = "";
+			/*
+			 * Only report errors; successes will be reported by
+			 * surrounding scripts.
+			 */
 			if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
 				fprint(2, "unpack %s\n", sp[1]);
-			else if(strcmp(sp[0], "ok") == 0)
-				fprint(2, "%s: updated\n", sp[1]);
 			else if(strcmp(sp[0], "ng") == 0)
 				fprint(2, "failed update: %s\n", sp[1]);
+			else
+				continue;
+			r = -1;
 		}
 	}
-	return 0;
+	return r;
 }
 
 void

@@ -2,6 +2,9 @@
 
 rfork en
 
+nl='
+'
+
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
@@ -48,6 +51,23 @@ if(~ $#remote 0){
 	exit upstream
 }
 if(~ $sendall '')
-	git/send -b $branch  $remove $remote
+	updates=`$nl{git/send -b $branch  $remove $remote}
 if not
-	git/send  $remove -a $remote
+	updates=`$nl{git/send  $remove -a $remote}
+if(! ~ $status '')
+	exit $status
+
+for(ln in $updates){
+	u=`{echo $ln}
+	refpath=`{echo $u(2) | sed 's@^refs/heads/@.git/refs/remotes/@g'}
+	switch($u(1)){
+	case update;
+		echo $u(4) > $refpath
+		echo $u(2)^':' $u(3) '=>' $u(4)
+	case delete;
+		echo $u(2)^': removed'
+		rm -f $refpath
+	case uptodate;
+		echo $u(2)^': up to date'
+	}
+}
