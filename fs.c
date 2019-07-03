@@ -34,14 +34,21 @@ enum {
 };
 
 typedef struct Gitaux Gitaux;
-struct Gitaux {
-	int	 npath;
-	Qid	 path[Npath];
-	Object  *opath[Npath];
-	char 	*refpath;
-	int	 qdir;
-	vlong	 mtime;
+typedef struct Crumb Crumb;
+
+struct Crumb {
+	char	*name;
 	Object	*obj;
+	Qid	qid;
+	int	mode;
+	vlong	mtime;
+};
+
+struct Gitaux {
+	int	ncrumb;
+	Crumb	*crumb;
+	char	*refpath;
+	int	qdir;
 
 	/* For listing object dir */
 	Ols	*ols;
@@ -58,6 +65,12 @@ char *qroot[] = {
 char *username;
 char *mtpt = "/mnt/git";
 char **branches = nil;
+
+static Crumb*
+curcrumb(Gitaux *aux)
+{
+	return &aux->crumb[aux->ncrumb - 1];
+}
 
 static vlong
 findbranch(Gitaux *aux, char *path)
@@ -78,23 +91,20 @@ found:
 }
 
 static void
-obj2dir(Dir *d, Object *o, long qdir, vlong mtime)
+obj2dir(Dir *d, Object *o, Crumb *c, char *name, long qdir)
 {
-	char name[64];
-
-	snprint(name, sizeof(name), "%H", o->hash);
-	d->name = estrdup9p(name);
 	d->qid.type = QTDIR;
 	d->qid.path = QPATH(o->id, qdir);
-	d->atime = mtime;
-	d->mtime = mtime;
+	d->atime = c->mtime;
+	d->mtime = c->mtime;
+	d->mode = c->mode;
+	d->name = estrdup9p(name);
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
-	d->mode = 0755 | DMDIR;
 	if(o->type == GBlob || o->type == GTag){
 		d->qid.type = 0;
-		d->mode = 0644;
+		d->mode &= 0777;
 		d->length = o->size;
 	}
 
@@ -103,9 +113,9 @@ obj2dir(Dir *d, Object *o, long qdir, vlong mtime)
 static int
 rootgen(int i, Dir *d, void *p)
 {
-	Gitaux *aux;
+	Crumb *c;
 
-	aux = p;
+	c = curcrumb(p);
 	if (i >= nelem(qroot))
 		return -1;
 	d->mode = 0555 | DMDIR;
@@ -116,7 +126,7 @@ rootgen(int i, Dir *d, void *p)
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
-	d->mtime = aux->mtime;
+	d->mtime = c->mtime;
 	return 0;
 }
 
@@ -125,9 +135,11 @@ branchgen(int i, Dir *d, void *p)
 {
 	Gitaux *aux;
 	Dir *refs;
+	Crumb *c;
 	int n;
 
 	aux = p;
+	c = curcrumb(aux);
 	refs = nil;
 	d->qid.vers = 0;
 	d->qid.type = QTDIR;
@@ -136,8 +148,8 @@ branchgen(int i, Dir *d, void *p)
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
-	d->mtime = aux->mtime;
-	d->atime = aux->mtime;
+	d->mtime = c->mtime;
+	d->atime = c->mtime;
 	if((n = slurpdir(aux->refpath, &refs)) < 0)
 		return -1;
 	if(i < n){
@@ -172,11 +184,13 @@ modrefobj(Dirent *e)
 static int
 gtreegen(int i, Dir *d, void *p)
 {
-	Gitaux *aux;
 	Object *o, *e;
+	Gitaux *aux;
+	Crumb *c;
 
 	aux = p;
-	e = aux->obj;
+	c = curcrumb(aux);
+	e = c->obj;
 	if(i >= e->tree->nent)
 		return -1;
 	if((o = readobject(e->tree->ent[i].h)) == nil)
@@ -188,8 +202,8 @@ gtreegen(int i, Dir *d, void *p)
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = QPATH(o->id, aux->qdir);
 	d->mode = e->tree->ent[i].mode;
-	d->atime = aux->mtime;
-	d->mtime = aux->mtime;
+	d->atime = c->mtime;
+	d->mtime = c->mtime;
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
@@ -203,7 +217,7 @@ gcommitgen(int i, Dir *d, void *p)
 {
 	Object *o;
 
-	o = ((Gitaux*)p)->obj;
+	o = curcrumb(p)->obj;
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
@@ -248,17 +262,21 @@ objgen(int i, Dir *d, void *p)
 {
 	Gitaux *aux;
 	Object *o;
+	Crumb *c;
+	char name[64];
 	Ols *ols;
 	Hash h;
 
 	aux = p;
+	c = curcrumb(aux);
 	if(!aux->ols)
 		aux->ols = mkols();
 	ols = aux->ols;
 	o = nil;
 	/* We tried to sent it, but it didn't fit */
 	if(aux->olslast && ols->idx == i + 1){
-		obj2dir(d, aux->olslast, Qobject, aux->mtime);
+		snprint(name, sizeof(name), "%H", aux->olslast->hash);
+		obj2dir(d, aux->olslast, c, name, Qobject);
 		return 0;
 	}
 	while(ols->idx <= i){
@@ -268,7 +286,8 @@ objgen(int i, Dir *d, void *p)
 			return -1;
 	}
 	if(o != nil){
-		obj2dir(d, o, Qobject, aux->mtime);
+		snprint(name, sizeof(name), "%H", o->hash);
+		obj2dir(d, o, c, name, Qobject);
 		unref(aux->olslast);
 		aux->olslast = ref(o);
 		return 0;
@@ -281,7 +300,7 @@ objread(Req *r, Gitaux *aux)
 {
 	Object *o;
 
-	o = aux->obj;
+	o = curcrumb(aux)->obj;
 	switch(o->type){
 	case GBlob:
 		readbuf(r, o->data, o->size);
@@ -325,10 +344,13 @@ gitattach(Req *r)
 	if((d = dirstat(".git")) == nil)
 		sysfatal("git/fs: %r");
 	aux = emalloc(sizeof(Gitaux));
-	aux->path[0] = (Qid){Qroot, 0, QTDIR};
-	aux->opath[0] = nil;
-	aux->npath = 1;
-	aux->mtime = d->mtime;
+	aux->crumb = emalloc(sizeof(Crumb));
+	aux->crumb[0].qid = (Qid){Qroot, 0, QTDIR};
+	aux->crumb[0].obj = nil;
+	aux->crumb[0].mode = DMDIR | 0555;
+	aux->crumb[0].mtime = d->mtime;
+	aux->crumb[0].name = estrdup("/");
+	aux->ncrumb = 1;
 	r->ofcall.qid = (Qid){Qroot, 0, QTDIR};
 	r->fid->qid = r->ofcall.qid;
 	r->fid->aux = aux;
@@ -336,15 +358,14 @@ gitattach(Req *r)
 }
 
 static char *
-objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
+objwalk1(Qid *q, Object *o, Crumb *c, char *name, vlong qdir)
 {
-	Object *o, *w;
+	Object *w;
 	char *e;
 	int i;
 
 	w = nil;
 	e = nil;
-	o = aux->obj;
 	if(!o)
 		return Eexist;
 	if(o->type == GTree){
@@ -359,13 +380,15 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 				die("could not read object for %s", name);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = QPATH(w->id, qdir);
-			aux->obj = w;
+			c->mode = o->tree->ent[i].mode;
+			c->obj = w;
 		}
 		if(!w)
 			e = Eexist;
 	}else if(o->type == GCommit){
 		q->type = 0;
-		aux->mtime = o->commit->mtime;
+		c->mtime = o->commit->mtime;
+		c->mode = 0444;
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
 		if(strcmp(name, "msg") == 0)
 			q->path = QPATH(o->id, Qcommitmsg);
@@ -378,7 +401,9 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 		else if(strcmp(name, "tree") == 0){
 			q->type = QTDIR;
 			q->path = QPATH(o->id, Qcommittree);
-			aux->obj = readobject(o->commit->tree);
+			unref(c->obj);
+			c->obj = readobject(o->commit->tree);
+			c->mode = DMDIR | 0555;
 		}
 		else
 			e = Eexist;
@@ -427,40 +452,55 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 {
 	char path[128];
 	Gitaux *aux;
-	Object *o;
+	Crumb *c, *o;
 	char *e;
 	Dir *d;
 	Hash h;
 
 	e = nil;
 	aux = fid->aux;
+	
 	q->vers = 0;
 
 	if(strcmp(name, "..") == 0){
-		if(aux->npath > 1)
-			aux->npath--;
-		*q = aux->path[aux->npath - 1];
-		o = ref(aux->opath[aux->npath - 1]);
-		if(aux->obj)
-			unref(aux->obj);
-		aux->obj = o;
+		if(aux->ncrumb > 1){
+			c = &aux->crumb[aux->ncrumb - 1];
+			free(c->name);
+			unref(c->obj);
+			aux->ncrumb--;
+		}
+		c = &aux->crumb[aux->ncrumb - 1];
+		*q = c->qid;
 		fid->qid = *q;
 		return nil;
 	}
 	
-
+	aux->crumb = realloc(aux->crumb, (aux->ncrumb + 1) * sizeof(Crumb));
+	c = &aux->crumb[aux->ncrumb];
+	o = &aux->crumb[aux->ncrumb - 1];
+	memset(c, 0, sizeof(Crumb));
+	c->mode = o->mode;
+	c->mtime = o->mtime;
+	if(o->obj)
+		c->obj = ref(o->obj);
+	aux->ncrumb++;
+	
 	switch(QDIR(&fid->qid)){
 	case Qroot:
 		if(strcmp(name, "HEAD") == 0){
 			*q = (Qid){Qhead, 0, QTDIR};
-			aux->obj = readref(".git/HEAD");
+			c->mode = DMDIR | 0555;
+			c->obj = readref(".git/HEAD");
 		}else if(strcmp(name, "object") == 0){
 			*q = (Qid){Qobject, 0, QTDIR};
+			c->mode = DMDIR | 0555;
 		}else if(strcmp(name, "branch") == 0){
 			*q = (Qid){Qbranch, 0, QTDIR};
 			aux->refpath = estrdup(".git/refs/");
+			c->mode = DMDIR | 0555;
 		}else if(strcmp(name, "ctl") == 0){
 			*q = (Qid){Qctl, 0, 0};
+			c->mode = 0644;
 		}else{
 			e = Eexist;
 		}
@@ -474,33 +514,34 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		d = dirstat(path);
 		if(d && d->qid.type == QTDIR)
 			q->path = QPATH(findbranch(aux, path), Qbranch);
-		else if(d && (aux->obj = readref(path)) != nil)
-			q->path = QPATH(aux->obj->id, Qcommit);
+		else if(d && (c->obj = readref(path)) != nil)
+			q->path = QPATH(c->obj->id, Qcommit);
 		else
 			e = Eexist;
 		free(d);
 		break;
 	case Qobject:
-		if(aux->obj){
-			e = objwalk1(q, aux, name, Qobject);
+		if(c->obj){
+			e = objwalk1(q, o->obj, c, name, Qobject);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
-			if((aux->obj = readobject(h)) == nil)
+			if((c->obj = readobject(h)) == nil)
 				return "could not read object";
-			q->path = QPATH(aux->obj->id, Qobject);
-			q->type = (aux->obj->type == GBlob) ? 0 : QTDIR;
+			c->mode = (c->obj->type == GBlob) ? 0444 : QTDIR | 0555;
+			q->path = QPATH(c->obj->id, Qobject);
+			q->type = (c->obj->type == GBlob) ? 0 : QTDIR;
 			q->vers = 0;
 		}
 		break;
 	case Qhead:
-		e = objwalk1(q, aux, name, Qhead);
+		e = objwalk1(q, o->obj, c, name, Qhead);
 		break;
 	case Qcommit:
-		e = objwalk1(q, aux, name, Qcommit);
+		e = objwalk1(q, o->obj, c, name, Qcommit);
 		break;
 	case Qcommittree:
-		e = objwalk1(q, aux, name, Qcommittree);
+		e = objwalk1(q, o->obj, c, name, Qcommittree);
 		break;
 	case Qcommitparent:
 	case Qcommitmsg:
@@ -510,24 +551,11 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	case Qctl:
 		return Enodir;
 	default:
-		die("walk: bad qid %Q", *q);
-	}
-	if(aux->npath >= Npath)
-		e = E2long;
-	if(!e && QDIR(q) >= Qmax){
-		print("npath: %d\n", aux->npath);
-		print("walking to %llx (name: %s)\n", q->path, name);
-		print("walking from %llx\n", fid->qid.path);
-		print("QDIR=%d\n", QDIR(&fid->qid));
-		if(aux->obj)
-			print("obj=%O\n", aux->obj);
-		abort();
+		return Egreg;
 	}
 
-	aux->path[aux->npath] = *q;
-	if(aux->obj)
-		aux->opath[aux->npath] = ref(aux->obj);
-	aux->npath++;
+	c->name = estrdup(name);
+	c->qid = *q;
 	fid->qid = *q;
 	return e;
 }
@@ -540,19 +568,17 @@ gitclone(Fid *o, Fid *n)
 
 	oaux = o->aux;
 	aux = emalloc(sizeof(Gitaux));
-	aux->npath = oaux->npath;
-	for(i = 0; i < aux->npath; i++){
-		aux->path[i] = oaux->path[i];
-		aux->opath[i] = oaux->opath[i];
-		if(aux->opath[i])
-			ref(aux->opath[i]);
+	aux->ncrumb = oaux->ncrumb;
+	aux->crumb = emalloc(oaux->ncrumb * sizeof(Crumb));
+	for(i = 0; i < aux->ncrumb; i++){
+		aux->crumb[i] = oaux->crumb[i];
+		aux->crumb[i].name = estrdup(oaux->crumb[i].name);
+		if(aux->crumb[i].obj)
+			aux->crumb[i].obj = ref(oaux->crumb[i].obj);
 	}
 	if(oaux->refpath)
 		aux->refpath = strdup(oaux->refpath);
-	if(oaux->obj)
-		aux->obj = ref(oaux->obj);
 	aux->qdir = oaux->qdir;
-	aux->mtime = oaux->mtime;
 	n->aux = aux;
 	return nil;
 }
@@ -565,11 +591,14 @@ gitdestroyfid(Fid *f)
 
 	if((aux = f->aux) == nil)
 		return;
-	for(i = 0; i < aux->npath; i++)
-		unref(aux->opath[i]);
-	free(aux->refpath);
+	for(i = 0; i < aux->ncrumb; i++){
+		if(aux->crumb[i].obj)
+			unref(aux->crumb[i].obj);
+		free(aux->crumb[i].name);
+	}
 	olsfree(aux->ols);
-	unref(aux->obj);
+	free(aux->refpath);
+	free(aux->crumb);
 	free(aux);
 }
 
@@ -603,11 +632,10 @@ gitread(Req *r)
 	Object *o;
 	Qid *q;
 
+	aux = r->fid->aux;
 	q = &r->fid->qid;
-	o = nil;
+	o = curcrumb(aux)->obj;
 	e = nil;
-	if(aux = r->fid->aux)
-		o = aux->obj;
 
 	switch(QDIR(q)){
 	case Qroot:
@@ -643,7 +671,7 @@ gitread(Req *r)
 		break;
 	case Qhead:
 		/* Empty repositories have no HEAD */
-		if(aux->obj == nil)
+		if(o == nil)
 			r->ofcall.count = 0;
 		else
 			objread(r, aux);
@@ -654,7 +682,7 @@ gitread(Req *r)
 		objread(r, aux);
 		break;
 	default:
-		die("read: bad qid %Q", *q);
+		e = Egreg;
 	}
 	respond(r, e);
 }
@@ -663,60 +691,23 @@ static void
 gitstat(Req *r)
 {
 	Gitaux *aux;
+	Crumb *c;
 	Qid *q;
 
-	q = &r->fid->qid;
 	aux = r->fid->aux;
+	q = &r->fid->qid;
+	c = curcrumb(aux);
 	r->d.uid = estrdup9p(username);
 	r->d.gid = estrdup9p(username);
 	r->d.muid = estrdup9p(username);
-	r->d.mtime = aux->mtime;
-	r->d.atime = r->d.mtime;
 	r->d.qid = r->fid->qid;
-	r->d.mode = 0755 | DMDIR;
-	if(aux->obj){
-		obj2dir(&r->d, aux->obj, QDIR(q), aux->mtime);
-	} else {
-		switch(QDIR(q)){
-		case Qroot:
-			r->d.name = estrdup9p("/");
-			break;
-		case Qhead:
-			r->d.name = estrdup9p("HEAD");
-			break;
-		case Qbranch:
-			r->d.name = estrdup9p("branch");
-			break;
-		case Qobject:
-			r->d.name = estrdup9p("object");
-			break;
-		case Qctl:
-			r->d.name = estrdup9p("ctl");
-			r->d.mode = 0666;
-			break;
-		case Qcommit:
-			r->d.name = smprint("%H", aux->obj->hash);
-			break;
-		case Qcommitmsg:
-			r->d.name = estrdup9p("msg");
-			r->d.mode = 0644;
-			break;
-		case Qcommittree:
-			r->d.name = estrdup9p("tree");
-			break;
-		case Qcommitparent:
-			r->d.name = estrdup9p("info");
-			r->d.mode = 0644;
-			break;
-		case Qcommithash:
-			r->d.name = estrdup9p("hash");
-			r->d.mode = 0644;
-			break;
-		default:
-			die("stat: bad qid %Q", *q);
-		}
-	}
-
+	r->d.mtime = c->mtime;
+	r->d.atime = c->mtime;
+	r->d.mode = c->mode;
+	if(c->obj)
+		obj2dir(&r->d, c->obj, c, c->name, QDIR(q));
+	else
+		r->d.name = estrdup9p(c->name);
 	respond(r, nil);
 }
 
