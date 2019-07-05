@@ -39,3 +39,8 @@ if(! ~ $#upstream 0){
 	echo '[remote "origin"]' >> $dir/$sub/config
 	echo '	url='$upstream >> $dir/$sub/config
 }
+echo '[branch "master"]' >> $dir/$sub/config
+echo '	remote = origin' >> $dir/$sub/config
+echo '	merge = refs/heads/master'  >> $dir/$sub/config
+mkdir -p $dir/$sub/refs/heads
+mkdir -p $dir/$sub/refs/remotes

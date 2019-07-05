@@ -318,7 +318,7 @@ sendpack(int fd)
 		u = &upd[i];
 		a = readobject(u->theirs);
 		b = readobject(u->ours);
-		if((!force || hasheq(&u->theirs, &Zhash)) && (a == nil || ancestor(a, b) != a)){
+		if(!force && !hasheq(&u->theirs, &Zhash) && (a == nil || ancestor(a, b) != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
 			updating=0;
