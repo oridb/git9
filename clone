@@ -55,14 +55,14 @@ fn clone{
 				system("mkdir -p `{basename -d .git/" headref"}");
 				system("cp .git/" remote " .git/" headref)
 				print "ref: " headref > ".git/HEAD"
-			}else{
+			}else if(headhash != ""){
 				print "warning: detached head "headhash > "/fd/2"
 				print headhash > ".git/HEAD"
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
 	if(! ~ $status '|')
-		exit 'clone:' $status
+		exit 'clone:'^$status
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
@@ -92,7 +92,7 @@ if(~ $st ''){
 	echo done.
 }
 if not{
-	echo clone failed: $st >[2=1]
+	echo clone failed. >[2=1]
 	echo cleaning up $local >[2=1]
 	rm -rf $local
 }
