@@ -1004,7 +1004,7 @@ indexpack(char *pack, char *idx, Hash ph)
 	qsort(objects, nobj, sizeof(Object*), objcmp);
 	if((f = Bopen(idx, OWRITE)) == nil)
 		return -1;
-	if(Bwrite(f, "\xfftOc\x00\x00\x00\x02", 8) != 8)
+	if(hwrite(f, "\xfftOc\x00\x00\x00\x02", 8, &st) != 8)
 		goto error;
 	/* fanout table */
 	c = 0;
