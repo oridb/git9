@@ -35,3 +35,4 @@ ours=`{git/query HEAD}
 base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
 
 merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
+echo $ours $theirs > .git/index9/merge-parents
