@@ -92,6 +92,8 @@ struct Object {
 
 	/* For indexing */
 	vlong	off;
+	vlong	len;
+	u32int	crc;
 
 	/* Everything below here gets cleared */
 	char	*all;
