@@ -1,17 +1,21 @@
 Git for Plan 9: git/fs
 ======================
 
-Plan 9 is a non-posix system that currently has no git port.  Git
-itself feels distinctly un-plan9ish.
+All commits in this repository were made with git9 running on 9front.
+
+About
+-----
+
+Plan 9 is a non-posix system. Upstream git has been ported, but feels
+distinctly un-plan9ish, and even in its native environment, has been
+justifiably tarred and feathered for its user experience.
 
 Git/fs implements a git client for plan 9.  The intent is to support
 working with git repositories, without cloning the git interface
 directly.
 
-Git/fs is alpha software. It more or less works for me, but has many
-bugs, and many more missing tools, but it's at the point where the
-hard parts are done, and "the rest is just scripting", using standard
-command line tools (cp, echo, diff, patch, and diff3).
+Git/fs is usable, but not battle tested. It works for me, and covers
+the features I need on a daily basis.
 
 Structure
 ---------
