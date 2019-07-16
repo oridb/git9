@@ -78,7 +78,7 @@ int
 parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 {
 	char *s, *p, *q;
-	int n;
+	int n, hasport;
 
 	p = strstr(uri, "://");
 	if(!p){
@@ -86,13 +86,21 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		return -1;
 	}
 	grab(proto, Nproto, uri, p);
+	hasport = (strcmp(proto, "git") == 0 || strstr(proto, "http") == proto);
 	s = p + 3;
-
-	p = strstr(s, "/");
-	if(!p || strlen(p) == 1){
+	p = nil;
+	if(!hasport){
+		p = strstr(s, ":");
+		if(p != nil)
+			p++;
+	}
+	if(p == nil)
+		p = strstr(s, "/");
+	if(p == nil || strlen(p) == 1){
 		werrstr("missing path");
 		return -1;
 	}
+
 	q = memchr(s, ':', p - s);
 	if(q){
 		grab(host, Nhost, s, q);
@@ -131,6 +139,8 @@ dialssh(char *host, char *, char *path, char *direction)
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
+		if(chattygit)
+			fprint(2, "exec ssh %s %s %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
@@ -149,6 +159,8 @@ dialgit(char *host, char *port, char *path, char *direction)
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
+	if(chattygit)
+		fprint(2, "dial %s %s git-%s-pack %s\n", host, port, direction, path);
 	l = snprint(cmd, sizeof(cmd), "git-%s-pack %s\n", direction, path);
 	if(writepkt(fd, cmd, l + 1) == -1){
 		print("failed to write message\n");
