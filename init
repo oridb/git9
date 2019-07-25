@@ -33,6 +33,11 @@ if not if(~ $#* 1)
 if not
 	usage
 
+if(test -e $dir$sub){
+	echo $dir$sub already exists >[1=2]
+	exit exists
+}
+
 mkdir -p $dir$sub
 dircp /sys/lib/git/template $dir/$sub
 if(! ~ $#upstream 0){

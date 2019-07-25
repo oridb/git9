@@ -18,7 +18,7 @@ if not{
 }
 
 if(test -e $local){
-	echo $local already exists
+	echo $local already exists >[1=2]
 	exit exists
 }
 	
