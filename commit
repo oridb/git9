@@ -110,8 +110,8 @@ if(git/walk -q){
 	update
 	cleanup
 }
-st=$status
-if(! ~ $status ''){
-	echo 'could not commit:' $st >[1=2]
-	exit $st
+x=$status
+if(! ~ $x ''){
+	echo 'could not commit:' $x >[1=2]
+	exit $x
 }

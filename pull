@@ -34,9 +34,9 @@ fn update{
 }
 
 fn usage{
-	echo 'usage: $argv0 [-a] [-u upstream] [-b branch]' >[1=2]
-	echo '	-u up:	pull from upstream "up" (default: origin)' >[1=2]
-	echo '	-f:	fetch without updating working copy' >[1=2]
+	echo usage: $0 '[-a] [-u upstream] [-b branch]
+	-u up:	pull from upstream "up" (default: origin)
+	-f:	fetch without updating working copy' >[1=2]
 	exit usage
 }
 
@@ -47,23 +47,23 @@ update='true'
 upstream=origin
 while(~ $1 -*){
 	switch($1){
-	case -u;
-		shift
-		remote=$1
+	case -u
 		upstream=SOMEONE
-	case -b:
+		remote=$2
 		shift
-		branch=$1
-	case -f;
+	case -b
+		branch=$2
+		shift
+	case -f
 		update=''
-	case *;
+	case *
 		usage
 	}
 	shift
 }
-
 if(! ~ $#* 0)
 	usage
+
 if(~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0){
@@ -77,7 +77,7 @@ if(! cd `{git/conf -r})
 dir=/mnt/git/branch/$branch/tree
 if(! git/walk -q){
 	echo $status
-	echo 'repository is dirty: commit before pulling' >[1=2]
+	echo 'repository is dirty; commit before pulling' >[1=2]
 	exit 'dirty'
 }
 oldfiles=`$nl{git/walk -cfT}

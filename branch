@@ -3,10 +3,10 @@
 rfork en
 
 fn usage{
-	echo usage: $argv0 [-b base] [-o origin] new >[2=1]
-	echo '	'-b base:	use "base" for branch (default: current branch) >[2=1]
-	echo '	'-o origin:	use "origin" for remote branch >[2=1]
-	echo '	'new:		name of new branch
+	echo usage: $0 '[-b base] [-o origin] new
+	-b base:	use "base" for branch (default: current branch)
+	-o origin:	use "origin" for remote branch
+	new:	name of new branch' >[1=2]
 	exit usage
 }
 
@@ -26,7 +26,8 @@ while(~ $1 -* && ! ~ $1 --){
 	case -c; create=true
 	case -s; stay=true
 	case -o; origin=$1
-	case *; usage
+	case *
+		usage
 	}
 	shift
 }

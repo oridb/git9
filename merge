@@ -22,7 +22,7 @@ fn merge{
 }
 
 fn usage{
-	echo usage: $argv0 theirs
+	echo usage: $0 theirs >[1=2]
 	exit usage
 }
 

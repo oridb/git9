@@ -1,31 +1,33 @@
 #!/bin/rc -e
-
 rfork ne
 
 fn usage {
-	echo 'usage: '$argv0' [-r] files..' >[1=2]
-	echo '	-r:		remove instead of adding' >[1=2]
+	echo usage: $0 '[-r] file ...
+	-r:	remove instead of adding' >[1=2]
+	exit usage
 }
 
 add='tracked'
 del='removed'
-while(~ $1 -*){
+while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -r
 		add='removed'
 		del='tracked'
-	case --
-		break
-	case *; usage
+	case *
+		usage
 	}
 	shift
 }
+if(~ $1 --)
+	shift
 
 dir=`{pwd}
 base=`{git/conf -r}
-if(! ~ $status ''){
-	echo 'not in git repository' `{pwd} >[1=2]
-	exit notrepo
+x=$status
+if(! ~ $x ''){
+	echo git/conf: $x `{pwd} >[1=2]
+	exit $x
 }
 
 cd $base

@@ -1,21 +1,18 @@
-#!/bin/rc
+#!/bin/rc -e
 
 rfork en
 nl='
 '
 
-if(~ $#* 1){
-	remote=$1
-	local=`{basename $1 .git}
-}
-if not if(~ $#* 2){
-	remote=$1
-	local=$2
-}
-if not{
-	echo usage: git/clone remote [local] >[1=2]
+remote=$1
+local=$2
+
+if(~ $#remote 0){
+	echo usage: $0 'remote [local]' >[1=2]
 	exit usage
 }
+if(~ $#local 0)
+	local=`{basename $remote .git}
 
 if(test -e $local){
 	echo $local already exists >[1=2]
@@ -61,8 +58,9 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
-	if(! ~ $status '|')
-		exit 'clone:'^$status
+	x=$status
+	if(! ~ $x '|')
+		exit $0:^' '^$"x
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
@@ -70,8 +68,9 @@ fn clone{
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0}
-		if(! ~ $status '')
-			exit 'checkout:' $status
+		x=$status
+		if(! ~ $x '')
+			exit 'checkout: '^$"x
 		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f
@@ -86,13 +85,4 @@ fn clone{
 	}
 }
 
-@{clone}
-st=$status
-if(~ $st ''){
-	echo done.
-}
-if not{
-	echo clone failed. >[2=1]
-	echo cleaning up $local >[2=1]
-	rm -rf $local
-}
+clone

@@ -10,10 +10,10 @@ if(! cd `{git/conf -r})
 
 git/fs
 fn usage {
-	echo 'usage: git/push [-a] [-u upstream] [-b branch] [-r rmbranch]' >[1=2]
-	echo '	-a:		push all' >[1=2]
-	echo '	-u upstream:	push to repo "upstream" (default: origin)' >[1=2]
-	echo '	-b branch:	push branch "branch" (default: current branch)' >[1=2]
+	echo usage: $0 '[-a] [-u upstream] [-b branch] [-r rmbranch]
+	-a:		push all
+	-u upstream:	push to repo "upstream" (default: origin)
+	-b branch:	push branch "branch" (default: current branch)' >[1=2]
 	exit usage
 }
 
@@ -23,22 +23,23 @@ remove=()
 force=()
 upstream='origin'
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
-while(~ $1 -* && ! ~ $1 --){
+while(~ $1 -*){
 	switch($1){
-	case -u;
+	case -u
 		shift
 		upstream=$1
-	case -a;
+	case -a
 		sendall=true
-	case -b;
+	case -b
 		shift
 		branch=$1
-	case -r;
+	case -r
 		shift
 		remove=(-r$1 $remove);
-	case -f;
+	case -f
 		force=-f
-	case *; usage
+	case *
+		usage
 	}
 	shift
 }
@@ -57,8 +58,9 @@ if(~ $sendall '')
 	updates=`$nl{git/send $force -b $branch  $remove $remote}
 if not
 	updates=`$nl{git/send $force $remove -a $remote}
-if(! ~ $status '')
-	exit $status
+x=$status
+if(! ~ $x '')
+	exit $x
 
 for(ln in $updates){
 	u=`{echo $ln}
