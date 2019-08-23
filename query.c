@@ -33,4 +33,5 @@ main(int argc, char **argv)
 			else
 				print("%H\n", h[j]);
 	}
+	exits(nil);
 }
