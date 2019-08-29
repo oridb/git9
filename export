@@ -1,0 +1,45 @@
+#!/bin/rc
+
+rfork ne
+
+nl='
+'
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+git/fs
+q=$*
+if(~ $#q 0)
+	q=HEAD
+commits=`{git/query $q}
+x=$status
+if(! ~ $x ''){
+	echo 'could not find commits: '$x
+	exit $x
+}
+
+scratch=/tmp/gitexport.$pid
+mkdir -p $scratch
+for(c in $commits){
+	cp=`{git/query -p $c}
+	pp=`{git/query -p $c'^'}
+
+	@{
+		rfork n
+		cd $scratch
+		mkdir a
+		mkdir b
+		bind $pp/tree a
+		bind $cp/tree b
+		
+		echo From $c
+		echo From: `{cat $cp/author}
+		echo Date: `{date -t `{mtime $cp/author}}
+		echo Subject: [PATCH] `{sed 1q $cp/msg}
+		echo
+		sed '1d' $cp/msg
+
+		ape/diff -urN a b
+	}
+}
+rm $scratch/a $scratch/b
+rm $scratch

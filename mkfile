@@ -16,6 +16,7 @@ RC=\
 	clone\
 	commit\
 	diff\
+	export\
 	init\
 	log\
 	merge\
