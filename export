@@ -33,7 +33,7 @@ for(c in $commits){
 		
 		echo From $c
 		echo From: `{cat $cp/author}
-		echo Date: `{date -t `{mtime $cp/author}}
+		echo Date: `{date -m `{mtime $cp/author}}
 		echo Subject: [PATCH] `{sed 1q $cp/msg}
 		echo
 		sed '1d' $cp/msg

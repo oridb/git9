@@ -17,6 +17,7 @@ RC=\
 	commit\
 	diff\
 	export\
+	import\
 	init\
 	log\
 	merge\
@@ -24,6 +25,7 @@ RC=\
 	push\
 
 OFILES=\
+	date.$O\
 	objset.$O\
 	ols.$O\
 	pack.$O\

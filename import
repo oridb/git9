@@ -1,0 +1,99 @@
+#!/bin/rc
+
+rfork ne
+
+nl='
+'
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+
+fn die{
+	echo $patchname: $1 $2
+	exit $2
+}
+
+fn apply @{
+	flag +e
+
+	git/fs
+	email=''
+	name=''
+	msg=''
+	parents='-p'^`{cat /mnt/git/HEAD/parent}
+	diffpath=/tmp/gitimport.$pid.diff
+	branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+	if(test -e /mnt/git/branch/$branch/tree)
+		refpath=.git/refs/$branch
+	if not if(test -e /mnt/git/object/$branch/tree)
+		refpath=.git/HEAD
+	if not
+		exit 'invalid branch '$branch
+
+	awk '
+	BEGIN{
+		state="begin"
+	}
+	state=="begin" && /^From[ \t]/ {
+		state="headers"
+	}
+	state=="headers" && /^From:/ {
+		sub(/^From:*[ \t]*/, "", $0);
+		name=$0;
+		email=$0;
+		sub(/<.*$/, "", name);
+		sub(/.*</, "", email);
+		sub(/>/, "", email);
+	}
+	state=="headers" && /^Date:/{
+		sub(/^Date:[ \t]*/, "", $0)
+		date=$0
+	}
+	state=="headers" && /^Subject:/{
+		sub(/^Subject: (\[PATCH\])*[ \t]*/, "", $0);
+		msg=msg $0 "\n"
+	}
+	state=="headers" && /^$/ {
+		state="body"
+	}
+	(state=="headers" || state=="body") && /^diff/ {
+		state="diff"
+		print > ENVIRON["diffpath"]
+	}
+	state=="body" {
+		print > "/env/msg"
+	}
+	state=="diff" {
+		print > ENVIRON["diffpath"]
+	}
+	END{
+		if(state != "diff")
+			exit("malformed patch: " state);
+		if(name == "" || email == "" || msg == "" || date=="")
+			print "missing headers"
+		printf "%s", name > "/env/name"
+		printf "%s", email > "/env/email"
+		printf "%s", msg > "/env/msg"
+		printf "%s", date > "/env/date"
+	}
+	'
+
+	date=`{seconds $date}
+	ape/patch -p1 < $diffpath
+	hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
+	echo $hash > $refpath
+}
+
+fn import{
+	apply
+	st=$status
+	if(! ~ $st ''){
+		echo stdin: $st
+		exit $st
+	}
+}
+
+if(~ $#* 0){
+	import
+if not
+	for(f in $*)
+		import < $f

@@ -199,7 +199,7 @@ treeify(char *path, Hash *th)
 
 
 void
-mkcommit(Hash *c, char *msg, char *name, char *email, Hash *parents, int nparents, Hash tree)
+mkcommit(Hash *c, char *msg, char *name, char *email, vlong date, Hash *parents, int nparents, Hash tree)
 {
 	char *s, h[64];
 	int ns, nh, i;
@@ -209,8 +209,8 @@ mkcommit(Hash *c, char *msg, char *name, char *email, Hash *parents, int nparent
 	fmtprint(&f, "tree %H\n", tree);
 	for(i = 0; i < nparents; i++)
 		fmtprint(&f, "parent %H\n", parents[i]);
-	fmtprint(&f, "author %s <%s> %lld +0000\n", name, email, (vlong)time(nil));
-	fmtprint(&f, "committer %s <%s> %lld +0000\n", name, email, (vlong)time(nil));
+	fmtprint(&f, "author %s <%s> %lld +0000\n", name, email, date);
+	fmtprint(&f, "committer %s <%s> %lld +0000\n", name, email, date);
 	fmtprint(&f, "\n");
 	fmtprint(&f, "%s", msg);
 	s = fmtstrflush(&f);
@@ -232,30 +232,41 @@ void
 main(int argc, char **argv)
 {
 	Hash c, t, parents[Maxparents];
-	char *msg, *name, *email;
+	char *msg, *name, *email, *dstr;
 	int r, nparents;
-
+	vlong date;
 
 	msg = nil;
 	name = nil;
 	email = nil;
+	dstr = nil;
+	date = time(nil);
 	nparents = 0;
 	gitinit();
 	ARGBEGIN{
 	case 'm':	msg = EARGF(usage());	break;
 	case 'n':	name = EARGF(usage());	break;
 	case 'e':	email = EARGF(usage());	break;
+	case 'd':	dstr = EARGF(usage());	break;
 	case 'p':
 		if(nparents >= Maxparents)
 			sysfatal("too many parents");
 		if(resolveref(&parents[nparents++], EARGF(usage())) == -1)
 			sysfatal("invalid parent: %r");
 		break;
+	default:
+		usage();
 	}ARGEND;
 
 	if(!msg) sysfatal("missing message");
 	if(!name) sysfatal("missing name");
 	if(!email) sysfatal("missing email");
+	if(dstr){
+		date=strtoll(dstr, &dstr, 10);
+		if(strlen(dstr) != 0)
+			sysfatal("could not parse date %s", dstr);
+	}
+		
 	if(!msg || !name)
 		usage();
 
@@ -267,7 +278,7 @@ main(int argc, char **argv)
 		sysfatal("could not commit: %r\n");
 	if(r == 0)
 		sysfatal("empty commit: aborting");
-	mkcommit(&c, msg, name, email, parents, nparents, t);
+	mkcommit(&c, msg, name, email, date, parents, nparents, t);
 	print("%H\n", c);
 	exits(nil);
 }
