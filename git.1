@@ -53,6 +53,16 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .B -d
 ]
 .PP
+.B git/export
+[
+.I commits...
+]
+.PP
+.B git/import
+[
+.I commits...
+]
+.PP
 .B git/init
 [
 .B -b
@@ -283,6 +293,17 @@ option, the diff is computed against
 .I base
 instead of
 .I HEAD.
+
+.PP
+.B Git/export
+exports a list of commits in a format that
+.B git/import
+can apply.
+
+.PP
+.B Git/import
+imports a commit with message, author, and
+date information.
 
 .PP
 .B Git/merge

@@ -142,8 +142,4 @@ implements others, I'll gladly accept patches.
 TODOs
 -----
 
-Documentation has not yet been written.  You'll need to read the
-source. Notably missing functionality includes:
-
-	git/patch -c:	Generate a 'git am' compatible patch.
-	git/patch -a:	Apply a diff.
+Documentation is sparse.
