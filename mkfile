@@ -25,7 +25,6 @@ RC=\
 	push\
 
 OFILES=\
-	date.$O\
 	objset.$O\
 	ols.$O\
 	pack.$O\
