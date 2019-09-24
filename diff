@@ -1,6 +1,6 @@
 #!/bin/rc
 
-rfork e
+rfork ne
 
 fn usage{
 	echo usage: $0 '[-b branch] [file ...]' >[1=2]
