@@ -16,18 +16,9 @@ fn update{
 		function writeref(ref, hash)
 		{
 			outfile = ".git/"ref
-			# we have local commits: nothing to do
-			if(system("~ `{git/query ''HEAD "hash" @''} `{git/query "hash"}") == 0)
-				exit("");
-			# we have local commits *and* remote commits: request a merge
-			if(system("~ `{git/query ''HEAD "hash" @''} `{git/query HEAD}") != 0){
-				printf("git/merge %s\n", hash) > "/fd/2";
-				exit("merge");
-			}
-			# we only have remote commits: update head
-			system("mkdir -p `{basename -d "outfile"}");
-			print hash > outfile;
-			close(outfile);
+			system("mkdir -p `{basename -d "outfile"}")
+			print hash > outfile
+			close(outfile)
 		}
 
 		/^remote/{
