@@ -69,7 +69,7 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 {
 	DigestState *st;
 	Hash hexpect;
-	char buf[65536];
+	char buf[Pktmax];
 	vlong n, r;
 	int nr;
 	
@@ -138,7 +138,7 @@ branchmatch(char *br, char *pat)
 int
 fetchpack(int fd, int pfd, char *packtmp)
 {
-	char buf[65536], idxtmp[256], *sp[3];
+	char buf[Pktmax], idxtmp[256], *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
 	int i, n, req;

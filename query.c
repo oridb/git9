@@ -75,7 +75,7 @@ difftrees(Hash ah, Hash bh)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-pc] query...\n", argv0);
+	fprint(2, "usage: %s [-pc] query\n", argv0);
 	exits("usage");
 }
 
@@ -84,7 +84,8 @@ main(int argc, char **argv)
 {
 	int i, j, n;
 	Hash *h;
-	char *p;
+	char *p, *e;
+	char query[2048];
 
 	ARGBEGIN{
 	case 'p':	fullpath++;	break;
@@ -94,18 +95,20 @@ main(int argc, char **argv)
 
 	gitinit();
 	fmtinstall('P', Pfmt);
-	for(i = 0; i < argc; i++){
-		if((n = resolverefs(&h, argv[i])) == -1)
-			sysfatal("resolve %s: %r", argv[i]);
-		if(changes){
-			if(n != 2)
-				sysfatal("diff: need 2 commits, got %d", n);
-			difftrees(h[0], h[1]);
-		}else{
-			p = (fullpath ? "/mnt/git/object/" : "");
-			for(j = 0; j < n; j++)
-				print("%s%H\n", p, h[j]);
-		}
+	p = query;
+	e = query + nelem(query);
+	for(i = 0; i < argc; i++)
+		p = seprint(p, e, "%s ", argv[i]);
+	if((n = resolverefs(&h, query)) == -1)
+		sysfatal("resolve %s: %r", argv[i]);
+	if(changes){
+		if(n != 2)
+			sysfatal("diff: need 2 commits, got %d", n);
+		difftrees(h[0], h[1]);
+	}else{
+		p = (fullpath ? "/mnt/git/object/" : "");
+		for(j = 0; j < n; j++)
+			print("%s%H\n", p, h[j]);
 	}
 	exits(nil);
 }

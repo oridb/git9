@@ -288,7 +288,7 @@ int
 sendpack(int fd)
 {
 	int i, n, r, nupd, nsp, updating;
-	char buf[65536], *sp[3];
+	char buf[Pktmax], *sp[3];
 	Update *upd, *u;
 	Object *a, *b;
 

@@ -17,9 +17,10 @@ typedef struct Ols	Ols;
 
 enum {
 	/* 5k objects should be enough */
-	Cachemax=5*1024,
-	Pathmax=512,
-	Hashsz=20,
+	Cachemax	= 5*1024,
+	Pathmax		= 512,
+	Hashsz		= 20,
+	Pktmax		= 65536,
 
 	Nproto	= 16,
 	Nport	= 16,
