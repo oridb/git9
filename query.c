@@ -75,7 +75,7 @@ difftrees(Hash ah, Hash bh)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-p]\n", argv0);
+	fprint(2, "usage: %s [-pc] query...\n", argv0);
 	exits("usage");
 }
 

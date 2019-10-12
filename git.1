@@ -115,8 +115,9 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .PP
 .B git/query
 [
-.B -p
+.B -pc
 ]
+.I query...
 .PP
 .B git/walk
 [
@@ -329,7 +330,10 @@ and resolves it to a list of commits. With the
 option, instead of printing the commit hashes, the full
 path to their
 .B git/fs
-path is printed.
+path is printed. With the
+.I -c
+option, the query must resolve to two commits. The blobs
+that have changed in the commits are printed.
 
 .PP
 .B Git/walk
