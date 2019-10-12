@@ -99,7 +99,7 @@ main(int argc, char **argv)
 			sysfatal("resolve %s: %r", argv[i]);
 		if(changes){
 			if(n != 2)
-				sysfatal("diff: need 2 commits, got %d\n", n);
+				sysfatal("diff: need 2 commits, got %d", n);
 			difftrees(h[0], h[1]);
 		}else{
 			p = (fullpath ? "/mnt/git/object/" : "");
