@@ -210,7 +210,7 @@ mismatch:
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-qbc] [-f filt]\n", argv0);
+	fprint(2, "usage: %s [-qbc] [-f filt] [paths...]\n", argv0);
 	exits("usage");
 }
 
@@ -255,10 +255,20 @@ main(int argc, char **argv)
 		sysfatal("git/fs does not seem to be running");
 	if(printflg == 0)
 		printflg = Tflg | Aflg | Mflg | Rflg;
-	if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
-		sysfatal("read tracked: %r");
-	if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
-		sysfatal("read removed: %r");
+	if(argc == 0){
+		if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
+			sysfatal("read tracked: %r");
+		if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
+			sysfatal("read removed: %r");
+	}else{
+		r.path = emalloc(argc*sizeof(char*));
+		r.pathsz = argc;
+		for(i = 0; i < argc; i++){
+			snprint(tpath, sizeof(tpath), TDIR"/%s", argv[i]);
+			if(access(tpath, AEXIST) == 0)
+				r.path[r.npath++] = estrdup(argv[i]);
+		}
+	}		
 	dedup(&r);
 
 	for(i = 0; i < r.npath; i++){
