@@ -94,6 +94,9 @@ if(~ foo bar) { #! ~ $#modified 0 || ! ~ $#deleted 0){
 
 cp .git/refs/$remote .git/refs/$local
 if(! ~ $#modified 0){
+	# Modifications can turn a file into
+	# a directory, so we need to walk to
+	# check the blobs out correctly.
 	for(m in `{walk -f $modified}){
 		gm=/mnt/git/HEAD/tree/$m
 		d=`{basename -d $m}
