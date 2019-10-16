@@ -41,6 +41,7 @@ fn usage{
 
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 remote=()
+incoming=()
 checkout='true'
 upstream=origin
 
@@ -61,6 +62,8 @@ while(~ $1 -*){
 		shift
 	case -f
 		checkout=()
+	case -i
+		incoming=true
 	case *
 		usage
 	}
@@ -98,4 +101,7 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
+echo $local':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
+if(! ~ $#incoming 0)
+	git/log -q $local'..'$remote
 git/branch -u -b $remote $local

@@ -627,7 +627,7 @@ readctl(Req *r)
 static void
 gitread(Req *r)
 {
-	char buf[64], *e;
+	char buf[256], *e;
 	Gitaux *aux;
 	Object *o;
 	Qid *q;
@@ -664,7 +664,8 @@ gitread(Req *r)
 		readstr(r, buf);
 		break;
 	case Qcommitauthor:
-		readstr(r, o->commit->author);
+		snprint(buf, sizeof(buf), "%s\n", o->commit->author);
+		readstr(r, buf);
 		break;
 	case Qctl:
 		e = readctl(r);

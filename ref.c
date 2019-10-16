@@ -85,7 +85,7 @@ word(Eval *ev, char *b, int nb)
 	int n;
 
 	p = ev->p;
-	for(e = p; isword(*e); e++)
+	for(e = p; isword(*e) && strncmp(e, "..", 2) != 0; e++)
 		/* nothing */;
 	/* 1 for nul terminator */
 	n = e - p + 1;
@@ -282,7 +282,8 @@ range(Eval *ev)
 		else if(oshas(&skip, p))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-
+		if(p->commit->nparent == 0)
+			break;
 		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
 			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
 		nall++;

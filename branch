@@ -66,7 +66,6 @@ if not{
 	candidates=(.git/refs/$base .git/refs/heads/$base .git/refs/remotes/$base .git/refs/remotes/$remotes/$base)
 	for(br in $candidates){
 		if(~ $#branched 0 && test -f $br){
-			echo $base '=>' $1
 			cp $br .git/$new
 			branched=true
 		}

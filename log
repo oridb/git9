@@ -13,12 +13,16 @@ fn usage {
 
 base=/mnt/git/object/
 git/fs
-branch=master
+branch=`{git/branch}
+query=()
 
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -b
 		branch=$2
+		shift
+	case -q
+		query=$2
 		shift
 	case *
 		usage
@@ -27,7 +31,10 @@ while(~ $1 -* && ! ~ $1 --){
 }
 if(~ $1 --)
 	shift
-commits=`{git/query $branch}
+if(~ $#query 0)
+	commits=`{git/query $branch}
+if not
+	commits=`{git/query $query}
 files=()
 if(! ~ $#* 0)
 	files=`$nl{walk -f $*}
@@ -40,13 +47,16 @@ while(! ~ $#commits 0){
 	c=$commits(1)
 	if(! ~ $#files 0)
 		nids=`{sha1sum $base/$commits(1)^/tree/$files | awk '{print $1}' >[2]/dev/null}
-
-	commits=($commits(2-) `{cat $base/$c/parent >[2]/dev/null})
+		commits=$commits(2-)
+		if(~ $#query 0)
+			commits=($commits `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`$nl{walk -emp -n0 $base^$commits | sort -rn | uniq | awk -F/ '{print $NF}'}
 
 	if(~ $#files 0 || ! ~ $"ids $"nids || ~ $#commits 0){
-		echo 'Hash:	'^`''{cat $base/$c/hash}^'Author:	'^`''{cat $base/$c/author}
+		echo -n 'Hash:	'`''{cat $base/$c/hash}
+		echo -n 'Author:	'`''{cat $base/$c/author}
+		echo -n 'Date:	'`''{date `{mtime $base/$c/msg | awk '{print $1}'}}
 		sed 's/^/	/g' $base/$c/msg
 		echo
 	}
