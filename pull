@@ -27,7 +27,6 @@ fn update{
 		outfile = ".git/"ref
 		system("mkdir -p `{basename -d "outfile"}");
 		print hash > outfile;
-		print ref" => "hash > "/fd/2"
 		close(outfile);
 	}
 	'
@@ -87,6 +86,7 @@ remote=`{git/branch | sed 's@^(refs/)?heads@remotes/'$upstream'@'}
 # we have local commits, but the remote hasn't changed.
 # in this case, we want to keep the local commits untouched.
 if(~ `{git/query HEAD $remote @} `{git/query $remote}){
+	echo up to date >[1=2]
 	exit
 }
 # The remote repository and our HEAD have diverged: we
