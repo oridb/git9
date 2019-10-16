@@ -24,12 +24,12 @@ if(~ $1 --) shift
 
 if(~ $#branch 0)
 	branch=`{git/branch}
-dirty=`{git/walk | awk '/^[MAR]/ {print $2}'}
-if(! ~ $#* 0){
-	echo $dirty | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.dirty
-	echo $* | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.args
-	dirty=`{join /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args}
-}
+
+if(~ $#* 0)
+	dirty=`{git/walk -cfMAR}
+if not
+	dirty=`{git/walk -cfMAR $*}
+
 for(f in $dirty){
 	orig=/mnt/git/branch/$branch/tree/$f
 	if(! test -f $orig)
@@ -38,4 +38,3 @@ for(f in $dirty){
 		f=/dev/null
 	ape/diff -up $orig $f
 }
-rm -f /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args

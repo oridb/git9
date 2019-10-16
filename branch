@@ -6,6 +6,7 @@ fn usage{
 	echo usage: $0 '[-b base] [-o origin] new
 	-b base:	use "base" for branch (default: current branch)
 	-o origin:	use "origin" for remote branch
+	-u:		update branch if it exists
 	new:	name of new branch' >[1=2]
 	exit usage
 }
@@ -18,14 +19,16 @@ git/fs
 
 nl='
 '
-stay=''
-create=''
-cur=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+stay=()
+create=()
+update=()
+base=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -c; create=true
 	case -s; stay=true
-	case -o; origin=$1
+	case -b; shift; base=$1
+	case -u; update=true
 	case *
 		usage
 	}
@@ -34,26 +37,32 @@ while(~ $1 -* && ! ~ $1 --){
 if(~ $1 --) shift
 
 if(~ $#* 0){
-	echo $cur
+	echo $base
 	exit
 }
 if(! ~ $#* 1)
 	usage
-new=$1
+if(~ $new refs/heads/*)
+	trim='s@^refs/heads/@@g'
+if not if(~ $new heads/*)
+	trim='s@^heads/@@g'
+if not
+	trim='s@^@@g'
+new=`{echo $1 | sed $trim}
 
-if(~ $create ''){
+if(~ $#create 0){
 	if(! test -e .git/refs/heads/$new){
 		echo branch $new: does not exist >[1=2]
 		exit exists
 	}
 }
 if not{
-	if(test -e .git/refs/heads/$new){
+	if(~ $#update 0 && test -e .git/refs/heads/$new){
 		echo could not create $new: already exists >[1=2]
 		exit exists
 	}
-	branched=''
-	candidates=(.git/refs/$cur .git/refs/heads/$cur .git/refs/remotes/$cur .git/refs/remotes/*/$cur)
+	branched=()
+	candidates=(.git/refs/$base .git/refs/heads/$base .git/refs/remotes/$base .git/refs/remotes/*/$base)
 	for(br in $candidates){
 		if(test -f $br){
 			echo 'creating new branch '$new
@@ -61,22 +70,39 @@ if not{
 			branched="ok"
 		}
 	}
-	if(~ $branched ''){
-		echo 'could not find branch '$cur >[1=2]
+	if(~ $#branched 0){
+		echo 'could not find branch '$base >[1=2]
 		exit notfound
 	}
 }
 
-if(~ $stay ''){
-	rm -f `$nl{git/walk -cfT}
-	echo 'ref: refs/heads/'$new > .git/HEAD
-	tree=/mnt/git/HEAD/tree
-	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
-	for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
-		if(! ~ $#f 0){
-			idx=.git/index9/tracked/$f
-			mkdir -p `{basename -d $idx}
-			walk -eq $f > $idx
-		}
+if(! ~ $#stay 0)
+	exit
+
+modified=`$nl{git/query -c HEAD $base | grep '^[+~]' | sed 's/^..//'}
+deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
+echo here-- mod $#modified del $#deleted
+if(! ~ $#modified 0 || ! ~ $#deleted 0){
+	if(! git/walk -q $modified $deleted){
+		echo remote changes would clobber local changes >[1=2]
+		exit dirty
 	}
+}
+
+if(! ~ $#modified 0){
+	# Modifications can turn a file into
+	# a directory, so we need to walk to
+	# check the blobs out correctly.
+	for(m in `{walk -f $modified}){
+		gm=/mnt/git/HEAD/tree/$m
+		d=`{basename -d $m}
+		mkdir -p $d
+		mkdir -p .git/index9/tracked/$d
+		cp  $gm $m
+		walk -eq $m > .git/index9/tracked/$m
+	}
+}
+if(! ~ $#deleted 0){
+	rm -f $deleted
+	rm -f .git/index9/tracked/$deleted
 }

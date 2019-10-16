@@ -1,4 +1,4 @@
-#!/bin/rc -ex
+#!/bin/rc -e
 
 rfork en
 
@@ -81,32 +81,19 @@ if (~ $#checkout 0)
 
 local=`{git/branch}
 remote=`{git/branch | sed 's@^(refs/)?heads@remotes/'$upstream'@'}
-echo 'remote='$remote
-modified=`$nl{git/query -c HEAD $remote | grep '^[+~]' | sed 's/^..//'}
-deleted=`$nl{git/query -c HEAD $remote | grep '^-' | sed 's/^..//'}
-if(~ foo bar) { #! ~ $#modified 0 || ! ~ $#deleted 0){
-	if(! git/walk -q $modified $deleted){
-		echo remote changes would clobber local changes >[1=2]
-		exit dirty
-	}
+
+# we have local commits, but the remote hasn't changed.
+# in this case, we want to keep the local commits untouched.
+if(~ `{git/query HEAD $remote @} `{git/query $remote}){
+	exit
+}
+# The remote repository and our HEAD have diverged: we
+# need to merge.
+if(! ~ `{git/query HEAD $remote @} `{git/query HEAD)
+	echo git/merge $remote '# diverged' >[1=2]
+	exit merge
 }
 
-
-cp .git/refs/$remote .git/refs/$local
-if(! ~ $#modified 0){
-	# Modifications can turn a file into
-	# a directory, so we need to walk to
-	# check the blobs out correctly.
-	for(m in `{walk -f $modified}){
-		gm=/mnt/git/HEAD/tree/$m
-		d=`{basename -d $m}
-		mkdir -p $d
-		mkdir -p .git/index9/tracked/$d
-		cp  $gm $m
-		walk -eq $m > .git/index9/tracked/$m
-	}
-}
-if(! ~ $#deleted 0){
-	rm -f $deleted
-	rm -f .git/index9/tracked/$deleted
-}
+# The remote is directly ahead of the local, and we have
+# no local commits that need merging.
+git/branch -u -b $remote $local
