@@ -11,21 +11,23 @@ fn update{
 	url=$3
 	dir=$4
 
-	fetch=`{git/fetch  -b $branch -u $upstream $url} |[2]  tr '\x0d' '\x0a'
+	fetch=`"{git/fetch  -b $branch -u $upstream $url |[2]  tr '\x0d' '\x0a'}
 	st=$status
-	if(! ~ $st '|'){
+	if(! ~ $st ''){
 		echo fetch failed: $st
 		exit $st
 	}	
-	echo $fetch | awk '
+	echo $"fetch | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
-		gsub("^refs/heads", "refs/remotes/'$upstream'", $2)
+		ref=$2
+		hash=$3
+		gsub("^refs/heads", "refs/remotes/'$upstream'", ref)
 		outfile = ".git/"ref
 		system("mkdir -p `{basename -d "outfile"}");
 		print hash > outfile;
-		print ref" => "hash > "/dev/fd/2"
+		print ref" => "hash > "/fd/2"
 		close(outfile);
 	}
 	'
@@ -89,7 +91,7 @@ if(~ `{git/query HEAD $remote @} `{git/query $remote}){
 }
 # The remote repository and our HEAD have diverged: we
 # need to merge.
-if(! ~ `{git/query HEAD $remote @} `{git/query HEAD)
+if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 	echo git/merge $remote '# diverged' >[1=2]
 	exit merge
 }

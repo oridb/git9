@@ -40,34 +40,35 @@ if(~ $#* 0){
 	echo $base
 	exit
 }
+
 if(! ~ $#* 1)
 	usage
-if(~ $new refs/heads/*)
-	trim='s@^refs/heads/@@g'
-if not if(~ $new heads/*)
-	trim='s@^heads/@@g'
+if(~ $1 refs/heads/*)
+	new=$1
+if not if(~ $1 heads/*)
+	new=refs/$1
 if not
-	trim='s@^@@g'
-new=`{echo $1 | sed $trim}
+	new=refs/heads/$1
 
-if(~ $#create 0){
-	if(! test -e .git/refs/heads/$new){
+if(! ~ $#create 0){
+	if(! test -e .git/$new){
 		echo branch $new: does not exist >[1=2]
 		exit exists
 	}
 }
 if not{
-	if(~ $#update 0 && test -e .git/refs/heads/$new){
-		echo could not create $new: already exists >[1=2]
+	if(~ $#update 0 && test -e .git/$new){
+		echo could not create $1: already exists >[1=2]
 		exit exists
 	}
 	branched=()
-	candidates=(.git/refs/$base .git/refs/heads/$base .git/refs/remotes/$base .git/refs/remotes/*/$base)
+	remotes=`$nl{cd .git/refs/remotes && ls}
+	candidates=(.git/refs/$base .git/refs/heads/$base .git/refs/remotes/$base .git/refs/remotes/$remotes/$base)
 	for(br in $candidates){
-		if(test -f $br){
-			echo 'creating new branch '$new
-			cp $br .git/refs/heads/$new
-			branched="ok"
+		if(~ $#branched 0 && test -f $br){
+			echo $base '=>' $1
+			cp $br .git/$new
+			branched=true
 		}
 	}
 	if(~ $#branched 0){
@@ -79,9 +80,10 @@ if not{
 if(! ~ $#stay 0)
 	exit
 
+echo ref: $new > .git/HEAD
+
 modified=`$nl{git/query -c HEAD $base | grep '^[+~]' | sed 's/^..//'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
-echo here-- mod $#modified del $#deleted
 if(! ~ $#modified 0 || ! ~ $#deleted 0){
 	if(! git/walk -q $modified $deleted){
 		echo remote changes would clobber local changes >[1=2]
@@ -93,8 +95,8 @@ if(! ~ $#modified 0){
 	# Modifications can turn a file into
 	# a directory, so we need to walk to
 	# check the blobs out correctly.
-	for(m in `{walk -f $modified}){
-		gm=/mnt/git/HEAD/tree/$m
+	for(gm in `{cd /mnt/git/HEAD/tree/ && walk -f $modified}){
+		m=`{sed s@^/mnt/git/HEAD/tree/@@}
 		d=`{basename -d $m}
 		mkdir -p $d
 		mkdir -p .git/index9/tracked/$d

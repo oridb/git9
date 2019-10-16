@@ -73,13 +73,19 @@ peek(Eval *ev)
 }
 
 int
+isword(char e)
+{
+	return isalnum(e) || e == '/' || e == '-' || e == '_' || e == '.';
+}
+
+int
 word(Eval *ev, char *b, int nb)
 {
 	char *p, *e;
 	int n;
 
 	p = ev->p;
-	for(e = p; isalnum(*e) || *e == '/'; e++)
+	for(e = p; isword(*e); e++)
 		/* nothing */;
 	/* 1 for nul terminator */
 	n = e - p + 1;

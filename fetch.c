@@ -184,7 +184,6 @@ fetchpack(int fd, int pfd, char *packtmp)
 			continue;
 		}
 		n = snprint(buf, sizeof(buf), "want %H", want[i]);
-		print("want %H\n", want[i]);
 		if(writepkt(fd, buf, n) == -1)
 			sysfatal("could not send want for %H", want[i]);
 		req = 1; 
