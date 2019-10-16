@@ -276,7 +276,10 @@ main(int argc, char **argv)
 		snprint(rmpath, sizeof(rmpath), RDIR"/%s", p);
 		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
 		snprint(bpath, sizeof(bpath), HDIR"/%s", p);
-		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
+		if(sameqid(p, tpath)){
+			if(!quiet && (printflg & Tflg))
+				print("%s%s\n", tstr, p);
+		}else if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
 			dirty |= Mflg;
 			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
@@ -284,7 +287,7 @@ main(int argc, char **argv)
 			dirty |= Aflg;
 			if(!quiet && (printflg & Aflg))
 				print("%s%s\n", astr, p);
-		}else if(!sameqid(p, tpath) && !samedata(p, bpath)){
+		}else if(!samedata(p, bpath)){
 			dirty |= Mflg;
 			if(!quiet && (printflg & Mflg))
 				print("%s%s\n", mstr, p);
