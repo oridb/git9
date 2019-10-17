@@ -11,6 +11,7 @@ fn update{
 	url=$3
 	dir=$4
 
+	echo git/fetch  -b $branch -u $upstream $url
 	fetch=`"{git/fetch  -b $branch -u $upstream $url |[2]  tr '\x0d' '\x0a'}
 	st=$status
 	if(! ~ $st ''){
@@ -39,17 +40,17 @@ fn usage{
 	exit usage
 }
 
-branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
-remote=()
-incoming=()
-checkout='true'
-upstream=origin
 
 if(! cd `{git/conf -r}){
 	echo 'not in git repository' >[1=2]
 	exit notgit
 }
 git/fs
+branch=refs/`{git/branch}
+remote=()
+incoming=()
+checkout='true'
+upstream=origin
 
 while(~ $1 -*){
 	switch($1){
