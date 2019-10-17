@@ -19,7 +19,7 @@ fn apply @{
 	email=''
 	name=''
 	msg=''
-	parents='-p'^`{cat /mnt/git/HEAD/parent}
+	parents='-p'^`{git/query HEAD}
 	diffpath=/tmp/gitimport.$pid.diff
 	branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 	if(test -e /mnt/git/branch/$branch/tree)
@@ -28,7 +28,6 @@ fn apply @{
 		refpath=.git/HEAD
 	if not
 		exit 'invalid branch '$branch
-
 	awk '
 	BEGIN{
 		state="begin"
@@ -77,10 +76,14 @@ fn apply @{
 	}
 	'
 
-	date=`{seconds $date}
-	ape/patch -p1 < $diffpath
-	hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
-	echo $hash > $refpath
+	# force re-reading env
+	rc -c '
+		echo $date
+		date=`{seconds $date}
+		ape/patch -p1 < $diffpath
+		hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
+		echo $hash > $refpath
+	'
 }
 
 fn import{
@@ -92,8 +95,8 @@ fn import{
 	}
 }
 
-if(~ $#* 0){
-	import
-if not
-	for(f in $*)
-		import < $f
+patches=(/fd/0)
+if(! ~ $#* 0)
+	patches=$*
+for(f in $patches)
+	import < $f
