@@ -287,7 +287,7 @@ readours(Update **ret)
 int
 sendpack(int fd)
 {
-	int i, n, r, nupd, nsp, sendpack;
+	int i, n, r, nupd, nsp, send;
 	char buf[Pktmax], *sp[3];
 	Update *upd, *u;
 	Object *a, *b;
@@ -313,7 +313,7 @@ sendpack(int fd)
 	}
 
 	r = 0;
-	sendpack = 0;
+	send = 0;
 	for(i = 0; i < nupd; i++){
 		u = &upd[i];
 		a = readobject(u->theirs);
@@ -321,7 +321,7 @@ sendpack(int fd)
 		if(!force && !hasheq(&u->theirs, &Zhash) && (a == nil || ancestor(a, b) != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
-			sendpack=0;
+			send=0;
 			r = -1;
 			break;
 		}
@@ -356,11 +356,13 @@ sendpack(int fd)
 		 * If we're rolling back with a force push, the other side already
 		 * has our changes. There's no need to send a pack if that's the case.
 		 */
-		if(!ancestor(b, a))
-			sendpack = 1;
+		if(ancestor(b, a) != b)
+			send = 1;
 	}
 	flushpkt(fd);
-	if(sendpack){
+	if(!send)
+		print("nothing to send\n");
+	if(send){
 		if(writepack(fd, upd, nupd) == -1)
 			return -1;
 
