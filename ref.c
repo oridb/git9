@@ -138,6 +138,8 @@ ancestor(Object *a, Object *b)
 
 	if(a == b)
 		return a;
+	if(a == nil || b == nil)
+		return nil;
 	r = nil;
 	memset(ht, 0, sizeof(ht));
 	q1 = nil;

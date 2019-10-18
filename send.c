@@ -356,7 +356,7 @@ sendpack(int fd)
 		 * If we're rolling back with a force push, the other side already
 		 * has our changes. There's no need to send a pack if that's the case.
 		 */
-		if(ancestor(b, a) != b)
+		if(a == nil || b == nil || ancestor(b, a) != b)
 			send = 1;
 	}
 	flushpkt(fd);
