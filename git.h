@@ -179,7 +179,7 @@ struct Objset {
 	} while(0)
 
 #define QDIR(qid)	((int)(qid)->path & (0xff))
-#define QPATH(id, dt)	(((uvlong)(id) << 8) | ((dt) & 0x7f))
+#define _QPATH(id, dt)	(((uvlong)(id) << 8) | ((dt) & 0x7f))
 #define isblank(c) \
 	(((c) != '\n') && isspace(c))
 

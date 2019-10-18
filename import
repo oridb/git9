@@ -30,9 +30,6 @@ fn apply @{
 		exit 'invalid branch '$branch
 	awk '
 	BEGIN{
-		state="begin"
-	}
-	state=="begin" && /^From[ \t]/ {
 		state="headers"
 	}
 	state=="headers" && /^From:/ {
@@ -52,11 +49,15 @@ fn apply @{
 		msg=msg $0 "\n"
 	}
 	state=="headers" && /^$/ {
-		state="body"
+		state="prebody"
 	}
 	(state=="headers" || state=="body") && /^diff/ {
 		state="diff"
 		print > ENVIRON["diffpath"]
+	}
+	state=="prebody" && !/^(---[ 	]*)?$/{
+		print msg > "/env/msg"
+		state="body"
 	}
 	state=="body" {
 		print > "/env/msg"
@@ -78,9 +79,11 @@ fn apply @{
 
 	# force re-reading env
 	rc -c '
-		echo $date
+		flag -e
+		echo applying $msg | sed 1q
 		date=`{seconds $date}
 		ape/patch -p1 < $diffpath
+		git/walk -fRMA
 		hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
 		echo $hash > $refpath
 	'
