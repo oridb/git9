@@ -74,7 +74,7 @@ fn clone{
 		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f
-				mkdir -p `{basename -d $idx}
+				mkdir -p `$nl{basename -d $idx}
 				walk -eq $f > $idx
 			}
 		}
