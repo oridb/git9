@@ -11,7 +11,6 @@ fn update{
 	url=$3
 	dir=$4
 
-	echo git/fetch  -b $branch -u $upstream $url
 	fetch=`"{git/fetch  -b $branch -u $upstream $url |[2]  tr '\x0d' '\x0a'}
 	st=$status
 	if(! ~ $st ''){
