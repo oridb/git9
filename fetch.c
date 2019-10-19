@@ -39,7 +39,6 @@ resolveremote(Hash *h, char *ref)
 
 	if(r == -1 && strstr(buf, "ref:") == buf)
 		return resolveremote(h, buf + strlen("ref:"));
-	print("resolved remote: %s\n", ref);
 	return r;
 }
 
@@ -160,7 +159,6 @@ fetchpack(int fd, int pfd, char *packtmp)
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(strstr(sp[1], "^{}"))
 			continue;
-		print("sp[1]: %s\n", sp[1]);
 		if(fetchbranch && !branchmatch(sp[1], fetchbranch))
 			continue;
 		if(refsz == nref + 1){
