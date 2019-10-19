@@ -79,10 +79,10 @@ if not{
 if(! ~ $#stay 0)
 	exit
 
-echo ref: $new > .git/HEAD
 
 modified=`$nl{git/query -c HEAD $base | grep '^[+~]' | sed 's/^..//'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
+
 if(! ~ $#modified 0 || ! ~ $#deleted 0){
 	if(! git/walk -q $modified $deleted){
 		echo remote changes would clobber local changes >[1=2]
@@ -107,3 +107,5 @@ if(! ~ $#deleted 0){
 	rm -f $deleted
 	rm -f .git/index9/tracked/$deleted
 }
+
+echo ref: $new > .git/HEAD
