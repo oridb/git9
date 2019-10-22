@@ -23,6 +23,7 @@ RC=\
 	merge\
 	pull\
 	push\
+	revert
 
 OFILES=\
 	objset.$O\
