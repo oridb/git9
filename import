@@ -49,15 +49,11 @@ fn apply @{
 		msg=msg $0 "\n"
 	}
 	state=="headers" && /^$/ {
-		state="prebody"
+		state="body"
 	}
-	(state=="headers" || state=="body") && /^diff/ {
+	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	]*$/){
 		state="diff"
 		print > ENVIRON["diffpath"]
-	}
-	state=="prebody" && !/^(---[ 	]*)?$/{
-		print msg > "/env/msg"
-		state="body"
 	}
 	state=="body" {
 		print > "/env/msg"
@@ -68,14 +64,21 @@ fn apply @{
 	END{
 		if(state != "diff")
 			exit("malformed patch: " state);
-		if(name == "" || email == "" || msg == "" || date=="")
-			print "missing headers"
+		if(name == "" || email == "" || msg == "" || date == ""){
+			print "missing headers" > "/fd/2";
+			exit("missingheader");
+		}
 		printf "%s", name > "/env/name"
 		printf "%s", email > "/env/email"
 		printf "%s", msg > "/env/msg"
 		printf "%s", date > "/env/date"
 	}
 	'
+	st=$status
+	if(! ~ $st ''){
+		echo could not import: $st >[1=2]
+		exit badpatch
+	}
 
 	# force re-reading env
 	rc -c '
