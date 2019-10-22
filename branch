@@ -22,6 +22,7 @@ nl='
 stay=()
 create=()
 update=()
+delete=()
 base=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
@@ -29,6 +30,7 @@ while(~ $1 -* && ! ~ $1 --){
 	case -s; stay=true
 	case -b; shift; base=$1
 	case -u; update=true
+	case -d; delete=true
 	case *
 		usage
 	}
@@ -50,7 +52,12 @@ if not if(~ $1 heads/*)
 if not
 	new=refs/heads/$1
 
-if(! git/walk -q `{git/query -c HEAD $base | sed 's/^..//g'}){
+if(! ~ $#delete 0){
+	rm -f .git/$new
+	exit
+}
+
+if(! git/walk -q `{git/query -c HEAD $base | sed 's/^..//'}){
 	echo remote changes would clobber local changes >[1=2]
 	exit dirty
 }
@@ -68,21 +75,20 @@ if not{
 	}
 	branched=()
 	remotes=`$nl{cd .git/refs/remotes && ls}
-	candidates=(.git/refs/$base .git/refs/heads/$base .git/refs/remotes/$base .git/refs/remotes/$remotes/$base)
-	for(br in $candidates){
-		if(~ $#branched 0 && test -f $br){
-			cp $br .git/$new
-			branched=true
-		}
-	}
-	if(~ $#branched 0){
-		echo 'could not find branch '$base >[1=2]
+	commit=`{git/query $base}
+	st=$status
+	if(! ~ $st ''){
+		echo could not find branch $base':' $st >[1=2]
 		exit notfound
-	}
+	}	
+	echo $commit > .git/$new
 }
 
-modified=`$nl{git/query -c $new $base | grep '^[+~]' | sed 's/^..//'}
-deleted=`$nl{git/query -c $new $base | grep '^-' | sed 's/^..//'}
+
+modified=`$nl{git/query -c HEAD $new | grep '^[+!@]' | sed 's/^..//'}
+deleted=`$nl{git/query -c HEAD $new | grep '^-' | sed 's/^..//'}
+
+echo $deleted
 
 if(! ~ $#stay 0)
 	exit

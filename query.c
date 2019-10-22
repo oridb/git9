@@ -44,19 +44,26 @@ difftrees(Hash ah, Hash bh)
 		bp = b->tree->ent;
 		be = bp + b->tree->nent;
 		while(ap != ae && bp != be){
+			print("cmp %s %s\n", ap->name, bp->name);
 			c = strcmp(ap->name, bp->name);
 			if(c == 0){
-				if(ap->mode != bp->mode || !hasheq(&ap->h, &bp->h)) {
-					if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
-						print("~ %P%s\n", ap->name);
-					if(ap->mode & DMDIR || bp->mode & DMDIR){
-						if(npath >= nelem(path))
-						sysfatal("path too deep");
-						path[npath++] = ap->name;
-						difftrees(ap->h, bp->h);
-						npath--;
-					}
+				if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
+					goto next;
+
+				if(ap->mode != bp->mode){
+					print("mode: %o -> %o\n", ap->mode, bp->mode);
+					print("! %P%s\n", ap->name);
 				}
+				else if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
+					print("@ %P%s\n", ap->name);
+				if((ap->mode & DMDIR) && (bp->mode & DMDIR)){
+					if(npath >= nelem(path))
+						sysfatal("path too deep");
+					path[npath++] = ap->name;
+					difftrees(ap->h, bp->h);
+					npath--;
+				}
+next:
 				ap++;
 				bp++;
 			}else if(c < 0){
