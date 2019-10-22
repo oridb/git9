@@ -150,10 +150,9 @@ findroot(void)
 }
 
 int
-sameqid(char *f, char *qf)
+sameqid(Dir *d, char *qf)
 {
 	char indexqid[64], fileqid[64], *p;
-	Dir *d;
 	int fd, n;
 
 	if((fd = open(qf, OREAD)) == -1)
@@ -165,10 +164,9 @@ sameqid(char *f, char *qf)
 	if((p = strpbrk(indexqid, "  \t\n\r")) != nil)
 		*p = 0;
 
-	if((d = dirstat(f)) == nil)
-		return -1;
 	snprint(fileqid, sizeof(fileqid), "%ullx.%uld.%.2uhhx",
-	    d->qid.path, d->qid.vers, d->qid.type);
+		d->qid.path, d->qid.vers, d->qid.type);
+
 	if(strcmp(indexqid, fileqid) == 0)
 		return 1;
 	return 0;
@@ -221,6 +219,7 @@ main(int argc, char **argv)
 	char *p, *e;
 	int i, dirty;
 	Wres r;
+	Dir *d;
 
 	ARGBEGIN{
 	case 'q':
@@ -276,7 +275,10 @@ main(int argc, char **argv)
 		snprint(rmpath, sizeof(rmpath), RDIR"/%s", p);
 		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
 		snprint(bpath, sizeof(bpath), HDIR"/%s", p);
-		if(sameqid(p, tpath)){
+		d = dirstat(p);
+		if(d->mode & DMDIR)
+			goto next;
+		if(sameqid(d, tpath)){
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
 		}else if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
@@ -295,6 +297,8 @@ main(int argc, char **argv)
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
 		}
+next:
+		free(d);
 	}
 	if(!dirty)
 		exits(nil);

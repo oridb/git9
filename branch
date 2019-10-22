@@ -50,10 +50,15 @@ if not if(~ $1 heads/*)
 if not
 	new=refs/heads/$1
 
-if(! ~ $#create 0){
+if(! git/walk -q `{git/query -c HEAD $base | sed 's/^..//g'}){
+	echo remote changes would clobber local changes >[1=2]
+	exit dirty
+}
+
+if(~ $#create 0){
 	if(! test -e .git/$new){
 		echo branch $new: does not exist >[1=2]
-		exit exists
+		exit noexist
 	}
 }
 if not{
@@ -76,31 +81,25 @@ if not{
 	}
 }
 
+modified=`$nl{git/query -c $new $base | grep '^[+~]' | sed 's/^..//'}
+deleted=`$nl{git/query -c $new $base | grep '^-' | sed 's/^..//'}
+
 if(! ~ $#stay 0)
 	exit
 
-
-modified=`$nl{git/query -c HEAD $base | grep '^[+~]' | sed 's/^..//'}
-deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
-
-if(! ~ $#modified 0 || ! ~ $#deleted 0){
-	if(! git/walk -q $modified $deleted){
-		echo remote changes would clobber local changes >[1=2]
-		exit dirty
-	}
-}
-
 if(! ~ $#modified 0){
+	basedir=`{git/query -p $base}
 	# Modifications can turn a file into
 	# a directory, so we need to walk to
 	# check the blobs out correctly.
-	for(gm in `{cd /mnt/git/HEAD/tree/ && walk -f $modified}){
-		m=`{sed s@^/mnt/git/HEAD/tree/@@}
-		d=`{basename -d $m}
-		mkdir -p $d
-		mkdir -p .git/index9/tracked/$d
-		cp  $gm $m
-		walk -eq $m > .git/index9/tracked/$m
+	for(m in $modified){
+		if(test -f $basedir/tree/$m){
+			d=`{basename -d $m}
+			mkdir -p $d
+			mkdir -p .git/index9/tracked/$d
+			cp  $basedir/tree/$m $m
+			walk -eq $m > .git/index9/tracked/$m
+		}
 	}
 }
 if(! ~ $#deleted 0){
