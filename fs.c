@@ -251,6 +251,7 @@ gtreegen(int i, Dir *d, void *p)
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = qpath(c, i, o->id, aux->qdir);
 	d->mode = e->tree->ent[i].mode;
+	d->mode |= (o->type == GTree) ? 0755 : 0644;
 	d->atime = c->mtime;
 	d->mtime = c->mtime;
 	d->uid = estrdup9p(username);
@@ -280,7 +281,7 @@ gcommitgen(int i, Dir *d, void *p)
 
 	switch(i){
 	case 0:
-		d->mode = 0555 | DMDIR;
+		d->mode = 0755 | DMDIR;
 		d->name = estrdup9p("tree");
 		d->qid.type = QTDIR;
 		d->qid.path = qpath(c, i, o->id, Qcommittree);
@@ -432,6 +433,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
 			c->mode = o->tree->ent[i].mode;
+			c->mode |= (q->type == QTDIR) ? 0755 : 0644;
 			c->obj = w;
 		}
 		if(!w)
@@ -454,7 +456,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 			q->path = qpath(p, 4, o->id, Qcommittree);
 			unref(c->obj);
 			c->obj = readobject(o->commit->tree);
-			c->mode = DMDIR | 0555;
+			c->mode = DMDIR | 0755;
 		}
 		else
 			e = Eexist;
@@ -579,7 +581,7 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 				return "invalid object name";
 			if((c->obj = readobject(h)) == nil)
 				return "could not read object";
-			c->mode = (c->obj->type == GBlob) ? 0444 : QTDIR | 0555;
+			c->mode = (c->obj->type == GBlob) ? 0644 : QTDIR | 0755;
 			q->path = qpath(o, Qobject, c->obj->id, Qobject);
 			q->type = (c->obj->type == GBlob) ? 0 : QTDIR;
 			q->vers = 0;
