@@ -433,7 +433,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
 			c->mode = o->tree->ent[i].mode;
-			c->mode |= (q->type == QTDIR) ? 0755 : 0644;
+			c->mode |= (w->type == GTree) ? 0755 : 0644;
 			c->obj = w;
 		}
 		if(!w)
@@ -492,10 +492,8 @@ readref(char *pathstr)
 		snprint(path, sizeof(path), ".git/%s", p);
 	}
 
-	if(hparse(&h, buf) == -1){
-		print("failed to parse hash %s\n", buf);
+	if(hparse(&h, buf) == -1)
 		return nil;
-	}
 
 	return readobject(h);
 }
@@ -745,11 +743,10 @@ static void
 gitstat(Req *r)
 {
 	Gitaux *aux;
-	Crumb *c, *p;
+	Crumb *c;
 
 	aux = r->fid->aux;
 	c = crumb(aux, 0);
-	p = crumb(aux, 1);
 	r->d.uid = estrdup9p(username);
 	r->d.gid = estrdup9p(username);
 	r->d.muid = estrdup9p(username);
@@ -758,7 +755,7 @@ gitstat(Req *r)
 	r->d.atime = c->mtime;
 	r->d.mode = c->mode;
 	if(c->obj)
-		obj2dir(&r->d, p, c->obj, c->name);
+		obj2dir(&r->d, c, c->obj, c->name);
 	else
 		r->d.name = estrdup9p(c->name);
 	respond(r, nil);
