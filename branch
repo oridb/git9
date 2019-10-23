@@ -21,16 +21,16 @@ nl='
 '
 stay=()
 create=()
-update=()
 delete=()
+update=()
 base=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -c; create=true
 	case -s; stay=true
 	case -b; shift; base=$1
-	case -u; update=true
 	case -d; delete=true
+	case -u; update=true
 	case *
 		usage
 	}
@@ -57,38 +57,35 @@ if(! ~ $#delete 0){
 	exit
 }
 
+if(~ $#update 0 && test -f .git/$new){
+	echo branch $1 already exists
+	exit already-got-one
+}
+
 if(! git/walk -q `{git/query -c HEAD $base | sed 's/^..//'}){
-	echo remote changes would clobber local changes >[1=2]
+	echo branch update would clobber changes >[1=2]
 	exit dirty
 }
 
-if(~ $#create 0){
+if(! ~ $#create 0){
 	if(! test -e .git/$new){
 		echo branch $new: does not exist >[1=2]
 		exit noexist
 	}
 }
 if not{
-	if(~ $#update 0 && test -e .git/$new){
-		echo could not create $1: already exists >[1=2]
-		exit exists
-	}
-	branched=()
-	remotes=`$nl{cd .git/refs/remotes && ls}
 	commit=`{git/query $base}
 	st=$status
 	if(! ~ $st ''){
 		echo could not find branch $base':' $st >[1=2]
 		exit notfound
-	}	
+	}
 	echo $commit > .git/$new
 }
 
 
-modified=`$nl{git/query -c HEAD $new | grep '^[+!@]' | sed 's/^..//'}
+modified=`$nl{git/query -c HEAD $new | grep '^[^-]' | sed 's/^..//'}
 deleted=`$nl{git/query -c HEAD $new | grep '^-' | sed 's/^..//'}
-
-echo $deleted
 
 if(! ~ $#stay 0)
 	exit

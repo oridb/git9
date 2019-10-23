@@ -104,4 +104,4 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 echo $local':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
 if(! ~ $#incoming 0)
 	git/log -q $local'..'$remote
-git/branch -u -b $remote $local
+git/branch -b $remote $local

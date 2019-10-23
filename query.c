@@ -44,7 +44,6 @@ difftrees(Hash ah, Hash bh)
 		bp = b->tree->ent;
 		be = bp + b->tree->nent;
 		while(ap != ae && bp != be){
-			print("cmp %s %s\n", ap->name, bp->name);
 			c = strcmp(ap->name, bp->name);
 			if(c == 0){
 				if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
