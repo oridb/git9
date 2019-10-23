@@ -1,0 +1,28 @@
+#!/bin/rc
+
+commit=/mnt/git/HEAD
+pfx=`{pwd}
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -c;
+		commit=`{git/query -p $2};
+		shift
+	case *;
+		echo usage: $0 [-c commit] files...
+		exit usage
+	}
+	shift
+}
+
+if(! cd `{git/conf -r}){
+	echo not a git repository >[1=2]
+	exit notgit
+}
+pfx=`{echo $pfx | sed 's@^'^`{pwd}^'@@g'}
+if(~ $#pfx 0)
+	pfx=''
+git/fs
+
+for(f in `{cd $commit/tree/ && walk -f ./$pfx/$*})
+	cp -- $commit/tree/$pfx/$f ./$pfx/$f
+
