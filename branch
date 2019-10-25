@@ -22,7 +22,6 @@ nl='
 stay=()
 create=()
 delete=()
-update=()
 base=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
@@ -57,16 +56,14 @@ if(! ~ $#delete 0){
 	exit
 }
 
-if(~ $#update 0 && test -f .git/$new){
-	echo branch $1 already exists
-	exit already-got-one
-}
 
-if(! git/walk -q `{git/query -c HEAD $base | sed 's/^..//'}){
+modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | sed 's/^..//'}
+deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
+
+if(! git/walk -q $modified $deleted){
 	echo branch update would clobber changes >[1=2]
 	exit dirty
 }
-
 if(! ~ $#create 0){
 	if(! test -e .git/$new){
 		echo branch $new: does not exist >[1=2]
@@ -84,9 +81,6 @@ if not{
 }
 
 
-modified=`$nl{git/query -c HEAD $new | grep '^[^-]' | sed 's/^..//'}
-deleted=`$nl{git/query -c HEAD $new | grep '^-' | sed 's/^..//'}
-
 if(! ~ $#stay 0)
 	exit
 
@@ -96,13 +90,11 @@ if(! ~ $#modified 0){
 	# a directory, so we need to walk to
 	# check the blobs out correctly.
 	for(m in $modified){
-		if(test -f $basedir/tree/$m){
-			d=`{basename -d $m}
-			mkdir -p $d
-			mkdir -p .git/index9/tracked/$d
-			cp  $basedir/tree/$m $m
-			walk -eq $m > .git/index9/tracked/$m
-		}
+		d=`{basename -d $m}
+		mkdir -p $d
+		mkdir -p .git/index9/tracked/$d
+		cp  $basedir/tree/$m $m
+		walk -eq $m > .git/index9/tracked/$m
 	}
 }
 if(! ~ $#deleted 0){
