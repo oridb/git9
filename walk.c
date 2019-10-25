@@ -155,6 +155,8 @@ sameqid(Dir *d, char *qf)
 	char indexqid[64], fileqid[64], *p;
 	int fd, n;
 
+	if(!d)
+		return 0;
 	if((fd = open(qf, OREAD)) == -1)
 		return -1;
 	if((n = readn(fd, indexqid, sizeof(indexqid) - 1)) == -1)
@@ -276,7 +278,7 @@ main(int argc, char **argv)
 		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
 		snprint(bpath, sizeof(bpath), HDIR"/%s", p);
 		d = dirstat(p);
-		if(d->mode & DMDIR)
+		if(d && d->mode & DMDIR)
 			goto next;
 		if(sameqid(d, tpath)){
 			if(!quiet && (printflg & Tflg))

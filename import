@@ -85,7 +85,13 @@ fn apply @{
 		flag -e
 		echo applying $msg | sed 1q
 		date=`{seconds $date}
-		ape/patch -p1 < $diffpath
+		files=`$nl{ape/patch -p1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
+		for(f in $files){
+			if(test -e $f)
+				git/add $f
+			if not
+				git/add -r $f
+		}
 		git/walk -fRMA
 		hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
 		echo $hash > $refpath

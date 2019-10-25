@@ -35,10 +35,6 @@ rel=`{sed 's@^'$base'/*@@' <{echo $dir}}
 if(~ $#rel 0)
 	rel=''
 for(f in $*){
-	if(! test -f $base/$rel/$f){
-		echo 'could not add '$base/$rel/$f': does not exist' >[1=2]
-		exit 'nofile'
-	}
 	addpath=.git/index9/$add/$rel/$f
 	delpath=.git/index9/$del/$rel/$f
 	mkdir -p `{basename -d $addpath}
