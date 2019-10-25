@@ -1,6 +1,8 @@
 #!/bin/rc
 
 commit=/mnt/git/HEAD
+nl='
+'
 pfx=`{pwd}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
@@ -23,6 +25,6 @@ if(~ $#pfx 0)
 	pfx=''
 git/fs
 
-for(f in `{cd $commit/tree/ && walk -f ./$pfx/$*})
+for(f in `$nl{cd $commit/tree/ && walk -f ./$pfx/$*})
 	cp -- $commit/tree/$pfx/$f ./$pfx/$f
 
