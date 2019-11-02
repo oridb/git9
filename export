@@ -19,6 +19,7 @@ if(! ~ $x ''){
 
 scratch=/tmp/gitexport.$pid
 mkdir -p $scratch
+mkdir $scratch/a $scratch/b
 for(c in $commits){
 	cp=`{git/query -p $c}
 	pp=`{git/query -p $c'^'}
@@ -26,8 +27,6 @@ for(c in $commits){
 	@{
 		rfork n
 		cd $scratch
-		mkdir a
-		mkdir b
 		bind $pp/tree a
 		bind $cp/tree b
 		
