@@ -45,7 +45,12 @@ fn editmsg{
 	echo '# Commit message goes here.' >> $msgfile.tmp
 	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
 	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR} >> $msgfile.tmp
-	sam $msgfile.tmp
+	giteditor=`{git/conf core.editor}
+	if(~ $#editor 0)
+		editor=$giteditor
+	if(~ $#editor 0)
+		editor=sam
+	$editor $msgfile.tmp
 	if(~ `{grep -v '^[ 	]*($|#.*$)' $msgfile.tmp | wc -l} 0)
 		die 'empty commit message'
 	grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
