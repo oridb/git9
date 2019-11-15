@@ -6,9 +6,6 @@ usage='
 	git/import [file ...]
 '
 
-if(! cd `{git/conf -r})
-	exit 'not in git repository'
-
 fn die{
 	echo $patchname: $1 $2
 	exit $2
@@ -108,6 +105,8 @@ fn import{
 		exit $st
 	}
 }
+
+gitup
 
 patches=(/fd/0)
 if(! ~ $#* 0)

@@ -9,11 +9,7 @@ usage='
 		-s        create a branch but stay on current one
 '
 
-if(! cd `{git/conf -r}){
-	exit 'not in git repository'
-	exit notgit
-}
-git/fs
+gitup
 
 stay=()
 create=()

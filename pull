@@ -37,11 +37,8 @@ fn update{
 	'
 }
 
-if(! cd `{git/conf -r}){
-	echo 'not in git repository' >[1=2]
-	exit notgit
-}
-git/fs
+gitup
+
 branch=refs/`{git/branch}
 remote=()
 incoming=()

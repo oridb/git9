@@ -7,6 +7,8 @@ usage='
 		-r        remove file
 '
 
+gitup
+
 add='tracked'
 del='removed'
 while(~ $1 -* && ! ~ $1 --){
@@ -22,16 +24,7 @@ while(~ $1 -* && ! ~ $1 --){
 if(~ $1 --)
 	shift
 
-dir=`{pwd}
-base=`{git/conf -r}
-x=$status
-if(! ~ $x ''){
-	echo git/conf: $x `{pwd} >[1=2]
-	exit $x
-}
-
-cd $base
-rel=`{sed 's@^'$base'/*@@' <{echo $dir}}
+rel=`{sed 's@^'$gitroot'/*@@' <{echo $dir}}
 if(~ $#rel 0)
 	rel=''
 for(f in $*){

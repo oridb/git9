@@ -6,9 +6,8 @@ usage='
 	git/export [query]
 '
 
-if(! cd `{git/conf -r})
-	exit 'not in git repository'
-git/fs
+gitup
+
 q=$*
 if(~ $#q 0)
 	q=HEAD

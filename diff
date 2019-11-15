@@ -7,11 +7,7 @@ usage='
 		-b        diff relative to branch "branch" 
 '
 
-if(! cd `{git/conf -r}){
-	echo 'not a git repository' >[1=2]
-	exit notgit
-}
-git/fs
+gitup
 
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){

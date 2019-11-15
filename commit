@@ -92,10 +92,9 @@ fn cleanup{
 	rm -f .git/index9/merge-parents
 }
 
+gitup
+
 msgfile=/tmp/git-msg.$pid
-if(! cd `{git/conf -r})
-	exit 'not in git repository'
-git/fs
 mkdir -p .git/refs
 if(git/walk -q){
 	echo no changes to commit >[1=2]

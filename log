@@ -6,8 +6,9 @@ usage='
 	git/log [-q query] [file ...]
 '
 
+gitup
+
 base=/mnt/git/object/
-git/fs
 branch=`{git/branch}
 query=()
 

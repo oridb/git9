@@ -5,3 +5,13 @@ fn usage{
 	>[2=1] echo -n 'usage:' $usage
 	exit 'usage'
 }
+
+fn gitup{
+	gitroot=`{git/conf -r >[2]/dev/null}
+	if(~ $#gitroot 0){
+		>[2=1] echo 'not a git repository'
+		exit 'not a git repository'
+	}
+	cd $gitroot
+	git/fs
+}

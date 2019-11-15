@@ -25,13 +25,11 @@ fn merge{
 	}
 }
 
+gitup
+
 if(! ~ $#* 1)
 	usage
-if(! cd `{git/conf -r}){
-	echo 'not in git repository'
-	exit 'badrepo'
-}
-git/fs
+
 theirs=`{git/query $1}
 ours=`{git/query HEAD}
 base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}

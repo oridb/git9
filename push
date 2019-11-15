@@ -10,10 +10,7 @@ usage='
 		-u       push to remote "upstream" (default: origin)
 '
 
-if(! cd `{git/conf -r})
-	exit 'not in git repository'
-
-git/fs
+gitup
 
 remote=()
 sendall=''
