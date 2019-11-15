@@ -1,4 +1,4 @@
-#!/bin/rc
+#!/bin/rc -e
 rfork en
 . /bin/git/common.rc
 
@@ -45,17 +45,12 @@ if(~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
 	remote=$upstream
-if(~ $#remote 0){
-	echo 'no idea where to push'
-	exit upstream
-}
+if(~ $#remote 0)
+	die 'no idea where to push'
 if(~ $sendall '')
-	updates=`$nl{git/send $force -b $branch  $remove $remote}
+	updates=`$nl{git/send $force -b $branch  $remove $remote || die $status}
 if not
-	updates=`$nl{git/send $force $remove -a $remote}
-x=$status
-if(! ~ $x '')
-	exit $x
+	updates=`$nl{git/send $force $remove -a $remote || die $status}
 
 for(ln in $updates){
 	u=`{echo $ln}

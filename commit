@@ -1,4 +1,4 @@
-#!/bin/rc
+#!/bin/rc -e
 rfork ne
 . /bin/git/common.rc
 
@@ -36,11 +36,8 @@ fn findbranch{
 		refpath=.git/refs/$branch
 		initial=true
 	}
-	if not{
-		echo invalid branch $branch >[1=2]
-		exit badbranch
-	}
-
+	if not
+		die 'invalid branch:' $branch
 }
 
 fn editmsg{
@@ -50,7 +47,7 @@ fn editmsg{
 	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR} >> $msgfile.tmp
 	sam $msgfile.tmp
 	if(~ `{grep -v '^[ 	]*($|#.*$)' $msgfile.tmp | wc -l} 0)
-		exit 'empty commit message'
+		die 'empty commit message'
 	grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
 }
 
@@ -67,10 +64,7 @@ fn commit{
 	msg=`"{cat $msgfile}
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
-	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags}
-	st=$status
-	if(~ $hash '')
-		exit nocommit
+	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags || die $status}
 }
 
 fn update{
@@ -96,10 +90,8 @@ gitup
 
 msgfile=/tmp/git-msg.$pid
 mkdir -p .git/refs
-if(git/walk -q){
-	echo no changes to commit >[1=2]
-	exit clean
-}
+if(git/walk -q)
+	die 'nothing to commit'
 @{
 	flag e +
 	whoami
@@ -109,9 +101,4 @@ if(git/walk -q){
 	commit
 	update
 	cleanup
-}
-x=$status
-if(! ~ $x ''){
-	echo 'could not commit:' $x >[1=2]
-	exit $x
-}
+} || die 'could not commit:' $status

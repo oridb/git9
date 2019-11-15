@@ -6,14 +6,7 @@ usage='
 	git/import [file ...]
 '
 
-fn die{
-	echo $patchname: $1 $2
-	exit $2
-}
-
 fn apply @{
-	flag +e
-
 	git/fs
 	email=''
 	name=''
@@ -26,7 +19,7 @@ fn apply @{
 	if not if(test -e /mnt/git/object/$branch/tree)
 		refpath=.git/HEAD
 	if not
-		exit 'invalid branch '$branch
+		die 'invalid branch:' $branch
 	awk '
 	BEGIN{
 		state="headers"
@@ -63,25 +56,17 @@ fn apply @{
 	END{
 		if(state != "diff")
 			exit("malformed patch: " state);
-		if(name == "" || email == "" || msg == "" || date == ""){
-			print "missing headers" > "/fd/2";
-			exit("missingheader");
-		}
+		if(name == "" || email == "" || msg == "" || date == "")
+			exit("missing headers");
 		printf "%s", name > "/env/name"
 		printf "%s", email > "/env/email"
 		printf "%s", msg > "/env/msg"
 		printf "%s", date > "/env/date"
 	}
-	'
-	st=$status
-	if(! ~ $st ''){
-		echo could not import: $st >[1=2]
-		exit badpatch
-	}
+	' || die 'could not import:' $status
 
 	# force re-reading env
 	rc -c '
-		flag -e
 		echo applying $msg | sed 1q
 		date=`{seconds $date}
 		files=`$nl{ape/patch -p1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
@@ -97,19 +82,10 @@ fn apply @{
 	'
 }
 
-fn import{
-	apply
-	st=$status
-	if(! ~ $st ''){
-		echo stdin: $st
-		exit $st
-	}
-}
-
 gitup
 
 patches=(/fd/0)
 if(! ~ $#* 0)
 	patches=$*
 for(f in $patches)
-	import < $f
+	apply < $f || die $status 

@@ -52,23 +52,14 @@ if(! ~ $#delete 0){
 modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | sed 's/^..//'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
 
-if(! git/walk -q $modified $deleted){
-	echo branch update would clobber changes >[1=2]
-	exit dirty
-}
+if(! git/walk -q $modified $deleted)
+	die 'uncommited changes'
 if(! ~ $#create 0){
-	if(! test -e .git/$new){
-		echo branch $new: does not exist >[1=2]
-		exit noexist
-	}
+	if(! test -e .git/$new)
+		die 'branch does not exist:' $new
 }
 if not{
-	commit=`{git/query $base}
-	st=$status
-	if(! ~ $st ''){
-		echo could not find branch $base':' $st >[1=2]
-		exit notfound
-	}
+	commit=`{git/query $base || die 'branch does not exist:' $base}
 	echo $commit > .git/$new
 }
 

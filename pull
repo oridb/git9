@@ -15,14 +15,8 @@ fn update{
 	upstream=$2
 	url=$3
 	dir=$4
-
-	fetch=`"{git/fetch  -b $branch -u $upstream $url |[2]  tr '\x0d' '\x0a'}
-	st=$status
-	if(! ~ $st ''){
-		echo fetch failed: $st
-		exit $st
-	}	
-	echo $"fetch | awk '
+	
+	{git/fetch -b $branch -u $upstream $url || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -68,10 +62,8 @@ if(! ~ $#* 0)
 
 if(~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
-if(~ $#remote 0){
-	echo 'no idea from where to pull'
-	exit upstream
-}
+if(~ $#remote 0)
+	die 'no remote to pull from'
 
 update $branch $upstream $remote
 if (~ $#checkout 0)
@@ -83,16 +75,13 @@ remote=`{git/branch | sed 's@^(refs/)?heads@remotes/'$upstream'@'}
 # we have local commits, but the remote hasn't changed.
 # in this case, we want to keep the local commits untouched.
 if(~ `{git/query HEAD $remote @} `{git/query $remote}){
-	echo up to date >[1=2]
+	echo 'up to date' >[1=2]
 	exit
 }
 # The remote repository and our HEAD have diverged: we
 # need to merge.
-if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
-	echo git/merge $remote '# diverged' >[1=2]
-	exit merge
-}
-
+if(! ~ `{git/query HEAD $remote @} `{git/query HEAD})
+	die 'remote diverged:' $remote
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
 echo $local':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]

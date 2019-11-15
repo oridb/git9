@@ -14,11 +14,9 @@ if(~ $#remote 0)
 if(~ $#local 0)
 	local=`{basename $remote .git}
 
-if(test -e $local){
-	echo $local already exists >[1=2]
-	exit exists
-}
-	
+if(test -e $local)
+	die 'repository already exists:' $local
+
 fn clone{
 	mkdir -p $local/.git
 	mkdir -p $local/.git/objects/pack/
@@ -57,20 +55,15 @@ fn clone{
 				print headhash > ".git/HEAD"
 			}
 		}
-	'} |[3] tr '\x0d' '\x0a'
-	x=$status
-	if(! ~ $x '|')
-		exit $0:^' '^$"x
+	'} |[3] tr '\x0d' '\x0a' || die $status
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
-		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0}
-		x=$status
-		if(! ~ $x '')
-			exit 'checkout: '^$"x
+		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
+			|| die 'checkout failed:' $status
 		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f

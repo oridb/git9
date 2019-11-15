@@ -11,12 +11,7 @@ gitup
 q=$*
 if(~ $#q 0)
 	q=HEAD
-commits=`{git/query $q}
-x=$status
-if(! ~ $x ''){
-	echo 'could not find commits: '$x
-	exit $x
-}
+commits=`{git/query $q || die $status}
 
 scratch=/tmp/gitexport.$pid
 mkdir -p $scratch

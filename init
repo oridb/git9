@@ -1,4 +1,4 @@
-#!/bin/rc
+#!/bin/rc -e
 rfork ne
 . /bin/git/common.rc
 
@@ -32,10 +32,8 @@ if not if(~ $#* 1)
 if not
 	usage
 
-if(test -e $dir$sub){
-	echo $dir$sub already exists >[1=2]
-	exit exists
-}
+if(test -e $dir$sub)
+	die $dir$sub already exists
 
 mkdir -p $dir$sub
 dircp /sys/lib/git/template $dir/$sub
