@@ -15,7 +15,6 @@ RC=\
 	branch\
 	clone\
 	commit\
-	common.rc\
 	diff\
 	export\
 	import\
@@ -46,6 +45,7 @@ install:V:
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
 	cp git.1 /sys/man/1/git
+	cp common.rc /sys/lib/git/common.rc
 	mk $MKFLAGS /sys/lib/git/template
 
 uninstall:V:
