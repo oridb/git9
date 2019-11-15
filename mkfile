@@ -15,6 +15,7 @@ RC=\
 	branch\
 	clone\
 	commit\
+	common.rc\
 	diff\
 	export\
 	import\

@@ -1,6 +1,10 @@
 #!/bin/rc -e
-
 rfork ne
+. /bin/git/common.rc
+
+usage='
+	git/merge theirs
+'
 
 fn merge{
 	ourbr=$1/tree
@@ -19,11 +23,6 @@ fn merge{
 		if(! ape/diff3 -m $ourbr/$f $basebr/$f $theirbr/$f > $f)
 			echo merge needed: $f
 	}
-}
-
-fn usage{
-	echo usage: $0 theirs >[1=2]
-	exit usage
 }
 
 if(! ~ $#* 1)

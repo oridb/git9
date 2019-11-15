@@ -1,6 +1,10 @@
 #!/bin/rc
-
 rfork ne
+. /bin/git/common.rc
+
+usage='
+	git/commit
+'
 
 nl='
 '

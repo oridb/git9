@@ -1,11 +1,11 @@
 #!/bin/rc
-
 rfork ne
+. /bin/git/common.rc
 
-fn usage{
-	echo usage: $0 '[-b branch] [file ...]' >[1=2]
-	exit usage
-}
+usage='
+	git/diff [-b branch] [file ...]
+		-b        diff relative to branch "branch" 
+'
 
 if(! cd `{git/conf -r}){
 	echo 'not a git repository' >[1=2]

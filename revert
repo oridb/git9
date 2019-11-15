@@ -1,4 +1,11 @@
 #!/bin/rc
+rfork e
+. /bin/git/common.rc
+
+usage='
+	git/revert [-c query] file [...]
+		-c        revert to commit "query" (default: HEAD)
+'
 
 commit=/mnt/git/HEAD
 nl='
@@ -10,8 +17,7 @@ while(~ $1 -* && ! ~ $1 --){
 		commit=`{git/query -p $2};
 		shift
 	case *;
-		echo usage: $0 [-c commit] files...
-		exit usage
+		usage
 	}
 	shift
 }

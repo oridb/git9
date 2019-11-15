@@ -1,16 +1,19 @@
 #!/bin/rc -e
-
 rfork en
+. /bin/git/common.rc
+
+usage='
+	git/clone remote [local]
+'
+
 nl='
 '
 
 remote=$1
 local=$2
 
-if(~ $#remote 0){
-	echo usage: $0 'remote [local]' >[1=2]
-	exit usage
-}
+if(~ $#remote 0)
+	usage
 if(~ $#local 0)
 	local=`{basename $remote .git}
 

@@ -1,15 +1,13 @@
 #!/bin/rc -e
-
 rfork en
+. /bin/git/common.rc
 
-fn usage{
-	echo usage: $0 '[-b base] [-o origin] new
-	-b base:	use "base" for branch (default: current branch)
-	-o origin:	use "origin" for remote branch
-	-u:		update branch if it exists
-	new:	name of new branch' >[1=2]
-	exit usage
-}
+usage='
+	git/branch [-cdsu] [-b base] [new]
+		-b base   base new branch on "base" (default: current branch)
+		-d        delete a branch
+		-s        create a branch but stay on current one
+'
 
 if(! cd `{git/conf -r}){
 	exit 'not in git repository'

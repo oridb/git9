@@ -1,6 +1,14 @@
 #!/bin/rc -e
-
 rfork en
+. /bin/git/common.rc
+
+usage='
+	git/pull [-u upstream] [-b branch]
+		-b       work with branch "branch"
+		-f       fetch updates without checking out
+		-i       display incoming commits
+		-u       pull from "upstream" (default "origin")
+'
 
 nl='
 '
@@ -31,14 +39,6 @@ fn update{
 	}
 	'
 }
-
-fn usage{
-	echo usage: $0 '[-a] [-u upstream] [-b branch]
-	-u up:	pull from upstream "up" (default: origin)
-	-f:	fetch without updating working copy' >[1=2]
-	exit usage
-}
-
 
 if(! cd `{git/conf -r}){
 	echo 'not in git repository' >[1=2]

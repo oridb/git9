@@ -1,11 +1,11 @@
 #!/bin/rc -e
 rfork ne
+. /bin/git/common.rc
 
-fn usage {
-	echo usage: $0 '[-r] file ...
-	-r:	remove instead of adding' >[1=2]
-	exit usage
-}
+usage='
+	git/add [-r] file ...
+		-r        remove file
+'
 
 add='tracked'
 del='removed'

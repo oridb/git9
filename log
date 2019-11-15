@@ -1,15 +1,13 @@
 #!/bin/rc -e
-
 rfork en
+. /bin/git/common.rc
+
+usage='
+	git/log [-q query] [file ...]
+'
 
 nl='
 '
-
-fn usage {
-	echo usage: $0 '[-b branch] [file ...]' >[1=2]
-	exit usage
-}
-
 
 base=/mnt/git/object/
 git/fs

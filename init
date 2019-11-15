@@ -1,12 +1,12 @@
 #!/bin/rc
+rfork ne
+. /bin/git/common.rc
 
-rfork e
-
-fn usage{
-	echo $0 '[-b] [-u upstream] name
-	-b:	init bare repository' >[1=2]
-	exit usage
-}
+usage='
+	git/init [-b] [-u upstream] name
+		-b        init bare repository
+		-u        set remote "origin" to upstream
+'
 
 sub='/.git'
 upstream=()

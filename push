@@ -1,6 +1,14 @@
 #!/bin/rc
-
 rfork en
+. /bin/git/common.rc
+
+usage='
+	git/push [-a] [-u upstream] [-b branch] [-r branch]
+		-a       push all branches
+		-b       push branch "branch" (default: current branch)
+		-r       delete branch "branch" from upstream
+		-u       push to remote "upstream" (default: origin)
+'
 
 nl='
 '
@@ -9,13 +17,6 @@ if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
 git/fs
-fn usage {
-	echo usage: $0 '[-a] [-u upstream] [-b branch] [-r rmbranch]
-	-a:		push all
-	-u upstream:	push to repo "upstream" (default: origin)
-	-b branch:	push branch "branch" (default: current branch)' >[1=2]
-	exit usage
-}
 
 remote=()
 sendall=''
