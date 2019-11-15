@@ -10,9 +10,6 @@ usage='
 		-u       push to remote "upstream" (default: origin)
 '
 
-nl='
-'
-
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 

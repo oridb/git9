@@ -10,9 +10,6 @@ usage='
 		-u       pull from "upstream" (default "origin")
 '
 
-nl='
-'
-
 fn update{
 	branch=$1
 	upstream=$2

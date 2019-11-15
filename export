@@ -6,8 +6,6 @@ usage='
 	git/export [query]
 '
 
-nl='
-'
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 git/fs

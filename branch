@@ -15,8 +15,6 @@ if(! cd `{git/conf -r}){
 }
 git/fs
 
-nl='
-'
 stay=()
 create=()
 delete=()

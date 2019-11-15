@@ -6,8 +6,6 @@ usage='
 	git/import [file ...]
 '
 
-nl='
-'
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 

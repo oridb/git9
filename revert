@@ -8,8 +8,6 @@ usage='
 '
 
 commit=/mnt/git/HEAD
-nl='
-'
 pfx=`{pwd}
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){

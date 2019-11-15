@@ -6,9 +6,6 @@ usage='
 	git/clone remote [local]
 '
 
-nl='
-'
-
 remote=$1
 local=$2
 

@@ -1,3 +1,6 @@
+nl='
+'
+
 fn usage{
 	>[2=1] echo -n 'usage:' $usage
 	exit 'usage'

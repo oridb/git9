@@ -6,9 +6,6 @@ usage='
 	git/commit
 '
 
-nl='
-'
-
 fn whoami{
 	name=`{git/conf user.name}
 	email=`{git/conf user.email}

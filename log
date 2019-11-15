@@ -6,9 +6,6 @@ usage='
 	git/log [-q query] [file ...]
 '
 
-nl='
-'
-
 base=/mnt/git/object/
 git/fs
 branch=`{git/branch}
