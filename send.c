@@ -177,8 +177,12 @@ writepack(int fd, Update *upd, int nupd)
 	e = nil;
 	for(i = 0; i < nupd; i++){
 		u = &upd[i];
-		if((o = readobject(u->ours)) == nil)
-			sysfatal("could not read object %H", u->ours);
+		if((o = readobject(u->ours)) == nil){
+			if(force)
+				continue;
+			else
+				sysfatal("could not read object %H", u->ours);
+		}
 
 		n = emalloc(sizeof(Objq));
 		n->obj = o;
