@@ -2,7 +2,7 @@
 #include <libc.h>
 #include "git.h"
 
-#define NCACHE 256
+#define NCACHE 4096
 #define TDIR ".git/index9/tracked"
 #define RDIR ".git/index9/removed"
 #define HDIR "/mnt/git/HEAD/tree"
@@ -62,6 +62,15 @@ seen(Dir *dir)
 	return 0;
 }
 
+void
+grow(Wres *r)
+{
+	if(r->npath == r->pathsz){
+		r->pathsz = 2*r->pathsz + 1;
+		r->path = erealloc(r->path, r->pathsz * sizeof(char*));
+	}
+}
+
 int
 readpaths(Wres *r, char *pfx, char *dir)
 {
@@ -69,6 +78,7 @@ readpaths(Wres *r, char *pfx, char *dir)
 	Dir *d;
 	int fd, ret, i, n;
 
+	d = nil;
 	ret = -1;
 	sep = "";
 	if(dir[0] != 0)
@@ -79,8 +89,10 @@ readpaths(Wres *r, char *pfx, char *dir)
 		goto error;
 	while((n = dirread(fd, &d)) > 0){
 		for(i = 0; i < n; i++){
-			if(seen(&d[i]))
+			if(seen(&d[i])){
+				print("seen %s\n", full);
 				continue;
+			}
 			if(d[i].qid.type & QTDIR){
 				if((sub = smprint("%s%s%s", dir, sep, d[i].name)) == nil)
 					sysfatal("smprint: %r");
@@ -90,21 +102,18 @@ readpaths(Wres *r, char *pfx, char *dir)
 				}
 				free(sub);
 			}else{
-				if(r->npath == r->pathsz){
-					r->pathsz = 2*r->pathsz + 1;
-					r->path = erealloc(r->path, r->pathsz * sizeof(char*));
-				}
+				grow(r);
 				if((f = smprint("%s%s%s", dir, sep, d[i].name)) == nil)
 					sysfatal("smprint: %r");
 				r->path[r->npath++] = f;
 			}
 		}
+		free(d);
 	}
 	ret = r->npath;
 error:
 	close(fd);
 	free(full);
-	free(d);
 	return ret;
 }
 
@@ -217,7 +226,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char rmpath[256], tpath[256], bpath[256], buf[8];
+	char *rpath, *tpath, *bpath, buf[8];
 	char *p, *e;
 	int i, dirty;
 	Wres r;
@@ -249,9 +258,7 @@ main(int argc, char **argv)
 
 	findroot();
 	dirty = 0;
-	r.path = nil;
-	r.npath = 0;
-	r.pathsz = 0;
+	memset(&r, 0, sizeof(r));
 	if(access("/mnt/git/ctl", AEXIST) != 0)
 		sysfatal("git/fs does not seem to be running");
 	if(printflg == 0)
@@ -262,28 +269,35 @@ main(int argc, char **argv)
 		if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
 			sysfatal("read removed: %r");
 	}else{
-		r.path = emalloc(argc*sizeof(char*));
-		r.pathsz = argc;
 		for(i = 0; i < argc; i++){
-			snprint(tpath, sizeof(tpath), TDIR"/%s", argv[i]);
-			if(access(tpath, AEXIST) == 0)
+			tpath = smprint(TDIR"/%s", argv[i]);
+			rpath = smprint(RDIR"/%s", argv[i]);
+			if((d = dirstat(tpath)) == nil && (d = dirstat(rpath)) == nil)
+				goto nextarg;
+			if(d->mode & DMDIR){
+				readpaths(&r, TDIR, argv[i]);
+				readpaths(&r, RDIR, argv[i]);
+			}else{
+				grow(&r);
 				r.path[r.npath++] = estrdup(argv[i]);
+			}
+nextarg:
+			free(tpath);
+			free(rpath);
+			free(d);
 		}
-	}		
+	}
 	dedup(&r);
 
 	for(i = 0; i < r.npath; i++){
 		p = r.path[i];
-		snprint(rmpath, sizeof(rmpath), RDIR"/%s", p);
-		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
-		snprint(bpath, sizeof(bpath), HDIR"/%s", p);
 		d = dirstat(p);
 		if(d && d->mode & DMDIR)
 			goto next;
-		if(sameqid(d, tpath)){
-			if(!quiet && (printflg & Tflg))
-				print("%s%s\n", tstr, p);
-		}else if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
+		rpath = smprint(RDIR"/%s", p);
+		tpath = smprint(TDIR"/%s", p);
+		bpath = smprint(HDIR"/%s", p);
+		if(access(rpath, AEXIST) == 0){
 			dirty |= Mflg;
 			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
@@ -291,14 +305,17 @@ main(int argc, char **argv)
 			dirty |= Aflg;
 			if(!quiet && (printflg & Aflg))
 				print("%s%s\n", astr, p);
-		}else if(!samedata(p, bpath)){
+		}else if(sameqid(d, tpath) || samedata(p, bpath)){
+			if(!quiet && (printflg & Tflg))
+				print("%s%s\n", tstr, p);
+		}else{
 			dirty |= Mflg;
 			if(!quiet && (printflg & Mflg))
 				print("%s%s\n", mstr, p);
-		}else{
-			if(!quiet && (printflg & Tflg))
-				print("%s%s\n", tstr, p);
 		}
+		free(rpath);
+		free(tpath);
+		free(bpath);
 next:
 		free(d);
 	}

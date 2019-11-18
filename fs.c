@@ -429,7 +429,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 			if(!w && o->tree->ent[i].modref)
 				w = modrefobj(&o->tree->ent[i]);
 			if(!w)
-				die("could not read object for %s", name);
+				die("could not read object for %s: %r", name);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
 			c->mode = o->tree->ent[i].mode;
@@ -455,8 +455,10 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 			q->type = QTDIR;
 			q->path = qpath(p, 4, o->id, Qcommittree);
 			unref(c->obj);
-			c->obj = readobject(o->commit->tree);
 			c->mode = DMDIR | 0755;
+			c->obj = readobject(o->commit->tree);
+			if(c->obj == nil)
+				sysfatal("could not read object %H: %r", o->commit->tree);
 		}
 		else
 			e = Eexist;

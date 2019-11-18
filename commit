@@ -3,7 +3,7 @@ rfork ne
 . /sys/lib/git/common.rc
 
 usage='
-	git/commit
+	git/commit files...
 '
 
 fn whoami{
@@ -41,15 +41,15 @@ fn findbranch{
 }
 
 fn editmsg{
-	echo '' > $msgfile.tmp
-	echo '# Commit message goes here.' >> $msgfile.tmp
 	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
-	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR} >> $msgfile.tmp
+	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR $files} >> $msgfile.tmp
+	echo '#' >> $msgfile.tmp
+	echo '# Commit message:' >> $msgfile.tmp
 	giteditor=`{git/conf core.editor}
 	if(~ $#editor 0)
 		editor=$giteditor
 	if(~ $#editor 0)
-		editor=sam
+		editor=hold
 	$editor $msgfile.tmp
 	if(~ `{grep -v '^[ 	]*($|#.*$)' $msgfile.tmp | wc -l} 0)
 		die 'empty commit message'
@@ -69,21 +69,25 @@ fn commit{
 	msg=`"{cat $msgfile}
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
-	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags || die $status}
+	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags $files || die $status}
 }
 
 fn update{
 	mkdir -p `{basename -d $refpath}
+	# Paranoia: let's not mangle the repo.
+	if(~ $#hash 0)
+		die 'botched commit'
 	echo $hash > $refpath
-	for(f in `$nl{git/walk -cfAM}){
-		mkdir -p `{basename -d $f}
-		walk -eq $f > .git/index9/tracked/$f
+	for(f in $files){
+		if(test -e .git/index9/removed/$f){
+			rm -f .git/index9/removed/$f
+			rm -f .git/index9/tracked/$f
+		}
+		if not{
+			mkdir -p `{basename -d $f}
+			walk -eq $f > .git/index9/tracked/$f
+		}
 	}
-	for(f in `$nl{git/walk -cfR}){
-		rm -f .git/index9/tracked/$f
-		rm -f .git/index9/removed/$f
-	}
-
 }
 
 fn cleanup{
@@ -95,7 +99,10 @@ gitup
 
 msgfile=/tmp/git-msg.$pid
 mkdir -p .git/refs
-if(git/walk -q)
+if(~ $#* 0)
+	usage
+files=`{git/walk -c $*}
+if(~ $status '' || ~ $#files 0asdf)
 	die 'nothing to commit'
 @{
 	flag e +

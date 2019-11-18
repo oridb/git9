@@ -77,7 +77,7 @@ fn apply @{
 				git/add -r $f
 		}
 		git/walk -fRMA
-		hash=`{git/save -n $name -e $email -m $msg -d $date $parents}
+		hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
 		echo $hash > $refpath
 	'
 }

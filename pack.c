@@ -766,7 +766,6 @@ parsetree(Object *o)
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
 		if(m == 0160000){
-			print("setting mode to link...\n");
 			t->mode |= DMDIR;
 			t->modref = 1;
 		}

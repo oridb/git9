@@ -49,10 +49,8 @@ difftrees(Hash ah, Hash bh)
 				if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
 					goto next;
 
-				if(ap->mode != bp->mode){
-					print("mode: %o -> %o\n", ap->mode, bp->mode);
+				if(ap->mode != bp->mode)
 					print("! %P%s\n", ap->name);
-				}
 				else if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
 					print("@ %P%s\n", ap->name);
 				if((ap->mode & DMDIR) && (bp->mode & DMDIR)){

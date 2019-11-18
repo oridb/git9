@@ -76,7 +76,8 @@ if(! ~ $#modified 0){
 		d=`{basename -d $m}
 		mkdir -p $d
 		mkdir -p .git/index9/tracked/$d
-		cp  $basedir/tree/$m $m
+		if(test -f $m)
+			cp  $basedir/tree/$m $m
 		walk -eq $m > .git/index9/tracked/$m
 	}
 }

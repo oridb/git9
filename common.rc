@@ -1,0 +1,20 @@
+nl='
+'
+
+fn die{
+	>[1=2] echo $0: $*
+	exit $"*
+}
+
+fn usage{
+	>[1=2] echo -n 'usage:' $usage
+	exit 'usage'
+}
+
+fn gitup{
+	gitroot=`{git/conf -r >[2]/dev/null}
+	if(~ $#gitroot 0)
+		die 'not a git repository'
+	cd $gitroot
+	git/fs
+}

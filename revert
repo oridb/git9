@@ -21,6 +21,8 @@ while(~ $1 -* && ! ~ $1 --){
 	}
 	shift
 }
+if(~ $#* 0)
+	usage
 
 rel=`{echo $rel | sed 's@^'$gitroot'/?@@'}
 if(~ $#rel 0)
