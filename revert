@@ -3,7 +3,7 @@ rfork e
 . /sys/lib/git/common.rc
 
 usage='
-	git/revert [-c query] file [...]
+	git/revert [-c query] file...
 		-c        revert to commit "query" (default: HEAD)
 '
 
