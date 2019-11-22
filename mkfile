@@ -64,6 +64,7 @@ uninstall:V:
 
 %.rcinstall:V:
 	cp $stem $BIN/$stem
+	chmod +x $BIN/$stem
 
 /sys/lib/git/template: template
 	mkdir -p /sys/lib/git/template
