@@ -30,6 +30,7 @@ resolveremote(Hash *h, char *ref)
 		return -1;
 	}
 
+	r = -1;
 	s = strip(buf);
 	if((f = open(s, OREAD)) == -1)
 		return -1;
