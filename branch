@@ -69,16 +69,22 @@ if(! ~ $#stay 0)
 
 if(! ~ $#modified 0){
 	basedir=`{git/query -p $base}
-	# Modifications can turn a file into
-	# a directory, so we need to walk to
-	# check the blobs out correctly.
 	for(m in $modified){
 		d=`{basename -d $m}
 		mkdir -p $d
 		mkdir -p .git/index9/tracked/$d
-		if(test -f $m)
+		# Modifications can turn a file into
+		# a directory, or vice versa, so we
+		# need to delete and copy the files
+		# over. If we're checking out a
+		a=`{test -f $m && echo file || echo dir}
+		b=`{test -f $basedir/tree/$m && echo file || echo dir}
+		if($a != $b)
+			rm -rf $m
+		if(test -f $basedir/tree/$m){
 			cp  $basedir/tree/$m $m
-		walk -eq $m > .git/index9/tracked/$m
+			walk -eq $m > .git/index9/tracked/$m
+		}
 	}
 }
 if(! ~ $#deleted 0){
