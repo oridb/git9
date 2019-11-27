@@ -177,7 +177,7 @@ fetchpack(int fd, int pfd, char *packtmp)
 
 	req = 0;
 	for(i = 0; i < nref; i++){
-		if(hasheq(&have[i], &want[i]) == 0)
+		if(hasheq(&have[i], &want[i]))
 			continue;
 		if((o = readobject(want[i])) != nil){
 			unref(o);
@@ -190,7 +190,7 @@ fetchpack(int fd, int pfd, char *packtmp)
 	}
 	flushpkt(fd);
 	for(i = 0; i < nref; i++){
-		if(hasheq(&have[i], &Zhash) == 0)
+		if(hasheq(&have[i], &Zhash))
 			continue;
 		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
 		if(writepkt(fd, buf, n + 1) == -1)
