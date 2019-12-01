@@ -14,7 +14,7 @@ gitup
 stay=()
 create=()
 delete=()
-base=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+base=()
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -c; create=true
@@ -30,7 +30,7 @@ while(~ $1 -* && ! ~ $1 --){
 if(~ $1 --) shift
 
 if(~ $#* 0){
-	echo $base
+	awk '$1=="branch"{print $2}' < /mnt/git/ctl
 	exit
 }
 
@@ -42,6 +42,12 @@ if not if(~ $1 heads/*)
 	new=refs/$1
 if not
 	new=refs/heads/$1
+if (~ $#base 1)
+	base=`{git/query $base}
+if not if(test -e .git/$new)
+	base=`{git/query $new}
+if not
+	base=`{git/query HEAD}
 
 if(! ~ $#delete 0){
 	rm -f .git/$new
@@ -60,6 +66,7 @@ if(! ~ $#create 0){
 }
 if not{
 	commit=`{git/query $base || die 'branch does not exist:' $base}
+	echo updating $new to $commit
 	echo $commit > .git/$new
 }
 
@@ -79,8 +86,10 @@ if(! ~ $#modified 0){
 		# over. If we're checking out a
 		a=`{test -f $m && echo file || echo dir}
 		b=`{test -f $basedir/tree/$m && echo file || echo dir}
-		if($a != $b)
+		if(! ~ $a $b){
 			rm -rf $m
+			rm -rf .git/index9/tracked/$m
+		}
 		if(test -f $basedir/tree/$m){
 			cp  $basedir/tree/$m $m
 			walk -eq $m > .git/index9/tracked/$m

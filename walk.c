@@ -89,10 +89,8 @@ readpaths(Wres *r, char *pfx, char *dir)
 		goto error;
 	while((n = dirread(fd, &d)) > 0){
 		for(i = 0; i < n; i++){
-			if(seen(&d[i])){
-				print("seen %s\n", full);
+			if(seen(&d[i]))
 				continue;
-			}
 			if(d[i].qid.type & QTDIR){
 				if((sub = smprint("%s%s%s", dir, sep, d[i].name)) == nil)
 					sysfatal("smprint: %r");
