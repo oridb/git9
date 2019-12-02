@@ -22,6 +22,40 @@ Pfmt(Fmt *f)
 }
 
 void
+showdir(Hash dh, char *dname, char m)
+{
+	Dirent *p, *e;
+	Object *d;
+
+
+	path[npath++] = dname;
+	if((d = readobject(dh)) == nil)
+		sysfatal("bad hash %H", dh);
+	assert(d->type == GTree);
+	p = d->tree->ent;
+	e = p + d->tree->nent;
+	for(; p != e; p++){
+		if(p->modref)
+			continue;
+		if(p->mode & DMDIR)
+			showdir(p->h, p->name, m);
+		else
+			print("%c %P%s\n", m, p->name);
+	}
+	unref(d);
+	npath--;
+}
+
+void
+show(Dirent *e, char m)
+{
+	if(e->mode & DMDIR)
+		showdir(e->h, e->name, m);
+	else
+		print("- %P%s\n", e->name);
+}
+
+void
 difftrees(Hash ah, Hash bh)
 {
 	Dirent *ap, *bp, *ae, *be;
@@ -63,16 +97,22 @@ difftrees(Hash ah, Hash bh)
 next:
 				ap++;
 				bp++;
-			}else if(c < 0){
-				print("- %P%s\n", ap->name);
+			}else if(c < 0) {
+				show(ap, '-');
 				ap++;
 			}else if(c > 0){
-				print("+ %P%s\n", bp->name);
+				show(bp, '+');
 				bp++;
 			}
 		}
+		for(; ap != ae; ap++)
+			show(ap, '-');
+		for(; bp != be; bp++)
+			show(bp, '+');
 		break;
 	}
+	unref(a);
+	unref(b);
 }
 
 
