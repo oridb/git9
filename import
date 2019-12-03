@@ -38,10 +38,12 @@ fn apply @{
 	}
 	state=="headers" && /^Subject:/{
 		sub(/^Subject: (\[PATCH\])*[ \t]*/, "", $0);
-		msg=msg $0 "\n"
+		gotmsg = 1
+		print > "/env/msg"
 	}
 	state=="headers" && /^$/ {
 		state="body"
+		next
 	}
 	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	]*$/){
 		state="diff"
@@ -56,11 +58,10 @@ fn apply @{
 	END{
 		if(state != "diff")
 			exit("malformed patch: " state);
-		if(name == "" || email == "" || msg == "" || date == "")
+		if(name == "" || email == "" || date == "" || gotmsg == "")
 			exit("missing headers");
 		printf "%s", name > "/env/name"
 		printf "%s", email > "/env/email"
-		printf "%s", msg > "/env/msg"
 		printf "%s", date > "/env/date"
 	}
 	' || die 'could not import:' $status
@@ -69,7 +70,7 @@ fn apply @{
 	rc -c '
 		echo applying $msg | sed 1q
 		date=`{seconds $date}
-		files=`$nl{ape/patch -p1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
+		files=`$nl{ape/patch -Ep1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
 		for(f in $files){
 			if(test -e $f)
 				git/add $f
