@@ -12,9 +12,9 @@ fn whoami{
 	msgfile=.git/git-msg.$pid
 	if(test -f /adm/keys.who){
 		if(~ $name '')
-			name=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $3}'}
+			name=`{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
 		if(~ $email '')
-			email=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $5}'}
+			email=`{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
 	}
 	if(~ $name '')
 		name=glenda
@@ -41,7 +41,7 @@ fn findbranch{
 }
 
 fn editmsg{
-	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
+	echo '# Author: '$"name' <'$"email'>' >> $msgfile.tmp
 	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR $files} >> $msgfile.tmp
 	echo '#' >> $msgfile.tmp
 	echo '# Commit message:' >> $msgfile.tmp
