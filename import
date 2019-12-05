@@ -25,10 +25,10 @@ fn apply @{
 		state="headers"
 	}
 	state=="headers" && /^From:/ {
-		sub(/^From:*[ \t]*/, "", $0);
+		sub(/^From:[ \t]*/, "", $0);
 		name=$0;
 		email=$0;
-		sub(/<.*$/, "", name);
+		sub(/[ \t]*<.*$/, "", name);
 		sub(/.*</, "", email);
 		sub(/>/, "", email);
 	}
@@ -37,7 +37,7 @@ fn apply @{
 		date=$0
 	}
 	state=="headers" && /^Subject:/{
-		sub(/^Subject: (\[PATCH\])*[ \t]*/, "", $0);
+		sub(/^Subject:[ \t]*(\[PATCH\])*[ \t]*/, "", $0);
 		gotmsg = 1
 		print > "/env/msg"
 	}
