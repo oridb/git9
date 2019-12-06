@@ -154,7 +154,7 @@ writetree(Dirent *ent, int nent, Hash *h)
 		memcpy(t, d->h.h, sizeof(d->h.h));
 		t += sizeof(d->h.h);
 	}
-	nhdr = snprint(hdr, sizeof(hdr), "%T %zd", GTree, t - txt) + 1;
+	nhdr = snprint(hdr, sizeof(hdr), "%T %lld", GTree, (vlong)(t - txt)) + 1;
 	writeobj(h, hdr, nhdr, txt, t - txt);
 	free(txt);
 }

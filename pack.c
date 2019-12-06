@@ -346,7 +346,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 
 	}
 	if(r != er){
-		werrstr("truncated delta (%zd)", er - r);
+		werrstr("truncated delta");
 		return -1;
 	}
 
