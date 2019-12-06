@@ -38,16 +38,20 @@ fn clone{
 				if($2 == "refs/remotes/origin/master" || $3 == headhash)
 					headref=$2
 				outfile = ".git/" $2
-				system("mkdir -p `{basename -d "outfile"}")
+				outdir = outfile
+				gsub("/?[^/]*/?$", "", outdir)
+				system("mkdir -p "outdir)
 				print $3 > outfile
 				close(outfile)
 			}
 		}
 		END{
 			if(headref != ""){
-				remote = headref
+				remote = headref;
+				refdir = headref;
+				gsub("/?[^/]*/?$", "", refdir)
 				gsub("^refs/remotes/origin", "refs/heads", headref)
-				system("mkdir -p `{basename -d .git/" headref"}");
+				system("mkdir -p .git/"refdir);
 				system("cp .git/" remote " .git/" headref)
 				print "ref: " headref > ".git/HEAD"
 			}else if(headhash != ""){

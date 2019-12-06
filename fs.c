@@ -107,7 +107,8 @@ qpath(Crumb *p, int idx, vlong id, vlong t)
 		c->cache = erealloc(c->cache, c->max*sizeof(Uqid));
 	}
 	nextqid++;
-	c->cache[c->n++] = (Uqid){nextqid, pp, id, t, idx};
+	c->cache[c->n] = (Uqid){nextqid, pp, id, t, idx};
+	c->n++;
 	return (nextqid << 8) | t;
 }
 
