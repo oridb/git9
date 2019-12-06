@@ -165,9 +165,9 @@ sameqid(Dir *d, char *qf)
 	if(!d)
 		return 0;
 	if((fd = open(qf, OREAD)) == -1)
-		return -1;
+		return 0;
 	if((n = readn(fd, indexqid, sizeof(indexqid) - 1)) == -1)
-		return -1;
+		return 0;
 	indexqid[n] = 0;
 	close(fd);
 	if((p = strpbrk(indexqid, "  \t\n\r")) != nil)
