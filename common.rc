@@ -13,8 +13,11 @@ fn usage{
 
 fn gitup{
 	gitroot=`{git/conf -r >[2]/dev/null}
+	gitrel=`{pwd | sed 's@^'$gitroot'/*@@'}
 	if(~ $#gitroot 0)
 		die 'not a git repository'
+	if(~ $#gitrel 0)
+		gitrel='.'
 	cd $gitroot
 	git/fs
 }

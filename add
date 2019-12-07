@@ -24,13 +24,12 @@ while(~ $1 -* && ! ~ $1 --){
 if(~ $1 --)
 	shift
 
-rel=`{sed 's@^'$gitroot'/*@@' <{echo $dir}}
 if(~ $#rel 0)
 	rel=''
-for(f in `{walk -f $*}){
+for(f in `{walk -f $gitrel/$*}){
 	if(! ~ `{cleanname $f} .git/*){
-		addpath=.git/index9/$add/$rel/$f
-		delpath=.git/index9/$del/$rel/$f
+		addpath=.git/index9/$add/$f
+		delpath=.git/index9/$del/$f
 		mkdir -p `{basename -d $addpath}
 		mkdir -p `{basename -d $delpath}
 		if(! test -e $addpath)

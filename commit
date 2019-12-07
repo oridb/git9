@@ -101,9 +101,9 @@ msgfile=/tmp/git-msg.$pid
 mkdir -p .git/refs
 if(~ $#* 0)
 	usage
-files=`{git/walk -c $*}
-if(~ $status '' || ~ $#files 0asdf)
-	die 'nothing to commit'
+files=`{git/walk -c `{cleanname $gitrel/$*}}
+if(~ $status '' || ~ $#files 0)
+	die 'nothing to commit' $status
 @{
 	flag e +
 	whoami
