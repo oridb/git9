@@ -27,12 +27,14 @@ if(~ $1 --)
 rel=`{sed 's@^'$gitroot'/*@@' <{echo $dir}}
 if(~ $#rel 0)
 	rel=''
-for(f in $*){
-	addpath=.git/index9/$add/$rel/$f
-	delpath=.git/index9/$del/$rel/$f
-	mkdir -p `{basename -d $addpath}
-	mkdir -p `{basename -d $delpath}
-	if(! test -e $addpath)
-		walk -eq $f > $addpath
-	rm -f $delpath
+for(f in `{walk -f $*}){
+	if(! ~ `{cleanname $f} .git/*){
+		addpath=.git/index9/$add/$rel/$f
+		delpath=.git/index9/$del/$rel/$f
+		mkdir -p `{basename -d $addpath}
+		mkdir -p `{basename -d $delpath}
+		if(! test -e $addpath)
+			walk -eq $f > $addpath
+		rm -f $delpath
+	}
 }

@@ -323,10 +323,8 @@ findroot(void)
 	Object *t, *c;
 	Hash h;
 
-	if(resolveref(&h, "HEAD") == -1){
-		fprint(2, "empty HEAD ref\n");
+	if(resolveref(&h, "HEAD") == -1)
 		return emptydir();
-	}
 	if((c = readobject(h)) == nil || c->type != GCommit)
 		sysfatal("could not read HEAD %H", h);
 	if((t = readobject(c->commit->tree)) == nil)
