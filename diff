@@ -9,6 +9,7 @@ usage='
 
 gitup
 
+files=()
 branch=()
 summarize=()
 while(~ $1 -* && ! ~ $1 --){
@@ -21,13 +22,15 @@ while(~ $1 -* && ! ~ $1 --){
 }
 if(~ $1 --)
 	shift
+if(! ~ $#* 0)
+	files=`{cleanname $gitrel/$*}
 if(~ $#branch 0)
 	branch=`{git/branch}
 if(~ $summarize 1){
-	git/walk -fMAR $*
+	git/walk -fMAR $files
 	exit
 }
-for(f in `{git/walk -cfMAR $*}){
+for(f in `{git/walk -cfMAR $files}){
 	orig=/mnt/git/branch/$branch/tree/$f
 	if(! test -f $orig)
 		orig=/dev/null
