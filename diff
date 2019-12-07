@@ -9,24 +9,25 @@ usage='
 
 gitup
 
+branch=()
+summarize=()
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
 	case -b; branch=`{git/query $2}; shift
+	case -s; summarize=1
 	case *; usage
 	}
 	shift
 }
-if(~ $1 --) shift
-
+if(~ $1 --)
+	shift
 if(~ $#branch 0)
 	branch=`{git/branch}
-
-if(~ $#* 0)
-	dirty=`{git/walk -cfMAR}
-if not
-	dirty=`{git/walk -cfMAR $*}
-
-for(f in $dirty){
+if(~ $summarize 1){
+	git/walk -fMAR $*
+	exit
+}
+for(f in `{git/walk -cfMAR $*}){
 	orig=/mnt/git/branch/$branch/tree/$f
 	if(! test -f $orig)
 		orig=/dev/null

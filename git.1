@@ -46,6 +46,9 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .I branch
 ]
 [
+.B -s
+]
+[
 .I file...
 ]
 .PP
@@ -305,6 +308,10 @@ option, the diff is computed against
 .I base
 instead of
 .I HEAD.
+When passed the
+.I -s
+option, only a the file statuses are
+printed.
 
 .PP
 .B Git/export
