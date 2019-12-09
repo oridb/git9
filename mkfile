@@ -8,7 +8,7 @@ TARG=\
 	query\
 	save\
 	send\
-	walk\
+	walk
 
 RC=\
 	add\
