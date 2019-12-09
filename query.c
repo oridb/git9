@@ -144,7 +144,7 @@ main(int argc, char **argv)
 	for(i = 0; i < argc; i++)
 		p = seprint(p, e, "%s ", argv[i]);
 	if((n = resolverefs(&h, query)) == -1)
-		sysfatal("resolve %s: %r", argv[i]);
+		sysfatal("resolve %s: %r", query);
 	if(changes){
 		if(n != 2)
 			sysfatal("diff: need 2 commits, got %d", n);
