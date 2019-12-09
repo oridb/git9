@@ -162,6 +162,8 @@ ancestor(Object *a, Object *b)
 			o = q->obj;
 			for(i = 0; i < o->commit->nparent; i++){
 				p = readobject(o->commit->parent[i]);
+				if(p == nil)
+					goto err;
 				h = hnode(ht, p);
 				if(h->mark != nil){
 					if(h->mark != q->mark){
@@ -176,6 +178,7 @@ ancestor(Object *a, Object *b)
 			}
 		}
 		if(q2 == nil){
+err:
 			werrstr("no common ancestor");
 			break;
 		}
