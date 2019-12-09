@@ -263,7 +263,7 @@ readours(Update **ret)
 			sysfatal("read branches: %r");
 		u = emalloc((nremoved + nd)*sizeof(Update));
 		for(i = 0; i < nd; i++){
-			snprint(u->ref, sizeof(u->ref), "refs/heads/%s", d[nu].name);
+			snprint(u[nu].ref, sizeof(u[nu].ref), "refs/heads/%s", d[nu].name);
 			if(resolveref(&u[nu].ours, u[nu].ref) == -1)
 				continue;
 			nu++;
@@ -307,7 +307,7 @@ sendpack(int fd)
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
 
-		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") != 2)
+		if(getfields(buf, sp, nelem(sp), 1, " \t\r") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
 		if((u = findref(upd, nupd, sp[1])) == nil)
 			continue;
