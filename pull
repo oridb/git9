@@ -16,7 +16,8 @@ fn update{
 	url=$3
 	dir=$4
 	
-	{git/fetch -b $branch -u $upstream $url || die $status} | awk '
+	echo git/fetch -b $branch -u $upstream $url
+	{git/fetch -b $branch -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -28,7 +29,7 @@ fn update{
 		print hash > outfile;
 		close(outfile);
 	}
-	'
+	' |[3] tr '\x0d' '\x0a'
 }
 
 gitup
