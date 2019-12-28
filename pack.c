@@ -323,15 +323,15 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			o = 0;
 			l = 0;
 			/* Offset in base */
-			if(c & 0x01) o |= (*d++ <<  0) & 0x000000ff;
-			if(c & 0x02) o |= (*d++ <<  8) & 0x0000ff00;
-			if(c & 0x04) o |= (*d++ << 16) & 0x00ff0000;
-			if(c & 0x08) o |= (*d++ << 24) & 0xff000000;
+			if(d != ed && c & 0x01) o |= (*d++ <<  0) & 0x000000ff;
+			if(d != ed && c & 0x02) o |= (*d++ <<  8) & 0x0000ff00;
+			if(d != ed && c & 0x04) o |= (*d++ << 16) & 0x00ff0000;
+			if(d != ed && c & 0x08) o |= (*d++ << 24) & 0xff000000;
 
 			/* Length to copy */
-			if(c & 0x10) l |= (*d++ <<  0) & 0x0000ff;
-			if(c & 0x20) l |= (*d++ <<  8) & 0x00ff00;
-			if(c & 0x40) l |= (*d++ << 16) & 0xff0000;
+			if(d != ed && c & 0x10) l |= (*d++ <<  0) & 0x0000ff;
+			if(d != ed && c & 0x20) l |= (*d++ <<  8) & 0x00ff00;
+			if(d != ed && c & 0x40) l |= (*d++ << 16) & 0xff0000;
 			if(l == 0) l = 0x10000;
 
 			assert(o + l <= base->size);
@@ -339,6 +339,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			r += l;
 		/* inline data */
 		}else{
+			assert(c < ed - d);
 			memmove(r, d, c);
 			d += c;
 			r += c;
