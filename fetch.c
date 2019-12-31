@@ -197,7 +197,6 @@ fetchpack(int fd, int pfd, char *packtmp)
 			sysfatal("could not send have for %H", have[i]);
 	}
 	if(!req){
-		fprint(2, "up to date\n");
 		flushpkt(fd);
 	}
 	n = snprint(buf, sizeof(buf), "done\n");
