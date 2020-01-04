@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc
 rfork en
 . /sys/lib/git/common.rc
 
@@ -18,6 +18,7 @@ if(test -e $local)
 	die 'repository already exists:' $local
 
 fn clone{
+	flag +e
 	mkdir -p $local/.git
 	mkdir -p $local/.git/objects/pack/
 	mkdir -p $local/.git/refs/heads/
@@ -59,7 +60,7 @@ fn clone{
 				print headhash > ".git/HEAD"
 			}
 		}
-	'} |[3] tr '\x0d' '\x0a' || die $status
+	'} |[3] tr '\x0d' '\x0a' || die 'could not clone repository'
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
@@ -82,4 +83,10 @@ fn clone{
 	}
 }
 
-clone
+@{clone}
+st=$status
+if(! ~ $st ''){
+	echo failed to clone $remote: cleaning $local >[1=2]
+	rm -rf $local
+	exit $st
+}
