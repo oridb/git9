@@ -139,7 +139,14 @@ The following utilities and binaries are provided:
 Supported protocols: git:// and git+ssh://. If someone
 implements others, I'll gladly accept patches.
 
-TODOs
------
+9legacy Notes
+-------------
 
-Documentation is sparse.
+To use git9 on 9legacy, these patches are necessary.
+
+	- rc-line-split: implement delim{...} syntax for rc
+	- walk: port walk command to 9legacy.
+
+Additionally, git9 defaults to editing with hold(1). This command
+is not present on 9legacy. Import it, or set $editor to your choice
+of editor.
