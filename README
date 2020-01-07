@@ -71,7 +71,7 @@ Some usage examples:
 	cd subdir/name
 	git/add foo.c
 	diff bar.c /mnt/git/HEAD/
-	git/commit
+	git/commit foo.c
 	git/push
 
 Commits are presented as directories with the following
@@ -130,7 +130,7 @@ The following utilities and binaries are provided:
 	save:	The gnarly bits for storing the files for a commit.
 	conf:	A program to extract information from a config file.
 	clone:	Clones a repository.
-	commit:	Commits a snapshot of the working directory.
+	commit:	Commits a snapshot of the selected files.
 	log:	Prints the contents of a commmit log.
 	add:	Tells the repository to add a file to the next commit.
 	walk:	`du`, but for git status.

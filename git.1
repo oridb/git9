@@ -272,9 +272,7 @@ The copy of the file in the repository is left untouched.
 
 .PP
 .B Git/commit
-creates a new commit reflecting the state of the current repository.
-It takes no arguments: all files must be added or removed using git/add.
-If a file does not exist in the working directory, it is treated as though it was removed.
+creates a new commit which updates the files passed.
 
 .PP
 .B Git/branch
@@ -422,7 +420,7 @@ To clone an existing repository from a git server, run:
 git/clone git://github.com/Harvey-OS/harvey
 cd harvey
 # edit files
-git/commit
+git/commit foo.c
 git/push
 .EE
 
