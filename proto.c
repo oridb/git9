@@ -152,8 +152,8 @@ dialssh(char *host, char *, char *path, char *direction)
 int
 dialgit(char *host, char *port, char *path, char *direction)
 {
-	char *ds, cmd[128];
-	int fd, l;
+	char *ds, *p, *e, cmd[512];
+	int fd;
 
 	ds = netmkaddr(host, "tcp", port);
 	fd = dial(ds, nil, nil, nil);
@@ -161,8 +161,11 @@ dialgit(char *host, char *port, char *path, char *direction)
 		return -1;
 	if(chattygit)
 		fprint(2, "dial %s %s git-%s-pack %s\n", host, port, direction, path);
-	l = snprint(cmd, sizeof(cmd), "git-%s-pack %s\n", direction, path);
-	if(writepkt(fd, cmd, l + 1) == -1){
+	p = cmd;
+	e = cmd + sizeof(cmd);
+	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
+	p = seprint(p + 1, e, "host=%s", host);
+	if(writepkt(fd, cmd, p - cmd + 1) == -1){
 		print("failed to write message\n");
 		close(fd);
 		return -1;
