@@ -367,12 +367,16 @@ sendpack(int fd)
 	if(!send)
 		print("nothing to send\n");
 	if(send){
+		if(chattygit)
+			fprint(2, "sending pack...\n");
 		if(writepack(fd, upd, nupd) == -1)
 			return -1;
 
 		/* We asked for a status report, may as well use it. */
 		while((n = readpkt(fd, buf, sizeof(buf))) > 0){
  			buf[n] = 0;
+			if(chattygit)
+				fprint(2, "done sending pack, status %s\n", buf);
 			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 			if(nsp < 2) 
 				continue;
