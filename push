@@ -24,10 +24,10 @@ while(~ $1 -*){
 		shift
 		upstream=$1
 	case -a
-		sendall=true
+		branch=-b`$nl{cd .git/refs/heads && walk -f}
 	case -b
 		shift
-		branch=$1
+		branch=(-b$1 $branch)
 	case -r
 		shift
 		remove=(-r$1 $remove);
@@ -47,10 +47,9 @@ if(~ $#remote 0)
 	remote=$upstream
 if(~ $#remote 0)
 	die 'no idea where to push'
-if(~ $sendall '')
-	updates=`$nl{git/send $force -b $branch  $remove $remote || die $status}
-if not
-	updates=`$nl{git/send $force $remove -a $remote || die $status}
+if(~ $#branch 0)
+	die 'no branches'
+updates=`$nl{git/send $force $branch $remove $remote || die $status}
 
 for(ln in $updates){
 	u=`{echo $ln}

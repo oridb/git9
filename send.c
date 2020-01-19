@@ -33,7 +33,8 @@ struct Update {
 
 int sendall;
 int force;
-char *curbranch = "refs/heads/master";
+int nbranch;
+char **branch;
 char *removed[128];
 int nremoved;
 
@@ -246,28 +247,17 @@ int
 readours(Update **ret)
 {
 	Update *u, *r;
-	Hash *h;
-	int nd, nu, i;
+	int nu, i;
 	char *pfx;
-	Dir *d;
+	Hash *h;
 
 	nu = 0;
-	if(!sendall){
-		u = emalloc((nremoved + 1)*sizeof(Update));
-		snprint(u[nu].ref, sizeof(u[nu].ref), "%s", curbranch);
-		if(resolveref(&u[nu].ours, curbranch) == -1)
-			sysfatal("broken branch %s", curbranch);
+	u = emalloc((nremoved + nbranch)*sizeof(Update));
+	for(i = 0; i < nbranch; i++){
+		snprint(u[nu].ref, sizeof(u[nu].ref), "%s", branch[i]);
+		if(resolveref(&u[nu].ours, branch[i]) == -1)
+			sysfatal("broken branch %s", branch[i]);
 		nu++;
-	}else{
-		if((nd = slurpdir(".git/refs/heads", &d)) == -1)
-			sysfatal("read branches: %r");
-		u = emalloc((nremoved + nd)*sizeof(Update));
-		for(i = 0; i < nd; i++){
-			snprint(u[nu].ref, sizeof(u[nu].ref), "refs/heads/%s", d[nu].name);
-			if(resolveref(&u[nu].ours, u[nu].ref) == -1)
-				continue;
-			nu++;
-		}
 	}
 	for(i = 0; i < nremoved; i++){
 		pfx = "refs/heads/";
@@ -296,8 +286,7 @@ sendpack(int fd)
 	Update *upd, *u;
 	Object *a, *b;
 
-	if((nupd = readours(&upd)) == -1)
-		sysfatal("read refs: %r");
+	nupd = readours(&upd);
 	while(1){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
@@ -410,20 +399,32 @@ main(int argc, char **argv)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
+	char *br;
 	int fd;
 
 	ARGBEGIN{
-	default:	usage();	break;
-	case 'a':	sendall++;	break;
-	case 'd':	chattygit++;	break;
-	case 'f':	force++;	break;
+	default:
+		usage();	break;
+	case 'd':
+		chattygit++;	break;
+	case 'f':
+		force++;	break;
 	case 'r':
 		if(nremoved == nelem(removed))
 			sysfatal("too many deleted branches");
 		removed[nremoved++] = EARGF(usage());
 		break;
 	case 'b':
-		curbranch = smprint("refs/%s", EARGF(usage()));
+		br = EARGF(usage());
+		if(strncmp(br, "refs/heads/", strlen("refs/heads/")) == 0)
+			br = smprint("%s", br);
+		else if(strncmp(br, "heads/", strlen("heads/")) == 0)
+			br = smprint("refs/%s", br);
+		else
+			br = smprint("refs/heads/%s", br);
+		branch = erealloc(branch, (nbranch + 1)*sizeof(char*));
+		branch[nbranch] = br;
+		nbranch++;
 		break;
 	}ARGEND;
 
