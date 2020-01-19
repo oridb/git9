@@ -307,7 +307,7 @@ sendpack(int fd)
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
 
-		if(getfields(buf, sp, nelem(sp), 1, " \t\r") != 2)
+		if(getfields(buf, sp, nelem(sp), 1, " \t\r\n") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
 		if((u = findref(upd, nupd, sp[1])) == nil)
 			continue;
