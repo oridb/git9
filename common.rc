@@ -19,5 +19,6 @@ fn gitup{
 	if(~ $#gitrel 0)
 		gitrel='.'
 	cd $gitroot
-	git/fs
+	if(test -e /mnt/git/ctl && ! grep -s '^repo '$gitroot'$' /mnt/git/ctl)
+		git/fs
 }

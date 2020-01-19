@@ -79,6 +79,7 @@ char *qroot[] = {
 	"ctl",
 };
 
+char	gitdir[512];
 char	*username;
 char	*mtpt = "/mnt/git";
 char	**branches = nil;
@@ -396,6 +397,8 @@ gitattach(Req *r)
 
 	if((d = dirstat(".git")) == nil)
 		sysfatal("git/fs: %r");
+	if(getwd(gitdir, sizeof(gitdir)) == nil)
+		sysfatal("getwd: %r");
 	aux = emalloc(sizeof(Gitaux));
 	aux->crumb = emalloc(sizeof(Crumb));
 	aux->crumb[0].qid = (Qid){Qroot, 0, QTDIR};
@@ -659,21 +662,28 @@ gitdestroyfid(Fid *f)
 static char *
 readctl(Req *r)
 {
-	char data[512], buf[512], *p;
+	char data[1024], ref[512], *s, *e;
 	int fd, n;
+
 	if((fd = open(".git/HEAD", OREAD)) == -1)
 		return Erepo;
 	/* empty HEAD is invalid */
-	if((n = readn(fd, buf, sizeof(buf) - 1)) <= 0)
+	if((n = readn(fd, ref, sizeof(ref) - 1)) <= 0)
 		return Erepo;
 	close(fd);
-	p = buf;
-	buf[n] = 0;
-	if(strstr(p, "ref: ") == buf)
-		p += strlen("ref: ");
-	if(strstr(p, "refs/") == p)
-		p += strlen("refs/");
-	snprint(data, sizeof(data), "branch %s", p);
+
+	s = ref;
+	ref[n] = 0;
+	if(strncmp(s, "ref:", 4) == 0)
+		s += 4;
+	while(*s == ' ' || *s == '\t')
+		s++;
+	if((e = strchr(s, '\n')) != nil)
+		*e = 0;
+	if(strstr(s, "refs/") == s)
+		s += strlen("refs/");
+
+	snprint(data, sizeof(data), "branch %s\nrepo %s\n", s, gitdir);
 	readstr(r, data);
 	return nil;
 }
