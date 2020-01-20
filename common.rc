@@ -21,4 +21,6 @@ fn gitup{
 	cd $gitroot
 	if(! test -e /mnt/git/ctl || ! grep -s '^repo '$gitroot'$' /mnt/git/ctl)
 		git/fs
+	if not
+		status=''
 }
