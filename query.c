@@ -128,7 +128,7 @@ main(int argc, char **argv)
 {
 	int i, j, n;
 	Hash *h;
-	char *p, *e;
+	char *p, *e, *s;
 	char query[2048];
 
 	ARGBEGIN{
@@ -139,12 +139,15 @@ main(int argc, char **argv)
 
 	gitinit();
 	fmtinstall('P', Pfmt);
+	s = "";
 	p = query;
 	e = query + nelem(query);
-	for(i = 0; i < argc; i++)
-		p = seprint(p, e, "%s ", argv[i]);
+	for(i = 0; i < argc; i++){
+		p = seprint(p, e, "%s%s", s, argv[i]);
+		s = " ";
+	}
 	if((n = resolverefs(&h, query)) == -1)
-		sysfatal("resolve %s: %r", query);
+		sysfatal("resolve: %r");
 	if(changes){
 		if(n != 2)
 			sysfatal("diff: need 2 commits, got %d", n);
