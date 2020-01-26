@@ -352,7 +352,7 @@ evalpostfix(Eval *ev)
 		return -1;
 	}
 	if(readref(&h, name) == -1){
-		werrstr("could not resolve ref %s", name);
+		werrstr("invalid ref %s", name);
 		return -1;
 	}else if((o = readobject(h)) == nil){
 		werrstr("invalid ref %s (hash %H)", name, h);
@@ -364,6 +364,7 @@ evalpostfix(Eval *ev)
 		eatspace(ev);
 		switch(ev->p[0]){
 		case '^':
+		case '~':
 			ev->p++;
 			if(parent(ev) == -1)
 				return -1;
