@@ -427,7 +427,7 @@ readpacked(Biobuf *f, Object *o, int flag)
 {
 	int c, s, n;
 	vlong l, p;
-	Type t;
+	int t;
 	Buf b;
 
 	p = Boffset(f);

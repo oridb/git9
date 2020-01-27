@@ -82,10 +82,10 @@ Hfmt(Fmt *fmt)
 int
 Tfmt(Fmt *fmt)
 {
-	Type t;
+	int t;
 	int l;
 
-	t = va_arg(fmt->args, Type);
+	t = va_arg(fmt->args, int);
 	switch(t){
 	case GNone:	l = fmtprint(fmt, "none");	break;
 	case GCommit:	l = fmtprint(fmt, "commit");	break;

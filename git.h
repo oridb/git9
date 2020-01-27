@@ -30,7 +30,7 @@ enum {
 	Nbranch	= 32,
 };
 
-typedef enum Type {
+typedef enum {
 	GNone	= 0,
 	GCommit	= 1,
 	GTree	= 2,
@@ -38,7 +38,7 @@ typedef enum Type {
 	GTag	= 4,
 	GOdelta	= 6,
 	GRdelta	= 7,
-} Type;
+};
 
 enum {
 	Cloaded	= 1 << 0,
@@ -82,7 +82,7 @@ struct Dirent {
 struct Object {
 	/* Git data */
 	Hash	hash;
-	Type	type;
+	int	type;
 
 	/* Cache */
 	int	id;
@@ -188,7 +188,7 @@ extern Hash Zhash;
 extern int chattygit;
 
 #pragma varargck type "H" Hash
-#pragma varargck type "T" Type
+#pragma varargck type "T" int
 #pragma varargck type "O" Object*
 #pragma varargck type "Q" Qid
 int Hfmt(Fmt*);
