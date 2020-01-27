@@ -52,7 +52,7 @@ show(Dirent *e, char m)
 	if(e->mode & DMDIR)
 		showdir(e->h, e->name, m);
 	else
-		print("- %P%s\n", e->name);
+		print("%c %P%s\n", m, e->name);
 }
 
 void
