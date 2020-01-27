@@ -13,7 +13,7 @@ typedef struct Pack	Pack;
 typedef struct Buf	Buf;
 typedef struct Dirent	Dirent;
 typedef struct Idxent	Idxent;
-typedef struct Ols	Ols;
+typedef struct Objlist	Objlist;
 
 enum {
 	/* 5k objects should be enough */
@@ -48,7 +48,7 @@ enum {
 	Cparsed	= 1 << 5,
 };
 
-struct Ols {
+struct Objlist {
 	int idx;
 
 	int fd;
@@ -217,9 +217,9 @@ int	oshas(Objset *, Object *);
 Object	*osfind(Objset *, Hash);
 
 /* object listing */
-Ols	*mkols(void);
-int	olsnext(Ols *, Hash *);
-void	olsfree(Ols *);
+Objlist	*mkols(void);
+int	olsnext(Objlist *, Hash *);
+void	olsfree(Objlist *);
 
 /* util functions */
 void	*emalloc(ulong);

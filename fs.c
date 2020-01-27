@@ -7,8 +7,6 @@
 
 #include "git.h"
 
-typedef struct Ols Ols;
-
 char *Eperm = "permission denied";
 char *Eexist = "does not exist";
 char *E2long = "path too long";
@@ -53,7 +51,7 @@ struct Gitaux {
 	int	qdir;
 
 	/* For listing object dir */
-	Ols	*ols;
+	Objlist	*ols;
 	Object	*olslast;
 };
 
@@ -318,7 +316,7 @@ objgen(int i, Dir *d, void *p)
 	Object *o;
 	Crumb *c;
 	char name[64];
-	Ols *ols;
+	Objlist *ols;
 	Hash h;
 
 	aux = p;

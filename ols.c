@@ -41,7 +41,7 @@ endswith(char *n, char *s)
 }
 
 int
-olsreadpacked(Ols *ols, Hash *h)
+olsreadpacked(Objlist *ols, Hash *h)
 {
 	char *p;
 	int i, j;
@@ -79,7 +79,7 @@ step:
 
 
 int
-olsreadloose(Ols *ols, Hash *h)
+olsreadloose(Objlist *ols, Hash *h)
 {
 	char buf[64], *p;
 	int i, j, n;
@@ -122,12 +122,12 @@ step:
 	return -1;
 }
 
-Ols*
+Objlist*
 mkols(void)
 {
-	Ols *ols;
+	Objlist *ols;
 
-	ols = emalloc(sizeof(Ols));
+	ols = emalloc(sizeof(Objlist));
 	if((ols->ntop = slurpdir(".git/objects", &ols->top)) == -1)
 		sysfatal("read top level: %r");
 	if((ols->npack = slurpdir(".git/objects/pack", &ols->pack)) == -1)
@@ -137,7 +137,7 @@ mkols(void)
 }
 
 void
-olsfree(Ols *ols)
+olsfree(Objlist *ols)
 {
 	if(ols == nil)
 		return;
@@ -150,7 +150,7 @@ olsfree(Ols *ols)
 }
 
 int
-olsnext(Ols *ols, Hash *h)
+olsnext(Objlist *ols, Hash *h)
 {
 	if(ols->stage == 0){
 		if(olsreadloose(ols, h) != -1){
