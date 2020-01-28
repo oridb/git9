@@ -88,7 +88,7 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD})
 	die 'remote diverged:' $remote
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
-echo $local':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
+echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
 if(! ~ $#incoming 0)
 	git/log -q $local'..'$remote
 git/branch -c -b $remote $local
