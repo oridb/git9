@@ -62,10 +62,12 @@ fn clone{
 		}
 	'} |[3] tr '\x0d' '\x0a' || die 'could not clone repository'
 
-	tree=/mnt/git/branch/heads/master/tree
+	tree=/mnt/git/HEAD/tree
+	lbranch=`{git/branch}
+	rbranch=`{echo $lbranch | sed 's@^heads@remotes/origin@'}
 	echo checking out repository...
-	if(test -f .git/refs/remotes/origin/master){
-		cp .git/refs/remotes/origin/master .git/refs/heads/master
+	if(test -f .git/refs/$rbranch){
+		cp .git/refs/$rbranch .git/refs/$lbranch
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
