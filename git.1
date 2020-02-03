@@ -1,6 +1,6 @@
 .TH GIT 1
 .SH NAME
-git, git/conf, git/fs, git/query, git/walk, git/clone, git/branch,
+git, git/conf, git/query, git/walk, git/clone, git/branch,
 git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 \- Manage git repositories.
 
@@ -58,11 +58,6 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .I commit
 ]
 .I file...
-.PP
-.B git/fs
-[
-.B -d
-]
 .PP
 .B git/export
 [
@@ -240,11 +235,6 @@ option, the changes are pulled from
 .I upstream
 instead of the configured origin.
 
-.B Git/fs
-provides a read-only file system mounted on /mnt/git.
-It provides a  view into the repository contents to allow convenient inspection of repository structure.
-Surrounding scripts and binaries manipulate the repository contents directly.
-These changes will be immediately mirrored in the file system.
 
 .PP
 Git/fs serves the following directories:
@@ -431,6 +421,7 @@ git/push
 .IR hg (1)
 .IR replica (1)
 .IR patch (1)
+.IR gitfs (4)
 .IR diff3
 
 .SH BUGS
