@@ -27,13 +27,14 @@ emptydir(void)
 int
 gitmode(int m)
 {
-	int b;
-
-	if((m & 0111) || (m & DMDIR))
-		b = 0755;
-	else
-		b = 0644;
-	return b | ((m & DMDIR) ? 0040000 : 0100000);
+	if(m & DMDIR)		/* directory */
+		return 0040755;
+	else if(m & 0111)	/* executable */
+		return 0100755;
+	else if(m != 0)		/* regular */
+		return 0100644;
+	else			/* symlink */
+		return 0120000;
 }
 
 int
@@ -167,6 +168,8 @@ blobify(Dir *d, char *path, int *mode, Hash *bh)
 
 	if((d->mode & DMDIR) != 0)
 		sysfatal("not file: %s", path);
+	if(*mode == 0)
+		sysfatal("symlinks may not be modified: %s", path);
 	*mode = d->mode;
 	nh = snprint(h, sizeof(h), "%T %lld", GBlob, d->length) + 1;
 	if((f = open(path, OREAD)) == -1)

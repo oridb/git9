@@ -84,6 +84,8 @@ char	**branches = nil;
 Cache	uqidcache[512];
 vlong	nextqid = Qmax;
 
+static char*	gitwalk1(Fid *fid, char *name, Qid *q);
+
 vlong
 qpath(Crumb *p, int idx, vlong id, vlong t)
 {
@@ -411,8 +413,29 @@ gitattach(Req *r)
 	respond(r, nil);
 }
 
+static char*
+walklink(Fid *fid, char *_path, int npath, Qid *q)
+{
+	char *p, *e, *err, *path;
+
+	err = nil;
+	path = emalloc(npath + 1);
+	memcpy(path, _path, npath);
+	cleanname(path);
+	for(p = path; *p; p = e){
+		e = p + strcspn(p, "/");
+		if(*e == '/')
+			*e++ = '\0';
+		err = gitwalk1(fid, p, q);
+		if(err != nil)
+			break;
+	}
+	free(path);
+	return err;
+}
+
 static char *
-objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
+objwalk1(Fid *fid, Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 {
 	Object *w;
 	char *e;
@@ -432,6 +455,8 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
 				w = modrefobj(&o->tree->ent[i]);
 			if(!w)
 				die("could not read object for %s: %r", name);
+			if(o->tree->ent[i].mode == 0)
+				return walklink(fid, w->data, w->size, q);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
 			c->mode = o->tree->ent[i].mode;
@@ -577,7 +602,7 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		break;
 	case Qobject:
 		if(c->obj){
-			e = objwalk1(q, o->obj, o, c, name, Qobject);
+			e = objwalk1(fid, q, o->obj, o, c, name, Qobject);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
@@ -590,13 +615,13 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		}
 		break;
 	case Qhead:
-		e = objwalk1(q, o->obj, o, c, name, Qhead);
+		e = objwalk1(fid, q, o->obj, o, c, name, Qhead);
 		break;
 	case Qcommit:
-		e = objwalk1(q, o->obj, o, c, name, Qcommit);
+		e = objwalk1(fid, q, o->obj, o, c, name, Qcommit);
 		break;
 	case Qcommittree:
-		e = objwalk1(q, o->obj, o, c, name, Qcommittree);
+		e = objwalk1(fid, q, o->obj, o, c, name, Qcommittree);
 		break;
 	case Qcommitparent:
 	case Qcommitmsg:
