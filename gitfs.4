@@ -101,9 +101,9 @@ The global configuration for git tools.
 .IR hgfs (4)
 
 .SH BUGS
-Symlinks get garbled. Instead of being followed,
-they get served as files containing the path to the
-object. This garbling is undetectable.
+Symlinks are only partially supported.
+Symlinks are treated as regular files when reading.
+Modifying symlinks is unsupported.
 
 .PP
 There is no way to inspect the raw objects. This is
