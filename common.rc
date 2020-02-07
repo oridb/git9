@@ -19,7 +19,12 @@ fn gitup{
 	if(~ $#gitrel 0)
 		gitrel='.'
 	cd $gitroot
-	if(! test -e /mnt/git/ctl || ! grep -s '^repo '$gitroot'$' /mnt/git/ctl)
+	startfs=()
+	if(! test -e /mnt/git/ctl)
+		startfs=true
+	if(! grep -s '^repo '$gitroot'$' /mnt/git/ctl >[2]/dev/null)
+		startfs=true
+	if(~ $#startfs 1)
 		git/fs
 	if not
 		status=''
