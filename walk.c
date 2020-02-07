@@ -295,8 +295,8 @@ nextarg:
 		rpath = smprint(RDIR"/%s", p);
 		tpath = smprint(TDIR"/%s", p);
 		bpath = smprint(HDIR"/%s", p);
-		if(access(rpath, AEXIST) == 0){
-			dirty |= Mflg;
+		if(d == nil || access(rpath, AEXIST) == 0){
+			dirty |= Rflg;
 			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
 		}else if(access(bpath, AEXIST) == -1) {

@@ -160,14 +160,11 @@ writetree(Dirent *ent, int nent, Hash *h)
 }
 
 void
-blobify(char *path, int *mode, Hash *bh)
+blobify(Dir *d, char *path, int *mode, Hash *bh)
 {
 	char h[64], *buf;
 	int f, nh;
-	Dir *d;
 
-	if((d = dirstat(path)) == nil)
-		sysfatal("could not stat %s: %r", path);
 	if((d->mode & DMDIR) != 0)
 		sysfatal("not file: %s", path);
 	*mode = d->mode;
@@ -179,15 +176,14 @@ blobify(char *path, int *mode, Hash *bh)
 		sysfatal("could not read blob %s: %r", path);
 	writeobj(bh, h, nh, buf, d->length);
 	free(buf);
-	free(d);
 	close(f);
 }
 
 int
-tracked(char *path, int *explicit)
+tracked(char *path)
 {
-	Dir *d;
 	char ipath[256];
+	Dir *d;
 
 	/* Explicitly removed. */
 	snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path);
@@ -206,8 +202,6 @@ tracked(char *path, int *explicit)
 	if(access(ipath, AEXIST) == 0)
 		return 1;
 
-	/* unknown */
-	*explicit = 0;
 	return 0;
 }
 
@@ -244,11 +238,12 @@ dirent(Dirent **ent, int *nent, char *name)
 int
 treeify(Object *t, char **path, char **epath, int off, Hash *h)
 {
-	int r, ne, nsub, nent, isdir, untrack;
+	int r, ne, nsub, nent, isdir;
 	char **p, **ep;
 	char elt[256];
 	Object **sub;
 	Dirent *e, *ent;
+	Dir *d;
 
 	r = -1;
 	nsub = 0;
@@ -273,12 +268,12 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 			if(treeify(sub[nsub], p, ep, off + ne + 1, &e->h) == -1)
 				goto err;
 		}else{
-			if(tracked(*p, &untrack))
-				blobify(*p, &e->mode, &e->h);
-			else if(untrack)
-				e->name = nil;
+			d = dirstat(*p);
+			if(d != nil && tracked(*p))
+				blobify(d, *p, &e->mode, &e->h);
 			else
-				sysfatal("untracked file %s", *p);
+				e->name = nil;
+			free(d);
 		}
 	}
 	if(nent == 0){

@@ -80,7 +80,7 @@ fn update{
 	echo $branch: $hash
 	echo $hash > $refpath
 	for(f in $files){
-		if(test -e .git/index9/removed/$f){
+		if(test -e .git/index9/removed/$f || ! test -e $f){
 			rm -f .git/index9/removed/$f
 			rm -f .git/index9/tracked/$f
 		}
