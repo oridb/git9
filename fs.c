@@ -121,6 +121,19 @@ crumb(Gitaux *aux, int n)
 	return nil;
 }
 
+static void
+popcrumb(Gitaux *aux)
+{
+	Crumb *c;
+
+	if(aux->ncrumb > 1){
+		c = crumb(aux, 0);
+		free(c->name);
+		unref(c->obj);
+		aux->ncrumb--;
+	}
+}
+
 static vlong
 branchid(Gitaux *aux, char *path)
 {
@@ -414,20 +427,20 @@ gitattach(Req *r)
 }
 
 static char*
-walklink(Fid *fid, char *_path, int npath, Qid *q)
+walklink(Fid *fid, Qid *q, char *link, int nlink)
 {
 	char *p, *e, *err, *path;
 
 	err = nil;
-	path = emalloc(npath + 1);
-	memcpy(path, _path, npath);
+	path = emalloc(nlink + 1);
+	memcpy(path, link, nlink);
 	cleanname(path);
+	popcrumb(fid->aux);
 	for(p = path; *p; p = e){
 		e = p + strcspn(p, "/");
 		if(*e == '/')
 			*e++ = '\0';
-		err = gitwalk1(fid, p, q);
-		if(err != nil)
+		if((err = gitwalk1(fid, p, q)) != nil)
 			break;
 	}
 	free(path);
@@ -456,7 +469,7 @@ objwalk1(Fid *fid, Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir
 			if(!w)
 				die("could not read object for %s: %r", name);
 			if(o->tree->ent[i].mode == 0)
-				return walklink(fid, w->data, w->size, q);
+				return walklink(fid, q, w->data, w->size);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
 			c->mode = o->tree->ent[i].mode;
@@ -541,29 +554,22 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	aux = fid->aux;
 	
 	q->vers = 0;
-
 	if(strcmp(name, "..") == 0){
-		if(aux->ncrumb > 1){
-			c = &aux->crumb[aux->ncrumb - 1];
-			free(c->name);
-			unref(c->obj);
-			aux->ncrumb--;
-		}
-		c = &aux->crumb[aux->ncrumb - 1];
+		popcrumb(aux);
+		c = crumb(aux, 0);
 		*q = c->qid;
 		fid->qid = *q;
 		return nil;
 	}
 	
 	aux->crumb = realloc(aux->crumb, (aux->ncrumb + 1) * sizeof(Crumb));
-	c = &aux->crumb[aux->ncrumb];
-	o = &aux->crumb[aux->ncrumb - 1];
+	aux->ncrumb++;
+	c = crumb(aux, 0);
+	o = crumb(aux, 1);
 	memset(c, 0, sizeof(Crumb));
 	c->mode = o->mode;
 	c->mtime = o->mtime;
-	if(o->obj)
-		c->obj = ref(o->obj);
-	aux->ncrumb++;
+		c->obj = o->obj ? ref(o->obj) : nil;
 	
 	switch(QDIR(&fid->qid)){
 	case Qroot:
@@ -634,6 +640,12 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		return Egreg;
 	}
 
+	/* 
+	 * if we get called recursively from
+	 * objwalk1, we realloc the crumb array;
+	 * get a valid crumb again.
+	 */
+	c = crumb(aux, 0);
 	c->name = estrdup(name);
 	c->qid = *q;
 	fid->qid = *q;
