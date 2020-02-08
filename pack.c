@@ -765,7 +765,10 @@ parsetree(Object *o)
 		/* FIXME: symlinks and other BS */
 		if(m == 0160000){
 			t->mode |= DMDIR;
-			t->modref = 1;
+			t->ismod = 1;
+		}else if(m == 0120000){
+			t->mode = 0;
+			t->islink = 1;
 		}
 		t->mode = m & 0777;
 		if(m & 0040000)

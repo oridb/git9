@@ -35,7 +35,7 @@ showdir(Hash dh, char *dname, char m)
 	p = d->tree->ent;
 	e = p + d->tree->nent;
 	for(; p != e; p++){
-		if(p->modref)
+		if(p->ismod)
 			continue;
 		if(p->mode & DMDIR)
 			showdir(p->h, p->name, m);

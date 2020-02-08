@@ -74,9 +74,10 @@ struct Hash {
 
 struct Dirent {
 	char *name;
-	int modref;
 	int mode;
 	Hash h;
+	char ismod;
+	char islink;
 };
 
 struct Object {

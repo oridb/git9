@@ -7,13 +7,6 @@
 
 #include "git.h"
 
-char *Eperm = "permission denied";
-char *Eexist = "does not exist";
-char *E2long = "path too long";
-char *Enodir = "not a directory";
-char *Erepo = "unable to read repo";
-char *Egreg = "wat";
-
 enum {
 	Qroot,
 	Qhead,
@@ -35,7 +28,6 @@ typedef struct Gitaux Gitaux;
 typedef struct Crumb Crumb;
 typedef struct Cache Cache;
 typedef struct Uqid Uqid;
-
 struct Crumb {
 	char	*name;
 	Object	*obj;
@@ -77,6 +69,14 @@ char *qroot[] = {
 	"ctl",
 };
 
+#define Eperm	"permission denied";
+#define Eexist	"does not exist";
+#define E2long	"path too long";
+#define Enodir	"not a directory";
+#define Erepo	"unable to read repo";
+#define Egreg	"wat";
+#define Ebadobj	"invalid object";
+
 char	gitdir[512];
 char	*username;
 char	*mtpt = "/mnt/git";
@@ -84,7 +84,7 @@ char	**branches = nil;
 Cache	uqidcache[512];
 vlong	nextqid = Qmax;
 
-static char*	gitwalk1(Fid *fid, char *name, Qid *q);
+static Object*	walklink(Gitaux *, char *, int, int, int*);
 
 vlong
 qpath(Crumb *p, int idx, vlong id, vlong t)
@@ -228,7 +228,7 @@ branchgen(int i, Dir *d, void *p)
 
 /* FIXME: walk to the appropriate submodule.. */
 static Object*
-modrefobj(Dirent *e)
+emptydir(Dirent *e)
 {
 	Object *m;
 
@@ -248,24 +248,28 @@ modrefobj(Dirent *e)
 static int
 gtreegen(int i, Dir *d, void *p)
 {
-	Object *o, *e;
+	Object *o, *l, *e;
 	Gitaux *aux;
 	Crumb *c;
+	int m;
 
 	aux = p;
 	c = crumb(aux, 0);
 	e = c->obj;
+	m = e->tree->ent[i].mode;
 	if(i >= e->tree->nent)
 		return -1;
-	if((o = readobject(e->tree->ent[i].h)) == nil)
-		if(e->tree->ent[i].modref)
-			o = modrefobj(&e->tree->ent[i]);
-		else
-			die("could not read object %H: %r", e->tree->ent[i].h, e->hash);
+	if(e->tree->ent[i].ismod)
+		o = emptydir(&e->tree->ent[i]);
+	else if((o = readobject(e->tree->ent[i].h)) == nil)
+		die("could not read object %H: %r", e->tree->ent[i].h, e->hash);
+	if(e->tree->ent[i].islink)
+		if((l = walklink(aux, o->data, o->size, 0, &m)) != nil)
+			o = l;
 	d->qid.vers = 0;
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = qpath(c, i, o->id, aux->qdir);
-	d->mode = e->tree->ent[i].mode;
+	d->mode = m;
 	d->mode |= (o->type == GTree) ? 0755 : 0644;
 	d->atime = c->mtime;
 	d->mtime = c->mtime;
@@ -426,33 +430,52 @@ gitattach(Req *r)
 	respond(r, nil);
 }
 
-static char*
-walklink(Fid *fid, Qid *q, char *link, int nlink)
+static Object*
+walklink(Gitaux *aux, char *link, int nlink, int ndotdot, int *mode)
 {
-	char *p, *e, *err, *path;
+	char *p, *e, *path;
+	Object *o, *n;
+	int i;
 
-	err = nil;
 	path = emalloc(nlink + 1);
 	memcpy(path, link, nlink);
 	cleanname(path);
-	popcrumb(fid->aux);
+
+	o = crumb(aux, ndotdot)->obj;
+	assert(o->type == GTree);
 	for(p = path; *p; p = e){
+		n = nil;
 		e = p + strcspn(p, "/");
 		if(*e == '/')
 			*e++ = '\0';
-		if((err = gitwalk1(fid, p, q)) != nil)
+		/*
+		 * cleanname guarantees these show up at the start of the name,
+		 * which allows trimming them from the end of the trail of crumbs
+		 * instead of needing to keep track of full parentage.
+		 */
+		if(strcmp(p, "..") == 0)
+			n = crumb(aux, ++ndotdot)->obj;
+		else if(o->type == GTree)
+			for(i = 0; i < o->tree->nent; i++)
+				if(strcmp(o->tree->ent[i].name, p) == 0){
+					*mode = o->tree->ent[i].mode;
+					n = readobject(o->tree->ent[i].h);
+					break;
+				}
+		o = n;
+		if(o == nil)
 			break;
 	}
 	free(path);
-	return err;
+	return o;
 }
 
 static char *
-objwalk1(Fid *fid, Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir)
+objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *aux)
 {
-	Object *w;
+	Object *w, *l;
 	char *e;
-	int i;
+	int i, m;
 
 	w = nil;
 	e = nil;
@@ -463,18 +486,21 @@ objwalk1(Fid *fid, Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir
 		for(i = 0; i < o->tree->nent; i++){
 			if(strcmp(o->tree->ent[i].name, name) != 0)
 				continue;
+			m = o->tree->ent[i].mode;
 			w = readobject(o->tree->ent[i].h);
-			if(!w && o->tree->ent[i].modref)
-				w = modrefobj(&o->tree->ent[i]);
+			if(!w && o->tree->ent[i].ismod)
+				w = emptydir(&o->tree->ent[i]);
+			if(w && o->tree->ent[i].islink)
+				if((l = walklink(aux, w->data, w->size, 1, &m)) != nil)
+					w = l;
 			if(!w)
-				die("could not read object for %s: %r", name);
-			if(o->tree->ent[i].mode == 0)
-				return walklink(fid, q, w->data, w->size);
+				return Ebadobj;
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = qpath(c, i, w->id, qdir);
-			c->mode = o->tree->ent[i].mode;
-			c->mode |= (w->type == GTree) ? 0755 : 0644;
+			c->mode = m;
+			c->mode |= (w->type == GTree) ? DMDIR|0755 : 0644;
 			c->obj = w;
+			break;
 		}
 		if(!w)
 			e = Eexist;
@@ -608,7 +634,7 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		break;
 	case Qobject:
 		if(c->obj){
-			e = objwalk1(fid, q, o->obj, o, c, name, Qobject);
+			e = objwalk1(q, o->obj, o, c, name, Qobject, aux);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
@@ -621,13 +647,13 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		}
 		break;
 	case Qhead:
-		e = objwalk1(fid, q, o->obj, o, c, name, Qhead);
+		e = objwalk1(q, o->obj, o, c, name, Qhead, aux);
 		break;
 	case Qcommit:
-		e = objwalk1(fid, q, o->obj, o, c, name, Qcommit);
+		e = objwalk1(q, o->obj, o, c, name, Qcommit, aux);
 		break;
 	case Qcommittree:
-		e = objwalk1(fid, q, o->obj, o, c, name, Qcommittree);
+		e = objwalk1(q, o->obj, o, c, name, Qcommittree, aux);
 		break;
 	case Qcommitparent:
 	case Qcommitmsg:
@@ -640,12 +666,6 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		return Egreg;
 	}
 
-	/* 
-	 * if we get called recursively from
-	 * objwalk1, we realloc the crumb array;
-	 * get a valid crumb again.
-	 */
-	c = crumb(aux, 0);
 	c->name = estrdup(name);
 	c->qid = *q;
 	fid->qid = *q;
