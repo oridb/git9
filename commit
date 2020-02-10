@@ -42,7 +42,10 @@ fn findbranch{
 
 fn editmsg{
 	echo '# Author: '$"name' <'$"email'>' >> $msgfile.tmp
-	echo '#' $nl'# ' ^ `$nl{git/walk -fAMR $files} >> $msgfile.tmp
+	echo '#' >> $msgfile.tmp
+	for(p in $parents)
+		echo '# parent: '$p >> $msgfile.tmp
+	echo '# ' ^ `$nl{git/walk -fAMR $files} >> $msgfile.tmp
 	echo '#' >> $msgfile.tmp
 	echo '# Commit message:' >> $msgfile.tmp
 	giteditor=`{git/conf core.editor}
@@ -62,7 +65,7 @@ fn parents{
 	if not if(~ $initial true)
 		parents=()
 	if not
-		parents=$branch
+		parents=`{git/query $branch}
 }
 
 fn commit{
