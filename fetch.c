@@ -136,12 +136,12 @@ branchmatch(char *br, char *pat)
 }
 
 int
-fetchpack(int fd, int pfd, char *packtmp)
+fetchpack(Conn *c, int pfd, char *packtmp)
 {
 	char buf[Pktmax], idxtmp[256], *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
-	int i, n, req;
+	int i, j, n, req;
 	vlong packsz;
 	Object *o;
 
@@ -150,7 +150,7 @@ fetchpack(int fd, int pfd, char *packtmp)
 	have = emalloc(refsz * sizeof(have[0]));
 	want = emalloc(refsz * sizeof(want[0]));
 	while(1){
-		n = readpkt(fd, buf, sizeof(buf));
+		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
 			return -1;
 		if(n == 0)
@@ -175,6 +175,8 @@ fetchpack(int fd, int pfd, char *packtmp)
 		nref++;
 	}
 
+	if(writephase(c) == -1)
+		sysfatal("write: %r");
 	req = 0;
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &want[i]))
@@ -183,42 +185,44 @@ fetchpack(int fd, int pfd, char *packtmp)
 			unref(o);
 			continue;
 		}
-		n = snprint(buf, sizeof(buf), "want %H", want[i]);
-		if(writepkt(fd, buf, n) == -1)
+		n = snprint(buf, sizeof(buf), "want %H\n", want[i]);
+		if(writepkt(c, buf, n) == -1)
 			sysfatal("could not send want for %H", want[i]);
-		req = 1; 
+		req = 1;
 	}
-	flushpkt(fd);
+	flushpkt(c);
 	for(i = 0; i < nref; i++){
 		if(hasheq(&have[i], &Zhash))
 			continue;
 		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
-		if(writepkt(fd, buf, n + 1) == -1)
+		if(writepkt(c, buf, n + 1) == -1)
 			sysfatal("could not send have for %H", have[i]);
 	}
-	if(!req){
-		flushpkt(fd);
-	}
+	if(!req)
+		flushpkt(c);
+
 	n = snprint(buf, sizeof(buf), "done\n");
-	if(writepkt(fd, buf, n) == -1)
-		sysfatal("lost connection write");
+	if(writepkt(c, buf, n) == -1)
+		sysfatal("write: %r");
 	if(!req)
 		return 0;
-
-	if((n = readpkt(fd, buf, sizeof(buf))) == -1)
-		sysfatal("lost connection read");
+	if(readphase(c) == -1)
+		sysfatal("read: %r");
+	if((n = readpkt(c, buf, sizeof(buf))) == -1)
+		sysfatal("read: %r");
 	buf[n] = 0;
 
 	fprint(2, "fetching...\n");
 	packsz = 0;
 	while(1){
-		n = readn(fd, buf, sizeof buf);
+		n = readn(c->rfd, buf, sizeof buf);
 		if(n == 0)
 			break;
 		if(n == -1 || write(pfd, buf, n) != n)
-			sysfatal("could not fetch packfile: %r");
+			sysfatal("fetch packfile: %r");
 		packsz += n;
 	}
+	closeconn(c);
 	if(seek(pfd, 0, 0) == -1)
 		sysfatal("packfile seek: %r");
 	if(checkhash(pfd, packsz, &h) == -1)
@@ -248,7 +252,8 @@ main(int argc, char **argv)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
-	int fd, pfd;
+	int r, pfd;
+	Conn c;
 
 	ARGBEGIN{
 	case 'b':	fetchbranch=EARGF(usage());	break;
@@ -260,8 +265,8 @@ main(int argc, char **argv)
 	gitinit();
 	if(argc != 1)
 		usage();
-	fd = -1;
 
+	r = -1;
 	if(mkoutpath(packtmp) == -1)
 		sysfatal("could not create %s: %r", packtmp);
 	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
@@ -270,17 +275,18 @@ main(int argc, char **argv)
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv[0]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
-		fd = dialssh(host, port, path, "upload");
+		r = dialssh(&c, host, port, path, "upload");
 	else if(strcmp(proto, "git") == 0)
-		fd = dialgit(host, port, path, "upload");
-	else if(strcmp(proto, "http") == 0 || strcmp(proto, "git+http") == 0)
-		sysfatal("http clone not implemented");
+		r = dialgit(&c, host, port, path, "upload");
+	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
+		r = dialhttp(&c, host, port, path, "upload");
 	else
 		sysfatal("unknown protocol %s", proto);
 	
-	if(fd == -1)
+	if(r == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	if(fetchpack(fd, pfd, packtmp) == -1)
+	if(fetchpack(&c, pfd, packtmp) == -1)
 		sysfatal("fetch failed: %r");
+	closeconn(&c);
 	exits(nil);
 }

@@ -3,16 +3,20 @@
 
 #include "git.h"
 
+#define Useragent	"useragent git/2.24.1"
+#define Contenthdr	"headers Content-Type: application/x-git-%s-pack-request"
+#define Accepthdr	"headers Accept: application/x-git-%s-pack-result"
+
 int chattygit;
 
 int
-readpkt(int fd, char *buf, int nbuf)
+readpkt(Conn *c, char *buf, int nbuf)
 {
 	char len[5];
 	char *e;
 	int n;
 
-	if(readn(fd, len, 4) == -1)
+	if(readn(c->rfd, len, 4) == -1)
 		return -1;
 	len[4] = 0;
 	n = strtol(len, &e, 16);
@@ -26,7 +30,7 @@ readpkt(int fd, char *buf, int nbuf)
 	n  -= 4;
 	if(n >= nbuf)
 		sysfatal("buffer too small");
-	if(readn(fd, buf, n) != n)
+	if(readn(c->rfd, buf, n) != n)
 		return -1;
 	buf[n] = 0;
 	if(chattygit)
@@ -35,15 +39,15 @@ readpkt(int fd, char *buf, int nbuf)
 }
 
 int
-writepkt(int fd, char *buf, int nbuf)
+writepkt(Conn *c, char *buf, int nbuf)
 {
 	char len[5];
 
 
 	snprint(len, sizeof(len), "%04x", nbuf + 4);
-	if(write(fd, len, 4) != 4)
+	if(write(c->wfd, len, 4) != 4)
 		return -1;
-	if(write(fd, buf, nbuf) != nbuf)
+	if(write(c->wfd, buf, nbuf) != nbuf)
 		return -1;
 	if(chattygit){
 		fprint(2, "writepkt: %s:\t", len);
@@ -54,11 +58,11 @@ writepkt(int fd, char *buf, int nbuf)
 }
 
 int
-flushpkt(int fd)
+flushpkt(Conn *c)
 {
 	if(chattygit)
 		fprint(2, "writepkt: 0000\n");
-	return write(fd, "0000", 4);
+	return write(c->wfd, "0000", 4);
 }
 
 static void
@@ -85,8 +89,20 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		werrstr("missing protocol");
 		return -1;
 	}
-	grab(proto, Nproto, uri, p);
-	hasport = (strcmp(proto, "git") == 0 || strstr(proto, "http") == proto);
+	if(strncmp(uri, "git+", 4) == 0)
+		grab(proto, Nproto, uri + 4, p);
+	else
+		grab(proto, Nproto, uri, p);
+	*port = 0;
+	hasport = 1;
+	if(strcmp(proto, "git") == 0)
+		snprint(port, Nport, "9418");
+	else if(strncmp(proto, "https", 5) == 0)
+		snprint(port, Nport, "443");
+	else if(strncmp(proto, "http", 4) == 0)
+		snprint(port, Nport, "80");
+	else
+		hasport = 0;
 	s = p + 3;
 	p = nil;
 	if(!hasport){
@@ -107,7 +123,6 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		grab(port, Nport, q + 1, p);
 	}else{
 		grab(host, Nhost, s, p);
-		snprint(port, Nport, "9418");
 	}
 	
 	snprint(path, Npath, "%s", p);
@@ -124,7 +139,99 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 }
 
 int
-dialssh(char *host, char *, char *path, char *direction)
+webclone(Conn *c, char *url)
+{
+	char buf[16];
+	int n, conn;
+
+	if((c->cfd = open("/mnt/web/clone", ORDWR)) < 0)
+		goto err;
+	if((n = read(c->cfd, buf, sizeof(buf)-1)) == -1)
+		goto err;
+	buf[n] = 0;
+	conn = atoi(buf);
+
+	/* github will behave differently based on useragent */
+	if(write(c->cfd, Useragent, sizeof(Useragent)) == -1)
+		return -1;
+	if(chattygit)
+		fprint(2, "open url %s\n", url);
+	if(fprint(c->cfd, "url %s", url) == -1)
+		goto err;
+	free(c->dir);
+	c->dir = smprint("/mnt/web/%d", conn);
+	return 0;
+err:
+	if(c->cfd != -1)
+		close(c->cfd);
+	return -1;
+}
+
+int
+webopen(Conn *c, char *file, int mode)
+{
+	char path[128];
+	int fd;
+
+	snprint(path, sizeof(path), "%s/%s", c->dir, file);
+	if((fd = open(path, mode)) == -1)
+		return -1;
+	return fd;
+}
+
+int
+issmarthttp(Conn *c, char *direction)
+{
+	char buf[Pktmax+1], svc[128];
+	int n;
+
+	if((n = readpkt(c, buf, sizeof(buf))) == -1)
+		sysfatal("http read: %r");
+	buf[n] = 0;
+	snprint(svc, sizeof(svc), "# service=git-%s-pack\n", direction);
+	if(strncmp(svc, buf, n) != 0){
+		werrstr("dumb http protocol not supported");
+		return -1;
+	}
+	if(readpkt(c, buf, sizeof(buf)) != 0){
+		werrstr("protocol garble: expected flushpkt");
+		return -1;
+	}
+	return 0;
+}
+
+int
+dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
+{
+	char *geturl, *suff, *hsep, *psep;
+
+	suff = "";
+	hsep = "";
+	psep = "";
+	if(port && strlen(port) != 0)
+		hsep = ":";
+	if(path && path[0] != '/')
+		psep = "/";
+	memset(c, 0, sizeof(*c));
+	geturl = smprint("https://%s%s%s%s%s%s/info/refs?service=git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	c->type = ConnHttp;
+	c->url = smprint("https://%s%s%s%s%s%s/git-%s-pack", host, hsep, port, psep, path, suff, direction);
+	c->cfd = webclone(c, geturl);
+	free(geturl);
+	if(c->cfd == -1)
+		return -1;
+	c->rfd = webopen(c, "body", OREAD);
+	c->wfd = -1;
+	if(c->rfd == -1)
+		return -1;
+	if(issmarthttp(c, direction) == -1)
+		return -1;
+	c->direction = estrdup(direction);
+	return 0;
+}
+
+int
+dialssh(Conn *c, char *host, char *, char *path, char *direction)
 {
 	int pid, pfd[2];
 	char cmd[64];
@@ -144,31 +251,99 @@ dialssh(char *host, char *, char *path, char *direction)
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
-		return pfd[1];
+		c->type = ConnSsh;
+		c->rfd = pfd[1];
+		c->wfd = dup(pfd[1], -1);
+		return 0;
 	}
 	return -1;
 }
 
 int
-dialgit(char *host, char *port, char *path, char *direction)
+dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 {
 	char *ds, *p, *e, cmd[512];
 	int fd;
 
 	ds = netmkaddr(host, "tcp", port);
+	if(chattygit)
+		fprint(2, "dial %s git-%s-pack %s\n", ds, direction, path);
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
-	if(chattygit)
-		fprint(2, "dial %s %s git-%s-pack %s\n", host, port, direction, path);
 	p = cmd;
 	e = cmd + sizeof(cmd);
 	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
 	p = seprint(p + 1, e, "host=%s", host);
-	if(writepkt(fd, cmd, p - cmd + 1) == -1){
-		print("failed to write message\n");
+	c->type = ConnRaw;
+	c->rfd = fd;
+	c->wfd = dup(fd, -1);
+	if(writepkt(c, cmd, p - cmd + 1) == -1){
+		fprint(2, "failed to write message\n");
 		close(fd);
 		return -1;
 	}
-	return fd;
+	return 0;
+}
+
+int
+writephase(Conn *c)
+{
+	char hdr[128];
+	int n;
+
+	if(chattygit)
+		fprint(2, "start write phase\n");
+	if(c->type != ConnHttp)
+		return 0;
+
+	if(c->wfd != -1)
+		close(c->wfd);
+	if(c->cfd != -1)
+		close(c->cfd);
+	if((c->cfd = webclone(c, c->url)) == -1)
+		return -1;
+	n = snprint(hdr, sizeof(hdr), Contenthdr, c->direction);
+	if(write(c->cfd, hdr, n) == -1)
+		return -1;
+	n = snprint(hdr, sizeof(hdr), Accepthdr, c->direction);
+	if(write(c->cfd, hdr, n) == -1)
+		return -1;
+	if((c->wfd = webopen(c, "postbody", OWRITE)) == -1)
+		return -1;
+	c->rfd = -1;
+	return 0;
+}
+
+int
+readphase(Conn *c)
+{
+	if(chattygit)
+		fprint(2, "start read phase\n");
+	if(c->type != ConnHttp)
+		return 0;
+	if(close(c->wfd) == -1)
+		return -1;
+	if((c->rfd = webopen(c, "body", OREAD)) == -1)
+		return -1;
+	c->wfd = -1;
+	return 0;
+}
+
+void
+closeconn(Conn *c)
+{
+	close(c->rfd);
+	close(c->wfd);
+	switch(c->type){
+	case ConnRaw:
+
+		break;
+	case ConnSsh:
+		free(wait());
+		break;
+	case ConnHttp:
+		close(c->cfd);
+		break;
+	}
 }

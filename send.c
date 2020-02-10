@@ -152,7 +152,7 @@ writeobject(int fd, Object *o, DigestState **st)
 }
 
 int
-writepack(int fd, Update *upd, int nupd)
+writepack(Conn *c, Update *upd, int nupd)
 {
 	Objset send, skip;
 	Object *o, *p;
@@ -216,18 +216,18 @@ iter:
 
 	st = nil;
 	PUTBE32(buf, send.nobj);
-	if(hwrite(fd, "PACK\0\0\0\02", 8, &st) != 8)
+	if(hwrite(c->wfd, "PACK\0\0\0\02", 8, &st) != 8)
 		return -1;
-	if(hwrite(fd, buf, 4, &st) == -1)
+	if(hwrite(c->wfd, buf, 4, &st) == -1)
 		return -1;
 	for(i = 0; i < send.sz; i++){
 		if(!send.obj[i])
 			continue;
-		if(writeobject(fd, send.obj[i], &st) == -1)
+		if(writeobject(c->wfd, send.obj[i], &st) == -1)
 			return -1;
 	}
 	sha1(nil, 0, h.h, st);
-	if(write(fd, h.h, sizeof(h.h)) == -1)
+	if(write(c->wfd, h.h, sizeof(h.h)) == -1)
 		return -1;
 	return 0;
 }
@@ -279,7 +279,7 @@ readours(Update **ret)
 }
 
 int
-sendpack(int fd)
+sendpack(Conn *c)
 {
 	int i, n, r, nupd, nsp, send;
 	char buf[Pktmax], *sp[3];
@@ -288,7 +288,7 @@ sendpack(int fd)
 
 	nupd = readours(&upd);
 	while(1){
-		n = readpkt(fd, buf, sizeof(buf));
+		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
 			return -1;
 		if(n == 0)
@@ -305,6 +305,8 @@ sendpack(int fd)
 		snprint(u->ref, sizeof(u->ref), sp[1]);
 	}
 
+	if(writephase(c) == -1)
+		return -1;
 	r = 0;
 	send = 0;
 	for(i = 0; i < nupd; i++){
@@ -343,7 +345,7 @@ sendpack(int fd)
 			buf[n++] = '\0';
 			n += snprint(buf + n, sizeof(buf) - n, " report-status");
 		}
-		if(writepkt(fd, buf, n) == -1)
+		if(writepkt(c, buf, n) == -1)
 			sysfatal("unable to send update pkt");
 		/*
 		 * If we're rolling back with a force push, the other side already
@@ -352,17 +354,19 @@ sendpack(int fd)
 		if(a == nil || b == nil || ancestor(b, a) != b)
 			send = 1;
 	}
-	flushpkt(fd);
+	flushpkt(c);
 	if(!send)
 		print("nothing to send\n");
 	if(send){
 		if(chattygit)
 			fprint(2, "sending pack...\n");
-		if(writepack(fd, upd, nupd) == -1)
+		if(writepack(c, upd, nupd) == -1)
 			return -1;
 
+		if(readphase(c) == -1)
+			return -1;
 		/* We asked for a status report, may as well use it. */
-		while((n = readpkt(fd, buf, sizeof(buf))) > 0){
+		while((n = readpkt(c, buf, sizeof(buf))) > 0){
  			buf[n] = 0;
 			if(chattygit)
 				fprint(2, "done sending pack, status %s\n", buf);
@@ -400,19 +404,26 @@ main(int argc, char **argv)
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
 	char *br;
-	int fd;
+	Conn c;
+	int r;
 
 	ARGBEGIN{
 	default:
-		usage();	break;
+		usage();
+		break;
 	case 'd':
-		chattygit++;	break;
+		chattygit++;
+		break;
 	case 'f':
-		force++;	break;
+		force++;
+		break;
 	case 'r':
 		if(nremoved == nelem(removed))
 			sysfatal("too many deleted branches");
 		removed[nremoved++] = EARGF(usage());
+		break;
+	case 'a':
+		sendall++;
 		break;
 	case 'b':
 		br = EARGF(usage());
@@ -431,21 +442,23 @@ main(int argc, char **argv)
 	gitinit();
 	if(argc != 1)
 		usage();
-	fd = -1;
+	r = -1;
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv[0]);
-	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
-		fd = dialssh(host, port, path, "receive");
+
+	if(strcmp(proto, "ssh") == 0)
+		r = dialssh(&c, host, port, path, "receive");
 	else if(strcmp(proto, "git") == 0)
-		fd = dialgit(host, port, path, "receive");
-	else if(strcmp(proto, "http") == 0 || strcmp(proto, "git+http") == 0)
-		sysfatal("http clone not implemented");
+		r = dialgit(&c, host, port, path, "receive");
+	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
+		r = dialhttp(&c, host, port, path, "receive");
 	else
 		sysfatal("unknown protocol %s", proto);
 	
-	if(fd == -1)
+	if(r == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	if(sendpack(fd) == -1)
+	if(sendpack(&c) == -1)
 		sysfatal("send failed: %r");
+	closeconn(&c);
 	exits(nil);
 }

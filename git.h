@@ -4,6 +4,7 @@
 #include <flate.h>
 #include <regexp.h>
 
+typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Cinfo	Cinfo;
 typedef struct Tinfo	Tinfo;
@@ -30,7 +31,7 @@ enum {
 	Nbranch	= 32,
 };
 
-typedef enum {
+enum {
 	GNone	= 0,
 	GCommit	= 1,
 	GTree	= 2,
@@ -46,6 +47,12 @@ enum {
 	Ccache	= 1 << 2,
 	Cexist	= 1 << 3,
 	Cparsed	= 1 << 5,
+};
+
+enum {
+	ConnRaw,
+	ConnSsh,
+	ConnHttp,
 };
 
 struct Objlist {
@@ -70,6 +77,18 @@ struct Objlist {
 
 struct Hash {
 	uchar h[20];
+};
+
+struct Conn {
+	int type;
+	int rfd;
+	int wfd;
+
+	/* only used by http */
+	int cfd;
+	char *url;	/* note, first GET uses a different url */
+	char *dir;
+	char *direction;
 };
 
 struct Dirent {
@@ -234,9 +253,13 @@ char	*strip(char *);
 void	die(char *, ...);
 
 /* proto handling */
-int	readpkt(int, char*, int);
-int	writepkt(int, char*, int);
-int	flushpkt(int);
+int	readpkt(Conn*, char*, int);
+int	writepkt(Conn*, char*, int);
+int	flushpkt(Conn*);
 int	parseuri(char *, char *, char *, char *, char *, char *);
-int	dialssh(char *, char *, char *, char *);
-int	dialgit(char *, char *, char *, char *);
+int	dialssh(Conn*, char *, char *, char *, char *);
+int	dialgit(Conn*, char *, char *, char *, char *);
+int	dialhttp(Conn*, char *, char *, char *, char *);
+int	readphase(Conn *);
+int	writephase(Conn *);
+void	closeconn(Conn *);
