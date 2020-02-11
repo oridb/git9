@@ -168,8 +168,6 @@ blobify(Dir *d, char *path, int *mode, Hash *bh)
 
 	if((d->mode & DMDIR) != 0)
 		sysfatal("not file: %s", path);
-	if(*mode == 0)
-		sysfatal("symlinks may not be modified: %s", path);
 	*mode = d->mode;
 	nh = snprint(h, sizeof(h), "%T %lld", GBlob, d->length) + 1;
 	if((f = open(path, OREAD)) == -1)
@@ -263,6 +261,8 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 				break;
 		}
 		e = dirent(&ent, &nent, elt);
+		if(e->islink)
+			sysfatal("symlinks may not be modified: %s", *path);
 		if(isdir){
 			e->mode = DMDIR | 0755;
 			sub[nsub] = readobject(e->h);
