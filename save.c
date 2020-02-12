@@ -232,6 +232,7 @@ dirent(Dirent **ent, int *nent, char *name)
 	*nent += 1;
 	*ent = erealloc(*ent, *nent * sizeof(Dirent));
 	d = *ent + (*nent - 1);
+	memset(d, 0, sizeof(*d));
 	d->name = estrdup(name);
 	return d;
 }
