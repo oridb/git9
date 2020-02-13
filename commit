@@ -45,7 +45,8 @@ fn editmsg{
 	echo '#' >> $msgfile.tmp
 	for(p in $parents)
 		echo '# parent: '$p >> $msgfile.tmp
-	echo '# ' ^ `$nl{git/walk -fAMR $files} >> $msgfile.tmp
+	for(m in `$nl{git/walk -fAMR $files})
+		echo '# '$m  >> $msgfile.tmp
 	echo '#' >> $msgfile.tmp
 	echo '# Commit message:' >> $msgfile.tmp
 	giteditor=`{git/conf core.editor}
