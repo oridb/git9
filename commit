@@ -40,14 +40,15 @@ fn findbranch{
 }
 
 fn editmsg{
-	echo '# Author: '$"name' <'$"email'>' >> $msgfile.tmp
-	echo '#' >> $msgfile.tmp
-	for(p in $parents)
-		echo '# parent: '$p >> $msgfile.tmp
-	for(m in `$nl{git/walk -fAMR $files})
-		echo '# '$m  >> $msgfile.tmp
-	echo '#' >> $msgfile.tmp
-	echo '# Commit message:' >> $msgfile.tmp
+	>$msgfile.tmp {
+		echo '# Author:' $name '<'$email'>'
+		echo '#'
+		for(p in $parents)
+			echo '# parent:' $p
+		git/walk -fAMR | sed 's/^/# /g'
+		echo '#'
+		echo '# Commit message:'
+	}
 	giteditor=`{git/conf core.editor}
 	if(~ $#editor 0)
 		editor=$giteditor
