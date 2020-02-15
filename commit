@@ -9,7 +9,6 @@ usage='
 fn whoami{
 	name=`{git/conf user.name}
 	email=`{git/conf user.email}
-	msgfile=.git/git-msg.$pid
 	if(test -f /adm/keys.who){
 		if(~ $name '')
 			name=`{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
@@ -95,8 +94,8 @@ fn update{
 	}
 }
 
-fn cleanup{
-	rm -f $msgfile
+fn sigexit{
+	rm -f $msgfile $msgfile.tmp
 	rm -f .git/index9/merge-parents
 }
 
@@ -117,5 +116,4 @@ if(~ $status '' || ~ $#files 0)
 	editmsg
 	commit
 	update
-	cleanup
 } || die 'could not commit:' $status
