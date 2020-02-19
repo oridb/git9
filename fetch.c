@@ -141,7 +141,7 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 	char buf[Pktmax], idxtmp[256], *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
-	int i, j, n, req;
+	int i, n, req;
 	vlong packsz;
 	Object *o;
 
