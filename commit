@@ -45,7 +45,7 @@ fn editmsg{
 		echo '#'
 		for(p in $parents)
 			echo '# parent:' $p
-		git/walk -fAMR | sed 's/^/# /g'
+		git/walk -fAMR $files | sed 's/^/# /g'
 		echo '#'
 		echo '# Commit message:'
 	}
