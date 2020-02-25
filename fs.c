@@ -226,25 +226,6 @@ branchgen(int i, Dir *d, void *p)
 	}
 }
 
-/* FIXME: walk to the appropriate submodule.. */
-static Object*
-emptydir(Dirent *e)
-{
-	Object *m;
-
-	m = emalloc(sizeof(Object));
-	m->hash = e->h;
-	m->type = GTree;
-	m->tree = emalloc(sizeof(Tree));
-	m->tree->ent = nil;
-	m->tree->nent = 0;
-	m->flag |= Cloaded|Cparsed;
-	m->off = -1;
-	ref(m);
-	cache(m);
-	return m;
-}
-
 static int
 gtreegen(int i, Dir *d, void *p)
 {
@@ -260,7 +241,7 @@ gtreegen(int i, Dir *d, void *p)
 	if(i >= e->tree->nent)
 		return -1;
 	if(e->tree->ent[i].ismod)
-		o = emptydir(&e->tree->ent[i]);
+		o = emptydir();
 	else if((o = readobject(e->tree->ent[i].h)) == nil)
 		die("could not read object %H: %r", e->tree->ent[i].h, e->hash);
 	if(e->tree->ent[i].islink)
@@ -489,7 +470,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 			m = o->tree->ent[i].mode;
 			w = readobject(o->tree->ent[i].h);
 			if(!w && o->tree->ent[i].ismod)
-				w = emptydir(&o->tree->ent[i]);
+				w = emptydir();
 			if(w && o->tree->ent[i].islink)
 				if((l = walklink(aux, w->data, w->size, 1, &m)) != nil)
 					w = l;
@@ -511,7 +492,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
 		if(strcmp(name, "msg") == 0)
 			q->path = qpath(p, 0, o->id, Qcommitmsg);
-		else if(strcmp(name, "parent") == 0 && o->commit->nparent != 0)
+		else if(strcmp(name, "parent") == 0)
 			q->path = qpath(p, 1, o->id, Qcommitparent);
 		else if(strcmp(name, "hash") == 0)
 			q->path = qpath(p, 2, o->id, Qcommithash);

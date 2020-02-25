@@ -14,16 +14,6 @@ enum {
 	Maxparents = 16,
 };
 
-Object*
-emptydir(void)
-{
-	Object *t;
-
-	t = emalloc(sizeof(Object));
-	t->tree = emalloc(sizeof(Tinfo));
-	return t;
-}
-
 int
 gitmode(int m)
 {

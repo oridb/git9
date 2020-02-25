@@ -229,6 +229,7 @@ int	hasheq(Hash *, Hash *);
 Object	*ref(Object *);
 void	unref(Object *);
 void	cache(Object *);
+Object	*emptydir(void);
 
 /* object sets */
 void	osinit(Objset *);

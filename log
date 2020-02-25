@@ -3,7 +3,7 @@ rfork en
 . /sys/lib/git/common.rc
 
 usage='
-	git/log [-q query] [file ...]
+	git/log [-q query|-c commit] [-s] [file ...]
 '
 
 gitup
@@ -11,15 +11,18 @@ gitup
 base=/mnt/git/object/
 branch=`{git/branch}
 query=()
-
+short=()
+files=()
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
-	case -b
-		branch=$2
+	case -c
+		base=$2
 		shift
 	case -q
 		query=$2
 		shift
+	case -s
+		short=true
 	case *
 		usage
 	}
@@ -31,29 +34,34 @@ if(~ $#query 0)
 	commits=`{git/query $branch}
 if not
 	commits=`{git/query $query}
-files=()
-if(! ~ $#* 0)
-	files=`$nl{walk -f $*}
 
-if(! ~ $#files 0)
-	nids=`{sha1sum $base/$commits(1)^/tree/$files | awk '{print $1}' >[2]/dev/null}
+if(! ~ $#* 0)
+	files=`"{walk -f $gitrel^$* | sort}
 
 while(! ~ $#commits 0){
 	ids=$nids
+	show=()
 	c=$commits(1)
-	if(! ~ $#files 0)
-		nids=`{sha1sum $base/$commits(1)^/tree/$files | awk '{print $1}' >[2]/dev/null}
-		commits=$commits(2-)
-		if(~ $#query 0)
-			commits=($commits `{cat $base/$c/parent >[2]/dev/null})
+	if(! ~ $#files 0){
+		ncomm=`{comm -12 /env/files <{git/query -c $c~ $c | sed 's/^..//' | sort} | wc -l}
+		if(! ~ $ncomm 0)
+			show=true
+	}
+	commits=$commits(2-)
+	if(~ $#query 0)
+		commits=($commits `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`$nl{walk -emp -n0 $base^$commits | sort -rn | uniq | awk -F/ '{print $NF}'}
 
-	if(~ $#files 0 || ! ~ $"ids $"nids || ~ $#commits 0){
-		echo -n 'Hash:	'`''{cat $base/$c/hash}
-		echo -n 'Author:	'`''{cat $base/$c/author}
-		echo -n 'Date:	'`''{date `{mtime $base/$c/msg | awk '{print $1}'}}
-		sed 's/^/	/g' $base/$c/msg
-		echo
+	if(~ $#files 0 || ~ $show true){
+		if(~ $short true)
+			echo $c `{cat $base/$c/msg | sed 1q}
+		if not{
+			echo -n 'Hash:	'`''{cat $base/$c/hash}
+			echo -n 'Author:	'`''{cat $base/$c/author}
+			echo -n 'Date:	'`''{date `{mtime $base/$c/msg | awk '{print $1}'}}
+			sed 's/^/	/g' $base/$c/msg
+			echo
+		}
 	}
 }

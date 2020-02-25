@@ -62,6 +62,7 @@ difftrees(Hash ah, Hash bh)
 	Object *a, *b;
 	int c;
 
+
 	if((a = readobject(ah)) == nil)
 		sysfatal("bad hash %H", ah);
 	if((b = readobject(bh)) == nil)

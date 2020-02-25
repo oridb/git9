@@ -83,8 +83,13 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .PP
 .B git/log
 [
-.B -b
-.I branch
+.B -c
+.I commit
+.B | -q
+.I query
+]
+[
+.B -s
 ]
 [
 .I files...
@@ -283,6 +288,19 @@ option, the branch is created but the files are not checked out.
 .PP
 .B Git/log
 shows a history of the current branch.
+When passed a list of files, only commits affecting
+those files are shown.
+The
+.I -c commit
+option logs starting from the provided commit, instead of HEAD.
+The
+.I -s
+option shows a summary of the commit, instead of the full message.
+The
+.I -q query
+option shows commits matching the query provided. The query
+is specified using the syntax of
+.B git/query.
 
 .PP
 .B Git/diff

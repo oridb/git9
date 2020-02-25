@@ -7,6 +7,26 @@
 Reprog *authorpat;
 Hash Zhash;
 
+Object*
+emptydir(void)
+{
+	static Object *e;
+
+	if(e != nil)
+		return e;
+	e = emalloc(sizeof(Object));
+	e->hash = Zhash;
+	e->type = GTree;
+	e->tree = emalloc(sizeof(Tinfo));
+	e->tree->ent = nil;
+	e->tree->nent = 0;
+	e->flag |= Cloaded|Cparsed;
+	e->off = -1;
+	ref(e);
+	cache(e);
+	return e;
+}
+
 int
 hasheq(Hash *a, Hash *b)
 {

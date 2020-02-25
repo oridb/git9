@@ -220,10 +220,13 @@ parent(Eval *ev)
 
 	o = pop(ev);
 	/* Special case: first commit has no parent. */
-	if(o->commit->nparent == 0 || (p = readobject(o->commit->parent[0])) == nil){
+	if(o->commit->nparent == 0)
+		p = emptydir();
+	else if ((p = readobject(o->commit->parent[0])) == nil){
 		werrstr("no parent for %H", o->hash);
 		return -1;
 	}
+		
 	push(ev, p);
 	return 0;
 }
