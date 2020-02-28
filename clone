@@ -6,7 +6,7 @@ usage='
 	git/clone remote [local]
 '
 
-remote=$1
+remote=`{echo $1 | sed 's@/*$@@g'}
 local=$2
 
 if(~ $#remote 0)
