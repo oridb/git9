@@ -3,8 +3,7 @@ rfork ne
 . /sys/lib/git/common.rc
 
 usage='
-	git/diff [-b branch] [file ...]
-		-b        diff relative to branch "branch" 
+	git/diff [-c branch] [-s ] [file ...]
 '
 
 gitup
@@ -14,7 +13,7 @@ branch=()
 summarize=()
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
-	case -b; branch=`{git/query $2}; shift
+	case -c; branch=`{git/query -p $2}; shift
 	case -s; summarize=1
 	case *; usage
 	}
@@ -25,13 +24,13 @@ if(~ $1 --)
 if(! ~ $#* 0)
 	files=`{cleanname $gitrel/$*}
 if(~ $#branch 0)
-	branch=`{git/branch}
+	branch=`{git/query -p HEAD}
 if(~ $summarize 1){
 	git/walk -fMAR $files
 	exit
 }
-for(f in `{git/walk -cfMAR $files}){
-	orig=/mnt/git/branch/$branch/tree/$f
+for(f in `{git/walk -c $files}){
+	orig=$branch/tree/$f
 	if(! test -f $orig)
 		orig=/dev/null
 	if(! test -f $f)
