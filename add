@@ -37,8 +37,11 @@ for(f in $files){
 		delpath=.git/index9/$del/$f
 		mkdir -p `{basename -d $addpath}
 		mkdir -p `{basename -d $delpath}
+		# We don't want a matching qid, so that
+		# git/walk doesn't think this came from
+		# a checkout.
 		if(! test -e $addpath)
-			walk -eq $f > $addpath
+			touch $addpath
 		rm -f $delpath
 	}
 }

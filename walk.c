@@ -295,21 +295,27 @@ nextarg:
 		rpath = smprint(RDIR"/%s", p);
 		tpath = smprint(TDIR"/%s", p);
 		bpath = smprint(HDIR"/%s", p);
-		if(d == nil || access(rpath, AEXIST) == 0){
-			dirty |= Rflg;
-			if(!quiet && (printflg & Rflg))
-				print("%s%s\n", rstr, p);
-		}else if(access(bpath, AEXIST) == -1) {
-			dirty |= Aflg;
-			if(!quiet && (printflg & Aflg))
-				print("%s%s\n", astr, p);
-		}else if(sameqid(d, tpath) || samedata(p, bpath)){
+		/* Fast path: we don't want to force access to the rpath. */
+		if(d && sameqid(d, tpath)) {
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
-		}else{
-			dirty |= Mflg;
-			if(!quiet && (printflg & Mflg))
-				print("%s%s\n", mstr, p);
+		} else {
+			if(d == nil || access(rpath, AEXIST) == 0){
+				dirty |= Rflg;
+				if(!quiet && (printflg & Rflg))
+					print("%s%s\n", rstr, p);
+			}else if(access(bpath, AEXIST) == -1) {
+				dirty |= Aflg;
+				if(!quiet && (printflg & Aflg))
+					print("%s%s\n", astr, p);
+			}else if(samedata(p, bpath)){
+				if(!quiet && (printflg & Tflg))
+					print("%s%s\n", tstr, p);
+			}else{
+				dirty |= Mflg;
+				if(!quiet && (printflg & Mflg))
+					print("%s%s\n", mstr, p);
+			}
 		}
 		free(rpath);
 		free(tpath);
