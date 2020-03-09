@@ -237,9 +237,9 @@ gtreegen(int i, Dir *d, void *p)
 	aux = p;
 	c = crumb(aux, 0);
 	e = c->obj;
-	m = e->tree->ent[i].mode;
 	if(i >= e->tree->nent)
 		return -1;
+	m = e->tree->ent[i].mode;
 	if(e->tree->ent[i].ismod)
 		o = emptydir();
 	else if((o = readobject(e->tree->ent[i].h)) == nil)

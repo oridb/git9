@@ -13,7 +13,7 @@ emptydir(void)
 	static Object *e;
 
 	if(e != nil)
-		return e;
+		return ref(e);
 	e = emalloc(sizeof(Object));
 	e->hash = Zhash;
 	e->type = GTree;
