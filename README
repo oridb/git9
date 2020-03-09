@@ -17,6 +17,35 @@ directly.
 Git/fs is usable, but not battle tested. It works for me, and covers
 the features I need on a daily basis.
 
+Getting Started
+---------------
+
+Get a bootstrap copy:
+
+	% cd /tmp
+	% hget https://github.com/oridb/git9/archive/master.tar.gz | tar xvzf
+	% cd git9-master
+	% mk all
+	% mk install
+
+Get an updatable version from git:
+
+	% cd $home/src
+	% git/clone https://github.com/oridb/git9
+	% cd git9
+	% mk all
+	% mk install
+
+Configure your user name and email:
+
+	% echo '
+	[user]
+		name=Ori Bernstein
+		email=ori@eigenstate.org
+	' > $home/lib/git/config
+
+And start committing!
+
 Structure
 ---------
 
