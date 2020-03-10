@@ -242,14 +242,3 @@ strip(char *s)
 		*e = 0;
 	return s;
 }
-
-void
-die(char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	vfprint(2, fmt, ap);
-	va_end(ap);
-	abort();
-}

@@ -251,7 +251,6 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
-void	die(char *, ...);
 
 /* proto handling */
 int	readpkt(Conn*, char*, int);

@@ -243,7 +243,7 @@ gtreegen(int i, Dir *d, void *p)
 	if(e->tree->ent[i].ismod)
 		o = emptydir();
 	else if((o = readobject(e->tree->ent[i].h)) == nil)
-		die("could not read object %H: %r", e->tree->ent[i].h, e->hash);
+		sysfatal("could not read object %H: %r", e->tree->ent[i].h);
 	if(e->tree->ent[i].islink)
 		if((l = walklink(aux, o->data, o->size, 0, &m)) != nil)
 			o = l;
@@ -367,7 +367,7 @@ objread(Req *r, Gitaux *aux)
 		dirread9p(r, gcommitgen, aux);
 		break;
 	default:
-		die("invalid object type %d", o->type);
+		sysfatal("invalid object type %d", o->type);
 	}
 }
 
