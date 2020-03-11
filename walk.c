@@ -299,7 +299,7 @@ nextarg:
 		if(d && sameqid(d, tpath)) {
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
-		} else {
+		}else{
 			if(d == nil || access(rpath, AEXIST) == 0){
 				dirty |= Rflg;
 				if(!quiet && (printflg & Rflg))
