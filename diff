@@ -9,11 +9,11 @@ usage='
 gitup
 
 files=()
-branch=()
 summarize=()
+commit=HEAD
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
-	case -c; branch=`{git/query -p $2}; shift
+	case -c; commit=$2; shift
 	case -s; summarize=1
 	case *; usage
 	}
@@ -23,13 +23,15 @@ if(~ $1 --)
 	shift
 if(! ~ $#* 0)
 	files=`{cleanname $gitrel/$*}
-if(~ $#branch 0)
-	branch=`{git/query -p HEAD}
+branch=`{git/query -p $commit}
 if(~ $summarize 1){
 	git/walk -fMAR $files
 	exit
 }
-for(f in `{git/walk -c -fRMA $files}){
+dirty=`$nl{git/walk -c -fRMA $files}
+if(! ~ $commit HEAD)
+	dirty=($dirty `$nl{git/query -c $commit HEAD | sed 's/^..//'})
+for(f in $dirty){
 	orig=$branch/tree/$f
 	if(! test -f $orig)
 		orig=/dev/null
