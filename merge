@@ -37,6 +37,9 @@ theirs=`{git/query $1}
 ours=`{git/query HEAD}
 base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
 
-merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
+if(~ $base $ours || ~ $base $theirs)
+	die 'nothing to merge, doofus'
 echo $ours >> .git/index9/merge-parents
 echo $theirs >> .git/index9/merge-parents
+
+merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
