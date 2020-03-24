@@ -50,7 +50,6 @@ if(~ $#remote 0)
 if(~ $#branch 0)
 	die 'no branches'
 updates=`$nl{git/send $force $branch $remove $remote || die $status}
-echo $updates
 for(ln in $updates){
 	u=`{echo $ln}
 	refpath=`{echo $u(2) | sed 's@^refs/heads/@.git/refs/remotes/'$upstream'/@g'}
