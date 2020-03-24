@@ -74,6 +74,7 @@ fn commit{
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
 	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags $files || die $status}
+	rm -f .git/index9/merge-parents
 }
 
 fn update{
@@ -97,7 +98,6 @@ fn update{
 
 fn sigexit{
 	rm -f $msgfile $msgfile.tmp
-	rm -f .git/index9/merge-parents
 }
 
 gitup
