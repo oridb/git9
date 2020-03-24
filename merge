@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc
 rfork ne
 . /sys/lib/git/common.rc
 
