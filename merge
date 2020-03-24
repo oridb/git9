@@ -16,7 +16,7 @@ fn merge{
 	for(f in $all){
 		ours=$ourbr/$f
 		base=$basebr/$f
-		theirs=$thierbr/$f
+		theirs=$theirbr/$f
 		if(! test -f $ourbr/$f)
 			ours=/dev/null
 		if(! test -f $basebr/$f)
