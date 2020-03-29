@@ -880,6 +880,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		goto error;
 	Bterm(f);
 	parseobject(obj);
+	free(d);
 	cache(obj);
 	return obj;
 error:

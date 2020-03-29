@@ -37,6 +37,8 @@ int nbranch;
 char **branch;
 char *removed[128];
 int nremoved;
+int npacked;
+int nsent;
 
 static int
 hwrite(int fd, void *buf, int nbuf, DigestState **st)
@@ -62,6 +64,7 @@ pack(Objset *send, Objset *skip, Object *o)
 		if((s = readobject(o->commit->tree)) == nil)
 			sysfatal("could not read tree %H: %r", o->hash);
 		pack(send, skip, s);
+		unref(s);
 		break;
 	case GTree:
 		for(i = 0; i < o->tree->nent; i++){
@@ -69,6 +72,7 @@ pack(Objset *send, Objset *skip, Object *o)
 			if ((s = readobject(e->h)) == nil)
 				sysfatal("could not read entry %H: %r", e->h);
 			pack(send, skip, s);
+			unref(s);
 		}
 		break;
 	default:
@@ -172,6 +176,7 @@ writepack(Conn *c, Update *upd, int nupd)
 		if((o = readobject(u->theirs)) == nil)
 			sysfatal("could not read %H", u->theirs);
 		pack(&skip, &skip, o);
+		unref(o);
 	}
 
 	q = nil;
@@ -179,14 +184,13 @@ writepack(Conn *c, Update *upd, int nupd)
 	for(i = 0; i < nupd; i++){
 		u = &upd[i];
 		if((o = readobject(u->ours)) == nil){
-			if(force)
-				continue;
-			else
+			if(!force)
 				sysfatal("could not read object %H", u->ours);
+			continue;
 		}
-
 		n = emalloc(sizeof(Objq));
 		n->obj = o;
+		unref(o);
 		if(!q){
 			q = n;
 			e = n;
@@ -213,6 +217,7 @@ iter:
 		n = q->next;
 		free(q);
 	}
+	fprint(2, "\n");
 
 	st = nil;
 	PUTBE32(buf, send.nobj);
@@ -223,8 +228,10 @@ iter:
 	for(i = 0; i < send.sz; i++){
 		if(!send.obj[i])
 			continue;
-		if(writeobject(c->wfd, send.obj[i], &st) == -1)
+		o = readobject(send.obj[i]->hash);
+		if(writeobject(c->wfd, o, &st) == -1)
 			return -1;
+		unref(o);
 	}
 	sha1(nil, 0, h.h, st);
 	if(write(c->wfd, h.h, sizeof(h.h)) == -1)
@@ -284,7 +291,7 @@ sendpack(Conn *c)
 	int i, n, r, nupd, nsp, send;
 	char buf[Pktmax], *sp[3];
 	Update *upd, *u;
-	Object *a, *b;
+	Object *a, *b, *p;
 
 	nupd = readours(&upd);
 	while(1){
@@ -313,13 +320,19 @@ sendpack(Conn *c)
 		u = &upd[i];
 		a = readobject(u->theirs);
 		b = readobject(u->ours);
-		if(!force && !hasheq(&u->theirs, &Zhash) && (a == nil || ancestor(a, b) != a)){
+		p = nil;
+		if(a && b)
+			p = ancestor(a, b);
+		if(!force && !hasheq(&u->theirs, &Zhash) && (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
 			send=0;
 			r = -1;
 			break;
 		}
+		unref(a);
+		unref(b);
+		unref(p);
 		if(hasheq(&u->ours, &Zhash)){
 			print("removed %s\n", u->ref);
 			continue;
