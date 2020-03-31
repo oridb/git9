@@ -23,7 +23,7 @@ Getting Started
 Get a bootstrap copy:
 
 	% cd /tmp
-	% hget https://github.com/oridb/git9/archive/master.tar.gz | tar xvzf
+	% hget https://github.com/oridb/git9/archive/master.tar.gz | tar xvz
 	% cd git9-master
 	% mk all
 	% mk install
