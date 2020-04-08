@@ -7,7 +7,6 @@ usage='
 		-c        revert to commit "query" (default: HEAD)
 '
 
-rel=`{pwd}
 gitup
 
 commit=/mnt/git/HEAD
@@ -24,11 +23,7 @@ while(~ $1 -* && ! ~ $1 --){
 if(~ $#* 0)
 	usage
 
-rel=`{echo $rel | sed 's@^'$gitroot'/?@@'}
-if(~ $#rel 0)
-	rel=''
-
-for(f in `$nl{cd $commit/tree/ && walk -f ./$rel/$*}){
+for(f in `$nl{cd $commit/tree/ && walk -f ./$gitrel/$*}){
 	mkdir -p `{basename -d $f}
 	cp -- $commit/tree/$f $f
 }
