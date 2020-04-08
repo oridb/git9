@@ -39,25 +39,31 @@ fn findbranch{
 		die 'invalid branch:' $branch
 }
 
+fn cleanmsg{
+	grep -v '^[ 	]*#'
+}
+
 fn editmsg{
-	>$msgfile.tmp {
-		echo '# Author:' $name '<'$email'>'
-		echo '#'
-		for(p in $parents)
-			echo '# parent:' $p
-		git/walk -fAMR $files | subst -g '^' '# '
-		echo '#'
-		echo '# Commit message:'
+	if(! test -s $msgfile.tmp){
+		>$msgfile.tmp {
+			echo '# Author:' $name '<'$email'>'
+			echo '#'
+			for(p in $parents)
+				echo '# parent:' $p
+			git/walk -fAMR $files | subst -g '^' '# '
+			echo '#'
+			echo '# Commit message:'
+		}
+		giteditor=`{git/conf core.editor}
+		if(~ $#editor 0)
+			editor=$giteditor
+		if(~ $#editor 0)
+			editor=hold
+		$editor $msgfile.tmp
 	}
-	giteditor=`{git/conf core.editor}
-	if(~ $#editor 0)
-		editor=$giteditor
-	if(~ $#editor 0)
-		editor=hold
-	$editor $msgfile.tmp
-	if(~ `{grep -v '^[ 	]*($|#.*$)' $msgfile.tmp | wc -l} 0)
+	cleanmsg < $msgfile.tmp > $msgfile
+	if(! test -s $msgfile)
 		die 'empty commit message'
-	grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
 }
 
 fn parents{
@@ -103,9 +109,18 @@ fn sigexit{
 gitup
 
 msgfile=/tmp/git-msg.$pid
-mkdir -p .git/refs
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -m
+		shift; echo $1 >$msgfile.tmp
+	}
+	shift
+}
+if(~ $1 --)
+	shift
 if(~ $#* 0)
 	usage
+
 files=`{git/walk -c `{cleanname $gitrel/$*}}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)
 	die 'nothing to commit' $status
