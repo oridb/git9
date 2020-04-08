@@ -12,7 +12,7 @@ fn merge{
 	theirbr=$3/tree
 
 	all=`{walk -f $ourbr $basebr $theirbr | \
-		 sed 's@^('$ourbr'|'$basebr'|'$theirbr')/*@@g' | sort | uniq}
+		subst -g '^('$ourbr'|'$basebr'|'$theirbr')/*' | sort | uniq}
 	for(f in $all){
 		ours=$ourbr/$f
 		base=$basebr/$f

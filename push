@@ -52,7 +52,7 @@ if(~ $#branch 0)
 updates=`$nl{git/send $force $branch $remove $remote || die $status}
 for(ln in $updates){
 	u=`{echo $ln}
-	refpath=`{echo $u(2) | sed 's@^refs/heads/@.git/refs/remotes/'$upstream'/@g'}
+	refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}
 	switch($u(1)){
 	case update;
 		mkdir -p `{basename -d $refpath}

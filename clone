@@ -71,7 +71,7 @@ fn clone{
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
-		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
+		for(f in `$nl{walk -f $tree | subst '^'$tree'/*'}){
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f
 				mkdir -p `$nl{basename -d $idx}

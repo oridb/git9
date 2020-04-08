@@ -74,7 +74,7 @@ if (~ $#checkout 0)
 	exit
 
 local=`{git/branch}
-remote=`{git/branch | sed 's@^(refs/)?heads@remotes/'$upstream'@'}
+remote=`{git/branch | subst '^(refs/)?heads' 'remotes/'$upstream}
 
 # we have local commits, but the remote hasn't changed.
 # in this case, we want to keep the local commits untouched.
