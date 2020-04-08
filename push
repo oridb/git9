@@ -17,7 +17,7 @@ sendall=''
 remove=()
 force=()
 upstream='origin'
-branch=-b`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+branch=-b`{git/branch}
 while(~ $1 -*){
 	switch($1){
 	case -u

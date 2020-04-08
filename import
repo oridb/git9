@@ -17,7 +17,7 @@ fn apply @{
 	name=''
 	msg=''
 	parents='-p'^`{git/query HEAD}
-	branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+	branch=`{git/branch}
 	if(test -e /mnt/git/branch/$branch/tree)
 		refpath=.git/refs/$branch
 	if not if(test -e /mnt/git/object/$branch/tree)

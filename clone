@@ -26,9 +26,11 @@ fn clone{
 	cd $local
 	
 	dircp /sys/lib/git/template .git
-	echo '[remote "origin"]' 				>> .git/config
-	echo '	url='$remote					>> .git/config
-	echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
+	>>.git/config {
+		echo '[remote "origin"]'
+		echo '	url='$remote
+		echo '	fetch=+refs/heads/*:refs/remotes/origin/*'
+	}
 	{git/fetch $remote >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD"){

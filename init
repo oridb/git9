@@ -37,12 +37,14 @@ if(test -e $dir$sub)
 
 mkdir -p $dir$sub
 dircp /sys/lib/git/template $dir/$sub
-if(! ~ $#upstream 0){
-	echo '[remote "origin"]' >> $dir/$sub/config
-	echo '	url='$upstream >> $dir/$sub/config
-}
-echo '[branch "master"]' >> $dir/$sub/config
-echo '	remote = origin' >> $dir/$sub/config
-echo '	merge = refs/heads/master'  >> $dir/$sub/config
 mkdir -p $dir/$sub/refs/heads
 mkdir -p $dir/$sub/refs/remotes
+>>$dir/$sub/config {
+	if(! ~ $#upstream 0){
+		echo '[remote "origin"]'
+		echo '	url='$upstream
+	}
+	echo '[branch "master"]'
+	echo '	remote = origin'
+	echo '	merge = refs/heads/master' 
+}
