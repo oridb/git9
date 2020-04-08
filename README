@@ -38,6 +38,7 @@ Get an updatable version from git:
 
 Configure your user name and email:
 
+	% mkdir -p $home/lib/git
 	% echo '
 	[user]
 		name=Ori Bernstein
