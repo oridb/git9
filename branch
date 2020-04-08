@@ -53,8 +53,8 @@ if not if(test -e .git/$new)
 if not
 	base=`{git/query HEAD}
 
-modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | sed 's/^..//'}
-deleted=`$nl{git/query -c HEAD $base | grep '^-' | sed 's/^..//'}
+modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
+deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
 if(! ~ $#modified 0 || ! ~ $#deleted 0){
 	if(! git/walk -q $modified $deleted){

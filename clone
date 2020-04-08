@@ -6,7 +6,7 @@ usage='
 	git/clone remote [local]
 '
 
-remote=`{echo $1 | sed 's@/*$@@g'}
+remote=`{echo $1 | subst -g '/*$'}
 local=$2
 
 if(~ $#remote 0)
@@ -66,7 +66,7 @@ fn clone{
 
 	tree=/mnt/git/HEAD/tree
 	lbranch=`{git/branch}
-	rbranch=`{echo $lbranch | sed 's@^heads@remotes/origin@'}
+	rbranch=`{echo $lbranch | subst '^heads' 'remotes/origin'}
 	echo checking out repository...
 	if(test -f .git/refs/$rbranch){
 		cp .git/refs/$rbranch .git/refs/$lbranch

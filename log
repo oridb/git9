@@ -36,14 +36,14 @@ if not
 	commits=`{git/query $query}
 
 if(! ~ $#* 0)
-	files=`"{walk -f $gitrel/^$* | sed 's@^\./@@' | sort}
+	files=`"{walk -f $gitrel/^$* | subst '^\./' | sort}
 
 while(! ~ $#commits 0){
 	ids=$nids
 	show=()
 	c=$commits(1)
 	if(! ~ $#files 0){
-		ncomm=`{comm -12 /env/files <{git/query -c $c~ $c | sed 's/^..//' | sort} | wc -l}
+		ncomm=`{comm -12 /env/files <{git/query -c $c~ $c | subst '^..' | sort} | wc -l}
 		if(! ~ $ncomm 0)
 			show=true
 	}
@@ -60,7 +60,7 @@ while(! ~ $#commits 0){
 			echo -n 'Hash:	'`''{cat $base/$c/hash}
 			echo -n 'Author:	'`''{cat $base/$c/author}
 			echo -n 'Date:	'`''{date `{mtime $base/$c/msg | awk '{print $1}'}}
-			sed 's/^/	/g' $base/$c/msg
+			subst -g '^' '	' <$base/$c/msg 
 			echo
 		}
 	}
