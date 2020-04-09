@@ -39,8 +39,20 @@ fn findbranch{
 		die 'invalid branch:' $branch
 }
 
+# Remove commentary lines.
+# Remove leading and trailing empty lines.
+# Combine consecutive empty lines between paragraphs.
+# Remove trailing spaces from lines.
+# Ensure there's trailing newline.
 fn cleanmsg{
-	grep -v '^[ 	]*#'
+	awk '
+	/^[ 	]*#/ {next}
+	/^[ 	]*$/ {empty = 1; next}
+
+	wet && empty {printf "\n"}
+	{wet = 1; empty = 0}
+	{sub(/[ 	]+$/, ""); print $0}
+	'
 }
 
 fn editmsg{
