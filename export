@@ -12,19 +12,16 @@ q=$*
 if(~ $#q 0)
 	q=HEAD
 commits=`{git/query $q || die $status}
-
-scratch=/tmp/gitexport.$pid
-mkdir -p $scratch
-mkdir $scratch/a $scratch/b
 n=1
 m=$#commits
+mntgen /mnt/scratch
 for(c in $commits){
 	cp=`{git/query -p $c}
 	pp=`{git/query -p $c'^'}
 
 	@{
 		rfork n
-		cd $scratch
+		cd /mnt/scratch
 		bind $pp/tree a
 		bind $cp/tree b
 		
@@ -53,5 +50,3 @@ for(c in $commits){
 		echo
 	n=`{echo $n + 1 | bc}
 }
-rm $scratch/a $scratch/b
-rm $scratch
