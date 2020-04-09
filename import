@@ -41,7 +41,7 @@ fn apply @{
 		date=$0
 	}
 	state=="headers" && /^Subject:/{
-		sub(/^Subject:[ \t]*(\[PATCH\])*[ \t]*/, "", $0);
+		sub(/^Subject:[ \t]*(\[PATCH( [0-9]+\/[0-9]+)?\])*[ \t]*/, "", $0);
 		gotmsg = 1
 		print > "/env/msg"
 	}
