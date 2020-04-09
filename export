@@ -3,10 +3,26 @@ rfork ne
 . /sys/lib/git/common.rc
 
 usage='
-	git/export [query]
+	git/export [-o patchdir] [query]
 '
 
 gitup
+ramfs
+
+stdout='true'
+patchdir='.'
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -o
+		stdout='false'
+		shift; patchdir=$1
+		if(! test -d $patchdir)
+			mkdir -p $patchdir
+	}
+	shift
+}
+if(~ $1 --)
+	shift
 
 q=$*
 if(~ $#q 0)
@@ -39,14 +55,22 @@ for(c in $commits){
 				patch = "[PATCH]"
 			printf "Subject: %s", patch
 			for(i = 1; i <= NF; i++)
-				printf " %s", $i
-			printf "\n\n"
+				msg = msg " " $i
+			printf "%s\n\n", msg
+			
+			gsub("^[ 	]|[ 	]$", "", msg)
+			gsub("[/ 	]", "-", msg)
+			printf "%.4d-%s.patch", n, msg >"/tmp/patchname"
 			next
 		}
 		{print; printf "\n"}'
 		ape/diff -urN a b
+	} >/tmp/patchfile
+	if(~ $stdout true){
+		cat /tmp/patchfile
+		! ~ $n $m && echo
 	}
-	if(! ~ $n $m)
-		echo
+	if not
+		mv /tmp/patchfile $patchdir/`{cat /tmp/patchname}
 	n=`{echo $n + 1 | bc}
 }
