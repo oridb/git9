@@ -15,8 +15,11 @@ fn update{
 	upstream=$2
 	url=$3
 	dir=$4
-	
-	{git/fetch -b $branch -u $upstream $url >[2=3] || die $status} | awk '
+	bflag=()
+	if(~ $#branch)
+		bflag=(-b $branch)
+	echo git/fetch $branch -u $upstream $url
+	{git/fetch $bflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -52,6 +55,8 @@ while(~ $1 -*){
 	case -b
 		branch=$2
 		shift
+	case -a
+		branch=()
 	case -f
 		checkout=()
 	case -i
@@ -84,8 +89,15 @@ if(~ `{git/query HEAD $remote @} `{git/query $remote}){
 }
 # The remote repository and our HEAD have diverged: we
 # need to merge.
-if(! ~ `{git/query HEAD $remote @} `{git/query HEAD})
-	die 'remote diverged:' $remote
+if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
+	>[1=2]{
+		echo remote diverged: $remote
+		echo ours:	`{git/query HEAD}
+		echo theirs:	`{git/query $remote}
+		echo common:	`{git/query HEAD $remote @}
+	}
+	exit diverged
+}
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
 echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
