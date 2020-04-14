@@ -91,10 +91,10 @@ if(~ `{git/query HEAD $remote @} `{git/query $remote}){
 # need to merge.
 if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 	>[1=2]{
-		echo remote diverged: $remote
 		echo ours:	`{git/query HEAD}
 		echo theirs:	`{git/query $remote}
 		echo common:	`{git/query HEAD $remote @}
+		echo git/merge $remote
 	}
 	exit diverged
 }
