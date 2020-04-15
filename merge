@@ -39,6 +39,8 @@ base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
 
 if(~ $base $ours || ~ $base $theirs)
 	die 'nothing to merge, doofus'
+if(! git/walk -q)
+	die 'dirty work tree, refusing to merge'
 echo $ours >> .git/index9/merge-parents
 echo $theirs >> .git/index9/merge-parents
 
