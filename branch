@@ -5,7 +5,7 @@ rfork en
 usage='
 	git/branch [-cdsu] [-b base] [branch]
 		-b base   base new branch on "base" (default: current branch)
-		-c        clobber or create branch
+		-n        create new branch, or overwrite existing branch
 		-d        delete branch
 		-s        create branch but stay on current one
 '
@@ -13,18 +13,20 @@ usage='
 gitup
 
 stay=()
-create=()
+newbr=()
 delete=()
 baseref=()
 modified=()
 deleted=()
+listall=()
 
 while(~ $1 -* && ! ~ $1 --){
 	switch($1){
-	case -c; create=true
+	case -n; newbr=true
 	case -s; stay=true
 	case -b; baseref=$2; shift
 	case -d; delete=true
+	case -a; listall=true
 	case *
 		usage
 	}
@@ -34,7 +36,10 @@ if(~ $1 --)
 	shift
 
 if(~ $#* 0){
-	awk '$1=="branch"{print $2}' < /mnt/git/ctl
+	if(~ $#listall 0)
+		awk '$1=="branch"{print $2}' < /mnt/git/ctl
+	if not
+		cd .git/refs/ && walk -f heads remotes
 	exit
 }
 if(! ~ $#* 1)
@@ -46,8 +51,11 @@ if not if(~ $1 heads/*)
 	new=refs/$1
 if not
 	new=refs/heads/$1
-if (~ $#baseref 1)
+if (~ $#baseref 1){
 	base=`{git/query $baseref}
+	if(! ~ $status '')
+		exit badbase
+}
 if not if(test -e .git/$new)
 	base=`{git/query $new}
 if not
@@ -66,7 +74,7 @@ if(! ~ $#delete 0){
 	rm -f .git/$new
 	exit
 }
-if(~ $#create 0){
+if(~ $#newbr 0){
 	if(! test -e .git/$new)
 		die could not find branch $1
 	if(! ~ $#baseref 0)

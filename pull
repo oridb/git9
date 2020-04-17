@@ -37,7 +37,7 @@ gitup
 
 branch=refs/`{git/branch}
 remote=()
-incoming=()
+incoming=true
 checkout='true'
 upstream=origin
 
@@ -58,8 +58,8 @@ while(~ $1 -*){
 		branch=''
 	case -f
 		checkout=()
-	case -i
-		incoming=true
+	case -q
+		incoming=()
 	case *
 		usage
 	}
@@ -99,7 +99,8 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 }
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
-echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
 if(! ~ $#incoming 0)
-	git/log -q $local'..'$remote
-git/branch -c -b $remote $local
+	git/log -s -e $local'..'$remote >[1=2]
+echo
+echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
+git/branch -n -b $remote $local

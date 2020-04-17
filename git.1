@@ -14,6 +14,9 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .PP
 .B git/branch
 [
+.B -a
+]
+[
 .B -b
 .I base
 ]
@@ -47,6 +50,9 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 [
 .B -c
 .I branch
+]
+[
+.B -a
 ]
 [
 .B -s
@@ -104,6 +110,12 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .B git/pull
 [
 .B -f
+]
+[
+.B -q
+]
+[
+.B -a
 ]
 [
 .B -u
@@ -245,21 +257,9 @@ instead of the configured origin.
 
 
 .PP
-Git/fs serves the following directories:
-
-.TP
-/mnt/git/object
-The objects in the repo.
-.TP
-/mnt/git/branch
-The branches and tags in the repo.
-.TP
-/mnt/git/ctl
-A file showing the status of the repo.
-Currently, it only shows the current branch.
-.TP
-/mnt/git/HEAD
-An alias for the currently checked out commit directory.
+Git/fs serves a file system on /mnt/git.
+For full documentation, see
+.I gitfs(4)
 
 .PP
 .B Git/add
@@ -274,7 +274,12 @@ creates a new commit which updates the files passed.
 
 .PP
 .B Git/branch
-is used to switch between branches.
+is used to list or switch branches.
+When invoked with no arguments, it lists the current branch.
+To list all branches, pass the
+.I -a
+option.
+To switch between branches, pass a branch name.
 When passed the
 .I -c
 option, the branch will be created if it does not yet exist.
@@ -300,9 +305,9 @@ The
 .I -s
 option shows a summary of the commit, instead of the full message.
 The
-.I -q query
-option shows commits matching the query provided. The query
-is specified using the syntax of
+.I -e expr
+option shows commits matching the query expression provided.
+The expression is in the syntax of
 .B git/query.
 
 .PP

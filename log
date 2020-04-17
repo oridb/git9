@@ -3,14 +3,14 @@ rfork en
 . /sys/lib/git/common.rc
 
 usage='
-	git/log [-q query|-c commit] [-s] [file ...]
+	git/log [-e expr|-c commit] [-s] [file ...]
 '
 
 gitup
 
 base=/mnt/git/object/
 branch=`{git/branch}
-query=()
+expr=()
 short=()
 files=()
 while(~ $1 -* && ! ~ $1 --){
@@ -18,8 +18,8 @@ while(~ $1 -* && ! ~ $1 --){
 	case -c
 		base=$2
 		shift
-	case -q
-		query=$2
+	case -e
+		expr=$2
 		shift
 	case -s
 		short=true
@@ -30,10 +30,10 @@ while(~ $1 -* && ! ~ $1 --){
 }
 if(~ $1 --)
 	shift
-if(~ $#query 0)
+if(~ $#expr 0)
 	commits=`{git/query $branch}
 if not
-	commits=`{git/query $query}
+	commits=`{git/query $expr}
 
 if(! ~ $#* 0)
 	files=`"{walk -f $gitrel/^$* | subst '^\./' | sort}
@@ -48,7 +48,7 @@ while(! ~ $#commits 0){
 			show=true
 	}
 	commits=$commits(2-)
-	if(~ $#query 0)
+	if(~ $#expr 0)
 		commits=($commits `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`$nl{walk -emp -n0 $base^$commits | sort -rn | uniq | awk -F/ '{print $NF}'}
