@@ -1,7 +1,7 @@
 .TH GIT 1
 .SH NAME
 git, git/conf, git/query, git/walk, git/clone, git/branch,
-git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
+git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull, git/rm
 \- Manage git repositories.
 
 .SH SYNOPSIS
@@ -10,6 +10,8 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 [
 .B -r
 ]
+.I path...
+.B git/rm
 .I path...
 .PP
 .B git/branch
@@ -267,6 +269,10 @@ adds a file to the list of tracked files. When passed the
 .I -r
 flag, the file is removed from the list of tracked files.
 The copy of the file in the repository is left untouched.
+.PP
+.B Git/rm
+is an alias for
+.I git/add.
 
 .PP
 .B Git/commit
