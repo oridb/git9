@@ -65,3 +65,4 @@ while(! ~ $#commits 0){
 		}
 	}
 }
+exit
