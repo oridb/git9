@@ -1,4 +1,4 @@
-#!/bin/rc
+#!/bin/rc -e
 rfork ne
 . /sys/lib/git/common.rc
 
@@ -37,11 +37,18 @@ theirs=`{git/query $1}
 ours=`{git/query HEAD}
 base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
 
-if(~ $base $ours || ~ $base $theirs)
+if(~ $base $theirs)
 	die 'nothing to merge, doofus'
 if(! git/walk -q)
 	die 'dirty work tree, refusing to merge'
+if(~ $base $ours){
+	>[1=2] echo 'fast forwarding...'
+	echo $theirs > .git/refs/`{git/branch}
+	git/revert .
+	exit ''
+}
 echo $ours >> .git/index9/merge-parents
 echo $theirs >> .git/index9/merge-parents
 
 merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
+>[1=2] echo 'merge complete: remember to commit'
