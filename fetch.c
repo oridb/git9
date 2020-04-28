@@ -7,6 +7,7 @@ Object *indexed;
 char *fetchbranch;
 char *upstream = "origin";
 char *packtmp = ".git/objects/pack/fetch.tmp";
+int listonly;
 
 int
 resolveremote(Hash *h, char *ref)
@@ -174,6 +175,10 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 		print("remote %s %H local %H\n", sp[1], want[nref], have[nref]);
 		nref++;
 	}
+	if(listonly){
+		flushpkt(c);
+		return 0;
+	}
 
 	if(writephase(c) == -1)
 		sysfatal("write: %r");
@@ -259,6 +264,7 @@ main(int argc, char **argv)
 	case 'b':	fetchbranch=EARGF(usage());	break;
 	case 'u':	upstream=EARGF(usage());	break;
 	case 'd':	chattygit++;			break;
+	case 'l':	listonly++;			break;
 	default:	usage();			break;
 	}ARGEND;
 
