@@ -14,8 +14,7 @@ Git/fs implements a git client for plan 9.  The intent is to support
 working with git repositories, without cloning the git interface
 directly.
 
-Git/fs is usable, but not battle tested. It works for me, and covers
-the features I need on a daily basis.
+Git/fs is my daily driver. It's solid, and works well for my needs.
 
 Getting Started
 ---------------
@@ -164,7 +163,6 @@ The following utilities and binaries are provided:
 	log:	Prints the contents of a commmit log.
 	add:	Tells the repository to add a file to the next commit.
 	walk:	`du`, but for git status.
-
 
 Supported protocols: git:// and git+ssh://. If someone
 implements others, I'll gladly accept patches.
