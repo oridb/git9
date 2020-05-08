@@ -98,3 +98,4 @@ if(! ~ $#* 0)
 	patches=$*
 for(f in $patches)
 	apply < $f || die $status 
+exit ''

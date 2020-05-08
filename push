@@ -65,3 +65,4 @@ for(ln in $updates){
 		echo $u(2)^': up to date'
 	}
 }
+exit ''

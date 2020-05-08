@@ -48,3 +48,4 @@ mkdir -p $dir/$sub/refs/remotes
 	echo '	remote = origin'
 	echo '	merge = refs/heads/master' 
 }
+exit ''

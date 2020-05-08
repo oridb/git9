@@ -116,3 +116,4 @@ if(! ~ $#deleted 0){
 }
 
 echo ref: $new > .git/HEAD
+exit ''

@@ -74,3 +74,4 @@ for(c in $commits){
 		mv /tmp/patchfile $patchdir/`{cat /tmp/patchname}
 	n=`{echo $n + 1 | bc}
 }
+exit ''

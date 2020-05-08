@@ -104,3 +104,4 @@ if(! ~ $#incoming 0)
 echo
 echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
 git/branch -n -b $remote $local
+exit ''

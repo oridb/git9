@@ -27,3 +27,4 @@ for(f in `$nl{cd $commit/tree/ && walk -f ./$gitrel/$*}){
 	mkdir -p `{basename -d $f}
 	cp -- $commit/tree/$f $f
 }
+exit ''

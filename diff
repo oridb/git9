@@ -39,3 +39,4 @@ for(f in $dirty){
 		f=/dev/null
 	ape/diff -up $orig $f
 }
+exit ''

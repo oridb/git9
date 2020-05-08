@@ -45,3 +45,4 @@ for(f in $files){
 		rm -f $delpath
 	}
 }
+exit ''

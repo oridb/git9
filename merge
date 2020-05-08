@@ -52,3 +52,4 @@ echo $theirs >> .git/index9/merge-parents
 
 merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
 >[1=2] echo 'merge complete: remember to commit'
+exit ''

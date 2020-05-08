@@ -145,3 +145,4 @@ if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)
 	commit
 	update
 } || die 'could not commit:' $status
+exit ''
