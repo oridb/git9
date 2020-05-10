@@ -53,7 +53,7 @@ clear(Object *o)
 	free(o->all);
 	o->all = nil;
 	o->data = nil;
-	o->flag &= ~Cloaded;
+	o->flag &= ~(Cloaded|Cparsed);
 }
 
 void
@@ -371,8 +371,10 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 		goto error;
 	if((b = readidxobject(f, h, flag)) == nil)
 		goto error;
+	ref(b);
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
+	unref(b);
 	free(d);
 	return 0;
 error:
@@ -457,7 +459,6 @@ readpacked(Biobuf *f, Object *o, int flag)
 	case GTag:
 	case GBlob:
 		b.sz = 64 + l;
-
 		b.data = emalloc(b.sz);
 		n = snprint(b.data, 64, "%T %lld", t, l) + 1;
 		b.len = n;
@@ -815,7 +816,6 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	vlong o;
 	Dir *d;
 
-	USED(idx);
 	if((obj = osfind(&objcache, h)) != nil){
 		if(obj->flag & Cloaded)
 			return obj;
@@ -831,13 +831,14 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			cache(obj);
 			return obj;
 		}
+		print("reloading %H\n", h);
+	}else{
+		obj = emalloc(sizeof(Object));
+		obj->id = objcache.nobj + 1;
+		obj->hash = h;
 	}
 
 	d = nil;
-	obj = emalloc(sizeof(Object));
-	obj->id = objcache.nobj + 1;
-	obj->hash = h;
-
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
