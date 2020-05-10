@@ -831,7 +831,6 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			cache(obj);
 			return obj;
 		}
-		print("reloading %H\n", h);
 	}else{
 		obj = emalloc(sizeof(Object));
 		obj->id = objcache.nobj + 1;
