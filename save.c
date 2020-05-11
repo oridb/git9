@@ -18,7 +18,7 @@ int
 gitmode(int m)
 {
 	if(m & DMDIR)		/* directory */
-		return 0040755;
+		return 0040000;
 	else if(m & 0111)	/* executable */
 		return 0100755;
 	else if(m != 0)		/* regular */
