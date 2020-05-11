@@ -3,7 +3,6 @@
 
 #include "git.h"
 
-Object *indexed;
 char *fetchbranch;
 char *upstream = "origin";
 char *packtmp = ".git/objects/pack/fetch.tmp";
