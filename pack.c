@@ -62,7 +62,7 @@ unref(Object *o)
 	if(!o)
 		return;
 	o->refs--;
-	if(!o->refs)
+	if(o->refs == 0)
 		clear(o);
 }
 
@@ -371,10 +371,8 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 		goto error;
 	if((b = readidxobject(f, h, flag)) == nil)
 		goto error;
-	ref(b);
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
-	unref(b);
 	free(d);
 	return 0;
 error:
@@ -976,19 +974,22 @@ indexpack(char *pack, char *idx, Hash ph)
 			}
 			if(i % step == 0)
 				fprint(2, ".");
-			if(!objects[i]){
+			if(objects[i] == nil){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
 				objects[i] = o;
 			}
 			o = objects[i];
 			Bseek(f, o->off, 0);
-			if (readpacked(f, o, Cidx) == 0){
-				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
-				cache(o);
-				valid[i] = 1;
-				n++;
+			if (readpacked(f, o, Cidx) == -1){
+				objects[i] = nil;
+				free(o);
+				continue;
 			}
+			sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
+			valid[i] = 1;
+			cache(o);
+			n++;
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
