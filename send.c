@@ -217,7 +217,6 @@ iter:
 		n = q->next;
 		free(q);
 	}
-	fprint(2, "\n");
 
 	st = nil;
 	PUTBE32(buf, send.nobj);
