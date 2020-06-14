@@ -43,7 +43,7 @@ showroot(void)
 	if((getwd(path, sizeof(path))) == nil)
 		sysfatal("could not get wd: %r");
 	while((p = strrchr(path, '/')) != nil){
-		snprint(buf, sizeof(buf), "%s/.git", path);
+		snprint(buf, sizeof(buf), "%s/.git/HEAD", path);
 		if(access(buf, AEXIST) == 0){
 			print("%s\n", path);
 			return;
