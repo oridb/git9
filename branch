@@ -3,10 +3,11 @@ rfork en
 . /sys/lib/git/common.rc
 
 usage='
-	git/branch [-cdsu] [-b base] [branch]
+	git/branch [-adns] [-b base] [branch]
+		-a        list all branches
 		-b base   base new branch on "base" (default: current branch)
-		-n        create new branch, or overwrite existing branch
 		-d        delete branch
+		-n        create new branch, or overwrite existing branch
 		-s        create branch but stay on current one
 '
 
