@@ -938,7 +938,7 @@ int
 indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
-	int nobj, nvalid, nbig, n, i, step;
+	int nobj, nvalid, nbig, n, i, pcnt, x;
 	Object *o, **objects;
 	DigestState *st;
 	char *valid;
@@ -961,19 +961,21 @@ indexpack(char *pack, char *idx, Hash ph)
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
-	step = nobj/100;
-	if(!step)
-		step++;
 	while(nvalid != nobj){
-		fprint(2, "indexing (%d/%d):", nvalid, nobj);
+		fprint(2, "indexing %d objects:   0%%", nobj-nvalid);
 		n = 0;
+		pcnt = 0;
 		for(i = 0; i < nobj; i++){
 			if(valid[i]){
 				n++;
 				continue;
 			}
-			if(i % step == 0)
-				fprint(2, ".");
+			x = (i*100) / nobj;
+			if(x > pcnt){
+				pcnt = x;
+				if(pcnt%10 == 0)
+					fprint(2, "\b\b\b\b%3d%%", pcnt);
+			}
 			if(objects[i] == nil){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
@@ -993,7 +995,7 @@ indexpack(char *pack, char *idx, Hash ph)
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
-		fprint(2, "\n");
+		fprint(2, "\b\b\b\b100%%\n");
 		if(n == nvalid){
 			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
