@@ -54,16 +54,6 @@ install:V:
 uninstall:V:
 	rm -rf $BIN /sys/lib/git
 
-%.c %.h: %.y
-	$YACC $YFLAGS -D1 -d -s $stem $prereq
-	mv $stem.tab.c $stem.c
-	mv $stem.tab.h $stem.h
-
-%.c %.h: %.y
-	$YACC $YFLAGS -D1 -d -s $stem $prereq
-	mv $stem.tab.c $stem.c
-	mv $stem.tab.h $stem.h
-
 %.rcinstall:V:
 	cp $stem $BIN/$stem
 	chmod +x $BIN/$stem
