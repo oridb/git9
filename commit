@@ -80,7 +80,7 @@ fn editmsg{
 
 fn parents{
 	if(test -f .git/index9/merge-parents)
-		parents=`{cat .git/index9/merge-parents}
+		parents=`{cat .git/index9/merge-parents | sort | uniq}
 	if not if(~ $initial true)
 		parents=()
 	if not
