@@ -887,6 +887,9 @@ error:
 	return nil;
 }
 
+/*
+ * Loads and returns a cached object.
+ */
 Object*
 readobject(Hash h)
 {
@@ -895,6 +898,30 @@ readobject(Hash h)
 	o = readidxobject(nil, h, 0);
 	if(o)
 		ref(o);
+	return o;
+}
+
+/*
+ * Creates and returns a cached, cleared object
+ * that will get loaded some other time. Useful
+ * for performance if need to mark that a blob
+ * exists, but we don't care about its contents.
+ *
+ * The refcount of the returned object is 0, so
+ * it doesn't need to be unrefed.
+ */
+Object*
+clearedobject(Hash h, int type)
+{
+	Object *o;
+
+	if((o = osfind(&objcache, h)) != nil)
+		return o;
+
+	o = emalloc(sizeof(Object));
+	o->hash = h;
+	o->type = type;
+	osadd(&objcache, o);
 	return o;
 }
 

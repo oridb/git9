@@ -238,7 +238,7 @@ unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int 
 
 	for(i = nobj; i >= 0; i--){
 		idx[i]++;
-		if(keep && !oshas(set, obj[i])){
+		if(keep && !oshas(set, obj[i]->hash)){
 			push(ev, obj[i]);
 			osadd(set, obj[i]);
 		}else{
@@ -284,10 +284,10 @@ range(Eval *ev)
 		else if(p->commit->nparent == 0)
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		else if(oshas(&keep, p))
+		else if(oshas(&keep, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		else if(oshas(&skip, p))
+		else if(oshas(&skip, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
 		if(p->commit->nparent == 0)
@@ -444,4 +444,47 @@ resolveref(Hash *r, char *ref)
 	}
 	*r = ev.stk[0]->hash;
 	return 0;
+}
+
+int
+readrefdir(Hash **refs, int *nrefs, char *dpath, char *dname)
+{
+	Dir *d, *e, *dir;
+	char *path, *name;
+	int ndir;
+
+	if((ndir = slurpdir(dpath, &dir)) == -1)
+		return -1;
+	e = dir + ndir;
+	for(d = dir; d != e; d++){
+		path = smprint("%s/%s", dpath, d->name);
+		name = smprint("%s/%s", dname, d->name);
+		if(d->mode & DMDIR) {
+			if(readrefdir(refs, nrefs, path, name) == -1)
+				goto nextiter;
+		}else{
+			*refs = erealloc(*refs, (*nrefs + 1)*sizeof(Hash));
+			if(resolveref(*refs + *nrefs, name) == -1)
+				goto nextiter;
+			*nrefs += 1;
+		}
+nextiter:		
+		free(name);
+		free(path);
+	}
+	return 0;
+}
+
+int
+listrefs(Hash **refs)
+{
+	int nrefs;
+
+	*refs = nil;
+	nrefs = 0;
+	if(readrefdir(refs, &nrefs, ".git/refs", "") == -1){
+		free(*refs);
+		return -1;
+	}
+	return nrefs;
 }

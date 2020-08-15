@@ -60,7 +60,7 @@ osfind(Objset *s, Hash h)
 }
 
 int
-oshas(Objset *s, Object *o)
+oshas(Objset *s, Hash h)
 {
-	return osfind(s, o->hash) != nil;
+	return osfind(s, h) != nil;
 }

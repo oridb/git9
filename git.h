@@ -6,6 +6,7 @@
 
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
+typedef struct Delta	Delta;
 typedef struct Cinfo	Cinfo;
 typedef struct Tinfo	Tinfo;
 typedef struct Object	Object;
@@ -99,6 +100,12 @@ struct Dirent {
 	char islink;
 };
 
+struct Delta {
+	int	cpy;
+	int	off;
+	int	len;
+};
+
 struct Object {
 	/* Git data */
 	Hash	hash;
@@ -122,6 +129,7 @@ struct Object {
 	/* size excludes header */
 	vlong	size;
 
+	/* Significant win on memory use */
 	union {
 		Cinfo *commit;
 		Tinfo *tree;
@@ -221,8 +229,10 @@ void gitinit(void);
 /* object io */
 int	resolverefs(Hash **, char *);
 int	resolveref(Hash *, char *);
+int	listrefs(Hash **);
 Object	*ancestor(Object *, Object *);
 Object	*readobject(Hash);
+Object	*clearedobject(Hash, int);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
 int	hasheq(Hash *, Hash *);
@@ -234,7 +244,7 @@ Object	*emptydir(void);
 /* object sets */
 void	osinit(Objset *);
 void	osadd(Objset *, Object *);
-int	oshas(Objset *, Object *);
+int	oshas(Objset *, Hash);
 Object	*osfind(Objset *, Hash);
 
 /* object listing */
@@ -251,6 +261,9 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
+
+/* packing */
+Delta*	deltify(void*, int, void *, int, int *, int *);
 
 /* proto handling */
 int	readpkt(Conn*, char*, int);

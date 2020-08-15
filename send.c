@@ -56,7 +56,7 @@ pack(Objset *send, Objset *skip, Object *o)
 	Object *s;
 	int i;
 
-	if(oshas(send, o) || oshas(skip, o))
+	if(oshas(send, o->hash) || oshas(skip, o->hash))
 		return;
 	osadd(send, o);
 	switch(o->type){
@@ -203,7 +203,7 @@ writepack(Conn *c, Update *upd, int nupd)
 		e = n;
 	for(; q; q = n){
 		o = q->obj;
-		if(oshas(&skip, o) || oshas(&send, o))
+		if(oshas(&skip, o->hash) || oshas(&send, o->hash))
 			goto iter;
 		pack(&send, &skip, o);
 		for(i = 0; i < o->commit->nparent; i++){
