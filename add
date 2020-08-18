@@ -2,32 +2,20 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/add [-r] file ...
-		-r        remove file
-'
-
 gitup
+
+flagfmt='r:remove'; args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
 
 add='tracked'
 del='removed'
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -r
-		add='removed'
-		del='tracked'
-	case *
-		usage
-	}
-	shift
+if(~ $remove 1){
+	add='removed'
+	del='tracked'
 }
-if(~ $1 --)
-	shift
 if(~ $#* 0)
-	usage
+	exec aux/usage
 
-if(~ $#rel 0)
-	rel=''
 if(~ $add tracked)
 	files=`$nl{walk -f $gitrel/$*}
 if not

@@ -2,27 +2,19 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/export [-o patchdir] [query]
-'
+patchname=/tmp/git.patchname.$pid
+patchfile=/tmp/git.patchfile.$pid
+fn sigexit{
+	rm -f $patchname $patchfile
+}
 
 gitup
-ramfs
 
-stdout='true'
-patchdir='.'
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -o
-		stdout='false'
-		shift; patchdir=$1
-		if(! test -d $patchdir)
-			mkdir -p $patchdir
-	}
-	shift
-}
-if(~ $1 --)
-	shift
+flagfmt='o:patchdir patchdir'; args='[query]'
+eval `''{aux/getflags $*} || exec aux/usage
+
+if(~ $#patchdir 1 && ! test -d $patchdir)
+	mkdir -p $patchdir
 
 q=$*
 if(~ $#q 0)
@@ -60,18 +52,18 @@ for(c in $commits){
 			
 			gsub("^[ 	]|[ 	]$", "", msg)
 			gsub("[/ 	]", "-", msg)
-			printf "%.4d-%s.patch", n, msg >"/tmp/patchname"
+			printf "%.4d-%s.patch", n, msg >ENVIRON["patchname"]
 			next
 		}
 		{print; printf "\n"}'
 		ape/diff -urN a b
-	} >/tmp/patchfile
-	if(~ $stdout true){
-		cat /tmp/patchfile
+	} >$patchfile
+	if(~ $#patchdir 0){
+		cat $patchfile
 		! ~ $n $m && echo
 	}
 	if not
-		mv /tmp/patchfile $patchdir/`{cat /tmp/patchname}
+		mv $patchfile $patchdir/`{cat $patchname}
 	n=`{echo $n + 1 | bc}
 }
 exit ''

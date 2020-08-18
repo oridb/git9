@@ -2,26 +2,14 @@
 rfork e
 . /sys/lib/git/common.rc
 
-usage='
-	git/revert [-c query] file...
-		-c        revert to commit "query" (default: HEAD)
-'
-
 gitup
 
+flagfmt='c:query query' args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
+
 commit=/mnt/git/HEAD
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -c;
-		commit=`{git/query -p $2}
-		shift
-	case *;
-		usage
-	}
-	shift
-}
-if(~ $#* 0)
-	usage
+if(~ $#query 1)
+	commit=`{git/query -p $commit}
 
 for(f in `$nl{cd $commit/tree/ && walk -f ./$gitrel/$*}){
 	mkdir -p `{basename -d $f}

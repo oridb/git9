@@ -2,53 +2,32 @@
 rfork en
 . /sys/lib/git/common.rc
 
-usage='
-	git/push [-a] [-u upstream] [-b branch] [-r branch]
-		-a       push all branches
-		-b       push branch "branch" (default: current branch)
-		-r       delete branch "branch" from upstream
-		-u       push to remote "upstream" (default: origin)
-'
-
 gitup
 
-remote=()
-sendall=''
-remove=()
-force=()
-upstream='origin'
-branch=-b`{git/branch}
-while(~ $1 -*){
-	switch($1){
-	case -u
-		shift
-		upstream=$1
-	case -a
-		branch=-b`$nl{cd .git/refs/heads && walk -f}
-	case -b
-		shift
-		branch=(-b$1 $branch)
-	case -r
-		shift
-		remove=(-r$1 $remove);
-	case -f
-		force=-f
-	case *
-		usage
-	}
-	shift
-}
-
+flagfmt='a:pushall, b:branch branch, f:force,
+         r:remove remove, u:upstream upstream' args=''
+eval `''{aux/getflags $*} || exec aux/usage
 if(! ~ $#* 0)
-	usage
-if(~ $#remote 0)
-	remote=`{git/conf 'remote "'$upstream'".url'}
-if(~ $#remote 0)
-	remote=$upstream
-if(~ $#remote 0)
-	die 'no idea where to push'
+	exec aux/usage
+
+if(~ $pushall 1)
+	branch=`$nl{cd .git/refs/heads && walk -f}
+if(~ $#branch 0)
+	branch=`{git/branch}
 if(~ $#branch 0)
 	die 'no branches'
+if(~ $force 1)
+	force=-f
+
+if(~ $#upstream 0)
+	upstream=origin
+
+remote=`{git/conf 'remote "'$upstream'".url'}
+if(~ $#remote 0)
+	remote=$upstream
+branch=-b^$branch
+if(! ~ $#remove 0)
+	remove=-r^$remove
 updates=`$nl{git/send $force $branch $remove $remote || die $status}
 for(ln in $updates){
 	u=`{echo $ln}
