@@ -6,6 +6,7 @@ TARG=\
 	fetch\
 	fs\
 	query\
+	repack\
 	save\
 	send\
 	walk
@@ -27,6 +28,7 @@ RC=\
 	rm
 
 OFILES=\
+	delta.$O\
 	objset.$O\
 	ols.$O\
 	pack.$O\

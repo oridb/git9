@@ -312,10 +312,6 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 
 	while(d != ed){
 		c = *d++;
-		if(!c){
-			werrstr("bad delta encoding");
-			return -1;
-		}
 		/* copy from base */
 		if(c & 0x80){
 			o = 0;
@@ -446,6 +442,10 @@ readpacked(Biobuf *f, Object *o, int flag)
 			return -1;
 		l |= (c & 0x7f) << s;
 		s += 7;
+	}
+	if(l >= (1ULL << 32)){
+		werrstr("object too big");
+		return -1;
 	}
 
 	switch(t){

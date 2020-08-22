@@ -131,8 +131,8 @@ struct Object {
 
 	/* Significant win on memory use */
 	union {
-		Cinfo *commit;
-		Tinfo *tree;
+		Cinfo	*commit;
+		Tinfo	*tree;
 	};
 };
 
@@ -210,10 +210,11 @@ struct Objset {
 #define isblank(c) \
 	(((c) != '\n') && isspace(c))
 
-extern Reprog *authorpat;
-extern Objset objcache;
-extern Hash Zhash;
-extern int chattygit;
+extern Reprog	*authorpat;
+extern Objset	objcache;
+extern Hash	Zhash;
+extern int	chattygit;
+extern int	debug;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int
@@ -253,6 +254,7 @@ int	olsnext(Objlist *, Hash *);
 void	olsfree(Objlist *);
 
 /* util functions */
+int	dprint(char *, ...);
 void	*emalloc(ulong);
 void	*erealloc(void *, ulong);
 char	*estrdup(char *);
@@ -263,7 +265,7 @@ int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 
 /* packing */
-Delta*	deltify(void*, int, void *, int, int *, int *);
+Delta*	deltify(void*, int, void *, int, int *);
 
 /* proto handling */
 int	readpkt(Conn*, char*, int);

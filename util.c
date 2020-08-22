@@ -6,6 +6,7 @@
 
 Reprog *authorpat;
 Hash Zhash;
+int debug;
 
 Object*
 emptydir(void)
@@ -241,4 +242,18 @@ strip(char *s)
 	while(e > s && isspace(*--e))
 		*e = 0;
 	return s;
+}
+
+int
+dprint(char *fmt, ...)
+{
+	va_list ap;
+	int n;
+
+	if(!debug)
+		return 0;
+	va_start(ap, fmt);
+	n = vfprint(2, fmt, ap);
+	va_end(ap);
+	return n;
 }
