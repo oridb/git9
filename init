@@ -2,35 +2,17 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/init [-b] [-u upstream] name
-		-b        init bare repository
-		-u        set remote "origin" to upstream
-'
+flagfmt='b:bare, u:upstream upstream'; args='name'
+eval `''{aux/getflags $*} || exec aux/usage
 
-sub='/.git'
-upstream=()
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -b
-		sub=''
-	case -u
-		upstream=$2
-		shift
-	case *
-		usage
-	}
-	shift
-}
-if(~ $1 --)
-	shift
+~ $bare 1 && sub='' || sub='/.git'
 
-if (~ $#* 0)
+if(~ $#* 0)
 	dir=.
 if not if(~ $#* 1)
 	dir=$1
 if not
-	usage
+	exec aux/usage
 
 if(test -e $dir$sub)
 	die $dir$sub already exists
