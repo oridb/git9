@@ -4,12 +4,12 @@ rfork en
 
 gitup
 
-flagfmt='e:expr expression, c:base commit, s:short'; args='file ...'
+flagfmt='e:expr expression, c:branch commit, s:short'; args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 
-if(~ $#base 0)
-	base=/mnt/git/object/
-branch=`{git/branch}
+base=/mnt/git/object/
+if(~ $#branch 0)
+	branch=`{git/branch}
 if(~ $#expr 0)
 	commits=`{git/query $branch}
 if not
