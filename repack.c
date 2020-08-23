@@ -98,7 +98,7 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 		return 0;
 	if((t = readobject(tree)) == nil)
 		return -1;
-//	osadd(has, t);
+	osadd(has, t);
 	addmeta(m, nm, t->type, t->hash, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
@@ -110,11 +110,10 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 		o = clearedobject(e->h, k);
 		p = smprint("%s/%s", dpath, e->name);
 		addmeta(m, nm, k, o->hash, p, mtime);
-//		if(k == GBlob)
-//			osadd(has, o);
-		if(k == GTree && loadtree(m, nm, e->h, p, mtime, has) == -1)
+		if(k == GBlob)
+			osadd(has, o);
+		else if(loadtree(m, nm, e->h, p, mtime, has) == -1)
 			return -1;
-		osadd(has, o);
 	}
 	unref(t);
 	return 0;
