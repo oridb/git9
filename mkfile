@@ -9,6 +9,7 @@ TARG=\
 	repack\
 	save\
 	send\
+	serve\
 	walk
 
 RC=\

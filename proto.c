@@ -286,6 +286,14 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 	return 0;
 }
 
+void
+initconn(Conn *c, int rd, int wr)
+{
+	c->type = ConnRaw;
+	c->rfd = rd;
+	c->wfd = wr;
+}
+
 int
 writephase(Conn *c)
 {
@@ -337,7 +345,6 @@ closeconn(Conn *c)
 	close(c->wfd);
 	switch(c->type){
 	case ConnRaw:
-
 		break;
 	case ConnSsh:
 		free(wait());

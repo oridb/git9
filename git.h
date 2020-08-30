@@ -230,12 +230,14 @@ void gitinit(void);
 /* object io */
 int	resolverefs(Hash **, char *);
 int	resolveref(Hash *, char *);
-int	listrefs(Hash **);
+int	listrefs(Hash **, char ***);
 Object	*ancestor(Object *, Object *);
+int	findtwixt(Hash *, int, Hash *, int, Object ***, int *);
 Object	*readobject(Hash);
 Object	*clearedobject(Hash, int);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
+int	writepack(int, Object **, int, Hash*);
 int	hasheq(Hash *, Hash *);
 Object	*ref(Object *);
 void	unref(Object *);
@@ -244,6 +246,7 @@ Object	*emptydir(void);
 
 /* object sets */
 void	osinit(Objset *);
+void	osclear(Objset *);
 void	osadd(Objset *, Object *);
 int	oshas(Objset *, Hash);
 Object	*osfind(Objset *, Hash);
@@ -254,7 +257,7 @@ int	olsnext(Objlist *, Hash *);
 void	olsfree(Objlist *);
 
 /* util functions */
-int	dprint(char *, ...);
+void	dprint(int, char *, ...);
 void	*emalloc(ulong);
 void	*erealloc(void *, ulong);
 char	*estrdup(char *);
@@ -272,6 +275,7 @@ int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
 int	flushpkt(Conn*);
 int	parseuri(char *, char *, char *, char *, char *, char *);
+void	initconn(Conn*, int, int);
 int	dialssh(Conn*, char *, char *, char *, char *);
 int	dialgit(Conn*, char *, char *, char *, char *);
 int	dialhttp(Conn*, char *, char *, char *, char *);

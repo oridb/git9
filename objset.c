@@ -13,7 +13,7 @@ osinit(Objset *s)
 }
 
 void
-osfree(Objset *s)
+osclear(Objset *s)
 {
 	free(s->obj);
 }

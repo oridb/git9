@@ -156,7 +156,7 @@ writeobject(int fd, Object *o, DigestState **st)
 }
 
 int
-writepack(Conn *c, Update *upd, int nupd)
+writepackdata(Conn *c, Update *upd, int nupd)
 {
 	Objset send, skip;
 	Object *o, *p;
@@ -372,7 +372,7 @@ sendpack(Conn *c)
 	if(send){
 		if(chattygit)
 			fprint(2, "sending pack...\n");
-		if(writepack(c, upd, nupd) == -1)
+		if(writepackdata(c, upd, nupd) == -1)
 			return -1;
 
 		if(readphase(c) == -1)

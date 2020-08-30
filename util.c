@@ -244,16 +244,15 @@ strip(char *s)
 	return s;
 }
 
-int
-dprint(char *fmt, ...)
+void
+dprint(int v, char *fmt, ...)
 {
 	va_list ap;
 	int n;
 
-	if(!debug)
-		return 0;
+	if(v >= debug)
+		return;
 	va_start(ap, fmt);
 	n = vfprint(2, fmt, ap);
 	va_end(ap);
-	return n;
 }
