@@ -83,8 +83,7 @@ grab(char *dst, int n, char *p, char *e)
 	if(l >= n)
 		sysfatal("overlong component");
 	memcpy(dst, p, l);
-	dst[l + 1] = 0;
-
+	dst[l] = 0;
 }
 
 static int
@@ -92,6 +91,7 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 {
 	char *s, *p, *q;
 	int n, hasport;
+	print("uri: \"%s\"\n", uri);
 
 	p = strstr(uri, "://");
 	if(!p){
@@ -258,7 +258,7 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 		dup(pfd[0], 1);
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
 		if(chattygit)
-			fprint(2, "exec ssh %s %s %s\n", host, cmd, path);
+			fprint(2, "exec ssh '%s' '%s' %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
@@ -347,7 +347,7 @@ initconn(Conn *c, int rd, int wr)
 }
 
 int
-gitconnect(Conn *c, char *uri)
+gitconnect(Conn *c, char *uri, char *direction)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
@@ -359,13 +359,13 @@ gitconnect(Conn *c, char *uri)
 
 	memset(c, 0, sizeof(Conn));
 	if(strcmp(proto, "ssh") == 0)
-		return dialssh(c, host, port, path, "receive");
+		return dialssh(c, host, port, path, direction);
 	else if(strcmp(proto, "git") == 0)
-		return dialgit(c, host, port, path, "receive");
+		return dialgit(c, host, port, path, direction);
 	else if(strcmp(proto, "hjgit") == 0)
-		return dialhjgit(c, host, port, path, "receive");
+		return dialhjgit(c, host, port, path, direction);
 	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
-		return dialhttp(c, host, port, path, "receive");
+		return dialhttp(c, host, port, path, direction);
 	werrstr("unknown protocol %s", proto);
 	return -1;
 }

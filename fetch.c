@@ -274,7 +274,7 @@ main(int argc, char **argv)
 	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
 		sysfatal("could not create %s: %r", packtmp);
 
-	if(gitconnect(&c, argv[0]) == -1)
+	if(gitconnect(&c, argv[0], "upload") == -1)
 		sysfatal("could not dial %s: %r", argv[0]);
 	if(fetchpack(&c, pfd, packtmp) == -1)
 		sysfatal("fetch failed: %r");

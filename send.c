@@ -451,7 +451,7 @@ main(int argc, char **argv)
 	gitinit();
 	if(argc != 1)
 		usage();
-	if(gitconnect(&c, argv[0]) == -1)
+	if(gitconnect(&c, argv[0], "receive") == -1)
 		sysfatal("git connect: %s: %r", argv[0]);
 	if(sendpack(&c) == -1)
 		sysfatal("send failed: %r");
