@@ -4,7 +4,7 @@ rfork en
 
 gitup
 
-flagfmt='a:pushall, b:branch branch, f:force,
+flagfmt='a:pushall, b:branch branch, f:force, d:debug,
          r:remove remove, u:upstream upstream' args=''
 eval `''{aux/getflags $*} || exec aux/usage
 if(! ~ $#* 0)
@@ -18,6 +18,8 @@ if(~ $#branch 0)
 	die 'no branches'
 if(~ $force 1)
 	force=-f
+if(~ $#debug 1)
+	debug='-d'
 
 if(~ $#upstream 0)
 	upstream=origin
@@ -28,7 +30,7 @@ if(~ $#remote 0)
 branch=-b^$branch
 if(! ~ $#remove 0)
 	remove=-r^$remove
-updates=`$nl{git/send $force $branch $remove $remote || die $status}
+updates=`$nl{git/send $debug $force $branch $remove $remote || die $status}
 for(ln in $updates){
 	u=`{echo $ln}
 	refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}
