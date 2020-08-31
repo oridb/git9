@@ -7,6 +7,15 @@
 #define Contenthdr	"headers Content-Type: application/x-git-%s-pack-request"
 #define Accepthdr	"headers Accept: application/x-git-%s-pack-result"
 
+enum {
+	Nproto	= 16,
+	Nport	= 16,
+	Nhost	= 256,
+	Npath	= 128,
+	Nrepo	= 64,
+	Nbranch	= 32,
+};
+
 int chattygit;
 
 int
@@ -78,7 +87,7 @@ grab(char *dst, int n, char *p, char *e)
 
 }
 
-int
+static int
 parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 {
 	char *s, *p, *q;
@@ -138,7 +147,7 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	return 0;
 }
 
-int
+static int
 webclone(Conn *c, char *url)
 {
 	char buf[16];
@@ -167,7 +176,7 @@ err:
 	return -1;
 }
 
-int
+static int
 webopen(Conn *c, char *file, int mode)
 {
 	char path[128];
@@ -179,7 +188,7 @@ webopen(Conn *c, char *file, int mode)
 	return fd;
 }
 
-int
+static int
 issmarthttp(Conn *c, char *direction)
 {
 	char buf[Pktmax+1], svc[128];
@@ -200,7 +209,7 @@ issmarthttp(Conn *c, char *direction)
 	return 0;
 }
 
-int
+static int
 dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 {
 	char *geturl, *suff, *hsep, *psep;
@@ -230,7 +239,7 @@ dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 	return 0;
 }
 
-int
+static int
 dialssh(Conn *c, char *host, char *, char *path, char *direction)
 {
 	int pid, pfd[2];
@@ -254,18 +263,59 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 		c->type = ConnSsh;
 		c->rfd = pfd[1];
 		c->wfd = dup(pfd[1], -1);
-		return 0;
 	}
-	return -1;
+	return 0;
 }
 
-int
+static int
+dialhjgit(Conn *c, char *host, char *port, char *path, char *direction)
+{
+	char *ds, *p, *e, cmd[512];
+	int pid, pfd[2];
+
+	if((ds = netmkaddr(host, "tcp", port)) == nil)
+		return -1;
+	if(pipe(pfd) == -1)
+		sysfatal("unable to open pipe: %r");
+	pid = fork();
+	if(pid == -1)
+		sysfatal("unable to fork");
+	if(pid == 0){
+		close(pfd[1]);
+		dup(pfd[0], 0);
+		dup(pfd[0], 1);
+		if(chattygit)
+			fprint(2, "exec tlsclient -a %s\n", ds);
+		execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
+		sysfatal("exec: %r");
+	}else{
+		close(pfd[0]);
+		p = cmd;
+		e = cmd + sizeof(cmd);
+		p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
+		p = seprint(p + 1, e, "host=%s", host);
+		c->type = ConnGit9;
+		c->rfd = pfd[1];
+		c->wfd = dup(pfd[1], -1);
+		if(writepkt(c, cmd, p - cmd + 1) == -1){
+			fprint(2, "failed to write message\n");
+			close(c->rfd);
+			close(c->wfd);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+
+static int
 dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 {
 	char *ds, *p, *e, cmd[512];
 	int fd;
 
-	ds = netmkaddr(host, "tcp", port);
+	if((ds = netmkaddr(host, "tcp", port)) == nil)
+		return -1;
 	if(chattygit)
 		fprint(2, "dial %s git-%s-pack %s\n", ds, direction, path);
 	fd = dial(ds, nil, nil, nil);
@@ -275,7 +325,7 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 	e = cmd + sizeof(cmd);
 	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
 	p = seprint(p + 1, e, "host=%s", host);
-	c->type = ConnRaw;
+	c->type = ConnGit;
 	c->rfd = fd;
 	c->wfd = dup(fd, -1);
 	if(writepkt(c, cmd, p - cmd + 1) == -1){
@@ -289,9 +339,33 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 void
 initconn(Conn *c, int rd, int wr)
 {
-	c->type = ConnRaw;
+	c->type = ConnGit;
 	c->rfd = rd;
 	c->wfd = wr;
+}
+
+int
+gitconnect(Conn *c, char *uri)
+{
+	char proto[Nproto], host[Nhost], port[Nport];
+	char repo[Nrepo], path[Npath];
+
+	if(parseuri(uri, proto, host, port, path, repo) == -1){
+		werrstr("bad uri %s", uri);
+		return -1;
+	}
+
+	memset(c, 0, sizeof(Conn));
+	if(strcmp(proto, "ssh") == 0)
+		return dialssh(c, host, port, path, "receive");
+	else if(strcmp(proto, "git") == 0)
+		return dialgit(c, host, port, path, "receive");
+	else if(strcmp(proto, "hjgit") == 0)
+		return dialhjgit(c, host, port, path, "receive");
+	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
+		return dialhttp(c, host, port, path, "receive");
+	werrstr("unknown protocol %s", proto);
+	return -1;
 }
 
 int
@@ -344,8 +418,9 @@ closeconn(Conn *c)
 	close(c->rfd);
 	close(c->wfd);
 	switch(c->type){
-	case ConnRaw:
+	case ConnGit:
 		break;
+	case ConnGit9:
 	case ConnSsh:
 		free(wait());
 		break;

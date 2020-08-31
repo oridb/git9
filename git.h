@@ -23,13 +23,6 @@ enum {
 	Pathmax		= 512,
 	Hashsz		= 20,
 	Pktmax		= 65536,
-
-	Nproto	= 16,
-	Nport	= 16,
-	Nhost	= 256,
-	Npath	= 128,
-	Nrepo	= 64,
-	Nbranch	= 32,
 };
 
 enum {
@@ -51,7 +44,8 @@ enum {
 };
 
 enum {
-	ConnRaw,
+	ConnGit,
+	ConnGit9,
 	ConnSsh,
 	ConnHttp,
 };
@@ -274,11 +268,8 @@ Delta*	deltify(void*, int, void *, int, int *);
 int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
 int	flushpkt(Conn*);
-int	parseuri(char *, char *, char *, char *, char *, char *);
 void	initconn(Conn*, int, int);
-int	dialssh(Conn*, char *, char *, char *, char *);
-int	dialgit(Conn*, char *, char *, char *, char *);
-int	dialhttp(Conn*, char *, char *, char *, char *);
+int	gitconnect(Conn *, char *);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);
