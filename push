@@ -18,7 +18,7 @@ if(~ $#branch 0)
 	die 'no branches'
 if(~ $force 1)
 	force=-f
-if(~ $#debug 1)
+if(~ $debug 1)
 	debug='-d'
 
 if(~ $#upstream 0)

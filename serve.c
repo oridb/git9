@@ -309,8 +309,8 @@ updatepack(Conn *c)
 	}
 	return 0;
 
-error2://	remove(Idxtmp);
-error1://	remove(Packtmp);
+error2:	remove(Idxtmp);
+error1:	remove(Packtmp);
 	return -1;
 }	
 
@@ -332,6 +332,7 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 {
 	char refpath[512];
 	int i, fd, ret, lockfd;
+	Object *o;
 	Hash h;
 
 	ret = -1;
@@ -342,6 +343,15 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	for(i = 0; i < nupd; i++){
 		if(resolveref(&h, ref[i]) == 0 && !hasheq(&h, &cur[i])){
 			fmtpkt(c, "ERR old ref changed: %s", ref[i]);
+			goto error;
+		}
+		if((o = readobject(upd[i])) == nil){
+			fmtpkt(c, "ERR update to nonexistent hash %H", upd[i]);
+			goto error;
+		}
+		unref(o);
+		if(o->type != GCommit){
+			fmtpkt(c, "ERR not commit: %H", upd[i]);
 			goto error;
 		}
 		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
