@@ -263,7 +263,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	osinit(&drop);
 	for(i = 0; i < nhead; i++){
 		if((o = readobject(head[i])) == nil)
-			sysfatal("read %H: %r", head[i]);
+			sysfatal("read head %H: %r", head[i]);
 		dprint(1, "twixt init: keep %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
 		e->o = o;
@@ -274,7 +274,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	}		
 	for(i = 0; i < ntail; i++){
 		if((o = readobject(tail[i])) == nil)
-			sysfatal("read %H: %r", tail[i]);
+			sysfatal("read tail %H: %r", tail[i]);
 		dprint(1, "init: drop %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
 		e->o = o;
@@ -284,6 +284,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 		unref(o);
 	}
 
+	dprint(1, "finding twixt commits\n");
 	while(q != nil){
 		if(oshas(&drop, q->o->hash))
 			goto next;

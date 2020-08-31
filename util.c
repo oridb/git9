@@ -248,11 +248,10 @@ void
 dprint(int v, char *fmt, ...)
 {
 	va_list ap;
-	int n;
 
-	if(v >= debug)
+	if(debug < v)
 		return;
 	va_start(ap, fmt);
-	n = vfprint(2, fmt, ap);
+	vfprint(2, fmt, ap);
 	va_end(ap);
 }
