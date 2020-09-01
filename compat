@@ -166,6 +166,7 @@ fn usage{
 if( test -d /bin/git ){
 	fakeroot
 	echo entering compatibility mode
+	echo ensure you are in a git directory
 	exit
 }
 
