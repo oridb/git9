@@ -12,34 +12,16 @@ fn fakerepo {
 }
 
 fn fakeroot {
-	ramfs -p
-	mkdir /tmp/git9
-
-	sed 's|git/fs|git9/fs|;s|git/conf|git9/conf|' /sys/lib/git/common.rc > /tmp/git9/common.rc
-	for(i in /bin/git/*){
-		q=`{file $i}
-		cp $i /tmp/git9/`{basename $i}
-		if( ~ $q *'rc executable file')
-			# The monster - someone make this less
-			# awk(1)-ward
-			sed 's|sys/lib/git/common.rc|tmp/git9/common.rc|;
-			s|git/add|git9/add|g;s|git/branch|git9/branch|g;
-			s|git/clone|git9/clone|g;s|git/commit|git9/commit|g;
-			s|git/conf|git9/conf|g;s|git/diff|git9/diff|g;
-			s|git/export|git9/export|g;s|git/fetch|git9/fetch|g;
-			s|git/fs|git9/fs|g;s|git/import|git9/import|g;
-			s|git/init|git9/init|g;s|git/log|git9/log|g;
-			s|git/merge|git9/merge|g;s|git/pull|git9/pull|g;
-			s|git/push|git9/push|g;s|git/query|git9/query|g;
-			s|git/repack|git9/repack|g;s|git/revert|git9/revert|g;
-			s|git/rm|git9/rm|g;s|git/save|git9/save|g;
-			s|git/send|git9/send|g;s|git/walk|git9/walk|g;
-			s|git9/config|git/config|g' $i > /tmp/git9/`{basename $i}
-	}
-
 	# Move our script to the private root
-	cp $0 /tmp/git
-	bind -bc /tmp /bin
+	ramfs -p
+	mkdir /tmp/fakegit
+	cp $0 /tmp/fakegit/git
+	bind -bc /tmp/fakegit /bin
+}
+
+fn cmd_exit{
+	echo Exiting compatibility mode
+	rm -rf /tmp/fakegit
 }
 
 fn cmd_init{
@@ -47,7 +29,8 @@ fn cmd_init{
 		switch($1){
 		case --bare
 			opts=(-b)
-		case --
+		case -- 
+			# go likes to use these
 		case -*
 			die unknown command init $*
 		case *
@@ -56,7 +39,7 @@ fn cmd_init{
 		shift
 	}
 	ls >[1=2]
-	git9/init $opts $args
+	/$cputype/bin/git/init $opts $args
 }
 
 fn cmd_clone{
@@ -67,6 +50,7 @@ fn cmd_clone{
 			branch=$2
 			shift
 		case --
+			# go likes to use these
 		case -*
 			die unknown command clone $*
 		case *
@@ -75,16 +59,16 @@ fn cmd_clone{
 		shift
 	}
 	fakerepo `{pwd}
-	git9/clone $opts $args
+	/$cputype/bin/git/clone $opts $args
 	if(~ $#branch 1)
-		git9/branch -n -b $1 origin/$1
+		/$cputype/bin/git/branch -n -b $1 origin/$1
 }
 
 fn cmd_pull{
 	if(~ $1 -*)
 		die unknown command pull $*
 	fakerepo `{pwd}
-	git9/pull
+	/$cputype/bin/git/pull
 }
 
 fn cmd_fetch{
@@ -96,6 +80,7 @@ fn cmd_fetch{
 			opts=($opts -u $2)
 			shift
 		case --
+ 			# go likes to use these
 		case -*
 			die unknown command clone $*
 		case *
@@ -104,7 +89,7 @@ fn cmd_fetch{
 		shift
 	}
 	fakerepo `{pwd}
-	git9/pull -f $opts
+	/$cputype/bin/git/pull -f $opts
 }
 
 
@@ -113,7 +98,7 @@ fn cmd_checkout{
 		die unknown command pull $*
 	if(~ $#* 0)
 		die git checkout branch
-	git9/branch $b
+	/$cputype/bin/git/branch $b
 }
 
 fn cmd_log{
@@ -169,8 +154,8 @@ fn cmd_config{
 
 fn cmd_status{
 	# If we aren't in a git, throw error
-	git9/fs || exit
-	git9/walk -fRMA
+	/$cputype/bin/git/fs || exit
+	/$cputype/bin/git/walk -fRMA
 }
 
 fn usage{

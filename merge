@@ -23,9 +23,9 @@ fn merge{
 			echo merge needed: $f
 
 		if(test -f $f)
-			git/add $f
+			/$cputype/bin/git/add $f
 		if not
-			git/rm $f
+			/$cputype/bin/git/rm $f
 	}
 }
 
@@ -37,18 +37,18 @@ eval `''{aux/getflags $*} || exec aux/usage
 if(! ~ $#* 1)
 	exec aux/usage
 
-theirs=`{git/query $1}
-ours=`{git/query HEAD}
-base=`{git/query $theirs ^ ' ' ^ $ours ^ '@'}
+theirs=`{/$cputytpe/bin/git/query $1}
+ours=`{/$cputype/bin/git/query HEAD}
+base=`{/$cputype/bin/git/query $theirs ^ ' ' ^ $ours ^ '@'}
 
 if(~ $base $theirs)
 	die 'nothing to merge, doofus'
-if(! git/walk -q)
+if(! /$cputype/bin/git/walk -q)
 	die 'dirty work tree, refusing to merge'
 if(~ $base $ours){
 	>[1=2] echo 'fast forwarding...'
-	echo $theirs > .git/refs/`{git/branch}
-	git/revert .
+	echo $theirs > .git/refs/`{/$cputype/bin/git/branch}
+	/$cputype/bin/git/revert .
 	exit ''
 }
 echo $ours >> .git/index9/merge-parents
