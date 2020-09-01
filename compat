@@ -1,0 +1,187 @@
+#!/bin/rc
+
+rfork e
+
+opts=()
+args=()
+
+fn fakerepo {
+	mkdir -p /tmp/fakerepo.$pid/.git
+	bind -c $1 /tmp/fakerepo.$pid/.git
+	cd /tmp/fakerepo.$pid
+}
+
+fn fakeroot {
+	ramfs -p
+	mkdir /tmp/git9
+
+	sed 's|git/fs|git9/fs|;s|git/conf|git9/conf|' /sys/lib/git/common.rc > /tmp/git9/common.rc
+	for(i in /bin/git/*){
+		q=`{file $i}
+		cp $i /tmp/git9/`{basename $i}
+		if( ~ $q *'rc executable file')
+			# The monster - someone make this less
+			# awk(1)-ward
+			sed 's|sys/lib/git/common.rc|tmp/git9/common.rc|;
+			s|git/add|git9/add|g;s|git/branch|git9/branch|g;
+			s|git/clone|git9/clone|g;s|git/commit|git9/commit|g;
+			s|git/conf|git9/conf|g;s|git/diff|git9/diff|g;
+			s|git/export|git9/export|g;s|git/fetch|git9/fetch|g;
+			s|git/fs|git9/fs|g;s|git/import|git9/import|g;
+			s|git/init|git9/init|g;s|git/log|git9/log|g;
+			s|git/merge|git9/merge|g;s|git/pull|git9/pull|g;
+			s|git/push|git9/push|g;s|git/query|git9/query|g;
+			s|git/repack|git9/repack|g;s|git/revert|git9/revert|g;
+			s|git/rm|git9/rm|g;s|git/save|git9/save|g;
+			s|git/send|git9/send|g;s|git/walk|git9/walk|g;
+			s|git9/config|git/config|g' $i > /tmp/git9/`{basename $i}
+	}
+
+	# Move our script to the private root
+	cp $0 /tmp/git
+	bind -bc /tmp /bin
+}
+
+fn cmd_init{
+	while(~ $#* 0){
+		switch($1){
+		case --bare
+			opts=(-b)
+		case --
+		case -*
+			die unknown command init $*
+		case *
+			args=($args $1)
+		}
+		shift
+	}
+	ls >[1=2]
+	git9/init $opts $args
+}
+
+fn cmd_clone{
+	branch=()
+	while( ! ~ $#* 0){
+		switch($1){
+		case -b
+			branch=$2
+			shift
+		case --
+		case -*
+			die unknown command clone $*
+		case *
+			args=($args $1)
+		}
+		shift
+	}
+	fakerepo `{pwd}
+	git9/clone $opts $args
+	if(~ $#branch 1)
+		git9/branch -n -b $1 origin/$1
+}
+
+fn cmd_pull{
+	if(~ $1 -*)
+		die unknown command pull $*
+	fakerepo `{pwd}
+	git9/pull
+}
+
+fn cmd_fetch{
+	while(~ $#* 0){
+		switch($1){
+		case --all
+			opts=($opts -a)
+		case -f
+			opts=($opts -u $2)
+			shift
+		case --
+		case -*
+			die unknown command clone $*
+		case *
+			args=($args $1)
+		}
+		shift
+	}
+	fakerepo `{pwd}
+	git9/pull -f $opts
+}
+
+
+fn cmd_checkout{
+	if(~ $1 -*)
+		die unknown command pull $*
+	if(~ $#* 0)
+		die git checkout branch
+	git9/branch $b
+}
+
+fn cmd_log{
+	# Do something useful here instead
+	dcmd log $*
+	exit unimpl
+}
+
+fn rev-parse{
+	while(~ $1 -*){
+		switch($1){
+		case --git-dir
+			echo .git
+			shift
+		case --abbrev-ref
+			echo `{dcmd git9/branch | sed s@^heads/@@g}
+			shift
+		case *
+			dprint option $opt
+		}
+		shift
+	}
+}
+
+fn cmd_show-ref{
+	if(~ $1 -*)
+		die unknown command pull $*
+	for(b in `{cd .dcmd git/refs/ && walk -f})
+		echo`{cat .dcmd git/refs/$b} refs/$b 
+}
+
+fn cmd_remote{
+	if(! ~ $1 add)
+		die unimplemented remote cmd $*
+	fakerepo `{pwd}
+	>>.git/config{
+		echo '[remote "'$2'"]'
+		echo '	url='$3
+	}
+}
+
+fn cmd_submodule{
+	submodule $*
+}
+
+fn cmd_version{
+	echo git version 2.2.0
+}
+
+fn cmd_config{
+	config $*
+}
+
+fn cmd_status{
+	# If we aren't in a git, throw error
+	git9/fs || exit
+	git9/walk -fRMA
+}
+
+fn usage{
+	echo 'git <command> <args>' >[1=2]
+	exit usage
+}
+
+if( test -d /bin/git ){
+	fakeroot
+	echo entering compatibility mode
+	exit
+}
+
+cmd_$1 $*(2-)
