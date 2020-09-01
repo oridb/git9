@@ -149,13 +149,13 @@ fn usage{
 
 if( test -d /bin/git ){
 	fakeroot
-	echo entering compatibility mode
-	echo type `git exit` to return
+	echo 'entering compatibility mode'
+	echo 'type `git exit` to return'
 	exit
 }
 
-if(! test -d .git){
-	echo commands currently do not work outside of a proper git repo
+if( ! test -d .git ){
+	echo 'commands currently do not work outside of a proper git repo'
 	exit
 }
 
