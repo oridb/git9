@@ -5,12 +5,6 @@ rfork e
 opts=()
 args=()
 
-fn fakerepo {
-	mkdir -p /tmp/fakerepo.$pid/.git
-	bind -c $1 /tmp/fakerepo.$pid/.git
-	cd /tmp/fakerepo.$pid
-}
-
 fn fakeroot {
 	# Move our script to the private root
 	ramfs -p
@@ -58,7 +52,6 @@ fn cmd_clone{
 		}
 		shift
 	}
-	fakerepo `{pwd}
 	/$cputype/bin/git/clone $opts $args
 	if(~ $#branch 1)
 		/$cputype/bin/git/branch -n -b $1 origin/$1
@@ -67,7 +60,6 @@ fn cmd_clone{
 fn cmd_pull{
 	if(~ $1 -*)
 		die unknown command pull $*
-	fakerepo `{pwd}
 	/$cputype/bin/git/pull
 }
 
@@ -87,8 +79,7 @@ fn cmd_fetch{
 			args=($args $1)
 		}
 		shift
-	}
-	fakerepo `{pwd}
+	}	
 	/$cputype/bin/git/pull -f $opts
 }
 
@@ -99,12 +90,6 @@ fn cmd_checkout{
 	if(~ $#* 0)
 		die git checkout branch
 	/$cputype/bin/git/branch $b
-}
-
-fn cmd_log{
-	# Do something useful here instead
-	dcmd log $*
-	exit unimpl
 }
 
 fn rev-parse{
@@ -133,7 +118,6 @@ fn cmd_show-ref{
 fn cmd_remote{
 	if(! ~ $1 add)
 		die unimplemented remote cmd $*
-	fakerepo `{pwd}
 	>>.git/config{
 		echo '[remote "'$2'"]'
 		echo '	url='$3
@@ -166,7 +150,12 @@ fn usage{
 if( test -d /bin/git ){
 	fakeroot
 	echo entering compatibility mode
-	echo ensure you are in a git directory
+	echo type `git exit` to return
+	exit
+}
+
+if(! test -d .git){
+	echo commands currently do not work outside of a proper git repo
 	exit
 }
 
