@@ -2,15 +2,14 @@
 rfork en
 . /sys/lib/git/common.rc
 
-usage='
-	git/clone remote [local]
-'
+flagfmt=''; args='remote [local]'
+eval `''{aux/getflags $*} || exec aux/usage
 
 remote=`{echo $1 | subst -g '/*$'}
 local=$2
 
 if(~ $#remote 0)
-	usage
+	exec aux/usage
 if(~ $#local 0)
 	local=`{basename $remote .git}
 

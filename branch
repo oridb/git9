@@ -2,39 +2,14 @@
 rfork en
 . /sys/lib/git/common.rc
 
-usage='
-	git/branch [-adns] [-b base] [branch]
-		-a        list all branches
-		-b base   base new branch on "base" (default: current branch)
-		-d        delete branch
-		-n        create new branch, or overwrite existing branch
-		-s        create branch but stay on current one
-'
-
 gitup
 
-stay=()
-newbr=()
-delete=()
-baseref=()
+flagfmt='a:listall, b:baseref ref, d:delete, n:newbr, s:stay'
+args='[branch]'
+eval `''{aux/getflags $*} || exec aux/usage
+
 modified=()
 deleted=()
-listall=()
-
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -n; newbr=true
-	case -s; stay=true
-	case -b; baseref=$2; shift
-	case -d; delete=true
-	case -a; listall=true
-	case *
-		usage
-	}
-	shift
-}
-if(~ $1 --)
-	shift
 
 if(~ $#* 0){
 	if(~ $#listall 0)
@@ -44,19 +19,18 @@ if(~ $#* 0){
 	exit
 }
 if(! ~ $#* 1)
-	usage
+	exec aux/usage
 
-if(~ $1 refs/heads/*)
-	new=$1
-if not if(~ $1 heads/*)
-	new=refs/$1
+branch=$1
+if(~ $branch refs/heads/*)
+	new=$name
+if not if(~ $branch heads/*)
+	new=refs/$branch
 if not
-	new=refs/heads/$1
-if (~ $#baseref 1){
-	base=`{git/query $baseref}
-	if(! ~ $status '')
-		exit badbase
-}
+	new=refs/heads/$branch
+
+if (~ $#baseref 1)
+	base=`{git/query $baseref} || exit 'bad base'
 if not if(test -e .git/$new)
 	base=`{git/query $new}
 if not
@@ -71,17 +45,18 @@ if(! ~ $#modified 0 || ! ~ $#deleted 0){
 		die 'uncommited changes would be clobbered'
 	}
 }
-if(! ~ $#delete 0){
+if(~ $delete 1){
 	rm -f .git/$new
+	echo 'deleted branch' $new
 	exit
 }
 if(~ $#newbr 0){
 	if(! test -e .git/$new)
-		die could not find branch $1
+		die could not find branch $branch
 	if(! ~ $#baseref 0)
-		die update would clobber $1 with $baseref
+		die update would clobber $branch with $baseref
 }
-commit=`{git/query $base || die 'branch does not exist:' $base}
+commit=`{git/query $base} || die 'branch does not exist:' $base
 echo updating $new to $commit
 echo $commit > .git/$new
 

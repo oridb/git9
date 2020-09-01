@@ -6,6 +6,7 @@
 
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
+typedef struct Delta	Delta;
 typedef struct Cinfo	Cinfo;
 typedef struct Tinfo	Tinfo;
 typedef struct Object	Object;
@@ -22,13 +23,6 @@ enum {
 	Pathmax		= 512,
 	Hashsz		= 20,
 	Pktmax		= 65536,
-
-	Nproto	= 16,
-	Nport	= 16,
-	Nhost	= 256,
-	Npath	= 128,
-	Nrepo	= 64,
-	Nbranch	= 32,
 };
 
 enum {
@@ -50,7 +44,8 @@ enum {
 };
 
 enum {
-	ConnRaw,
+	ConnGit,
+	ConnGit9,
 	ConnSsh,
 	ConnHttp,
 };
@@ -99,6 +94,12 @@ struct Dirent {
 	char islink;
 };
 
+struct Delta {
+	int	cpy;
+	int	off;
+	int	len;
+};
+
 struct Object {
 	/* Git data */
 	Hash	hash;
@@ -122,9 +123,10 @@ struct Object {
 	/* size excludes header */
 	vlong	size;
 
+	/* Significant win on memory use */
 	union {
-		Cinfo *commit;
-		Tinfo *tree;
+		Cinfo	*commit;
+		Tinfo	*tree;
 	};
 };
 
@@ -202,10 +204,11 @@ struct Objset {
 #define isblank(c) \
 	(((c) != '\n') && isspace(c))
 
-extern Reprog *authorpat;
-extern Objset objcache;
-extern Hash Zhash;
-extern int chattygit;
+extern Reprog	*authorpat;
+extern Objset	objcache;
+extern Hash	Zhash;
+extern int	chattygit;
+extern int	debug;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int
@@ -221,10 +224,14 @@ void gitinit(void);
 /* object io */
 int	resolverefs(Hash **, char *);
 int	resolveref(Hash *, char *);
+int	listrefs(Hash **, char ***);
 Object	*ancestor(Object *, Object *);
+int	findtwixt(Hash *, int, Hash *, int, Object ***, int *);
 Object	*readobject(Hash);
+Object	*clearedobject(Hash, int);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
+int	writepack(int, Object **, int, Hash*);
 int	hasheq(Hash *, Hash *);
 Object	*ref(Object *);
 void	unref(Object *);
@@ -233,8 +240,9 @@ Object	*emptydir(void);
 
 /* object sets */
 void	osinit(Objset *);
+void	osclear(Objset *);
 void	osadd(Objset *, Object *);
-int	oshas(Objset *, Object *);
+int	oshas(Objset *, Hash);
 Object	*osfind(Objset *, Hash);
 
 /* object listing */
@@ -243,6 +251,7 @@ int	olsnext(Objlist *, Hash *);
 void	olsfree(Objlist *);
 
 /* util functions */
+void	dprint(int, char *, ...);
 void	*emalloc(ulong);
 void	*erealloc(void *, ulong);
 char	*estrdup(char *);
@@ -252,14 +261,15 @@ int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 
+/* packing */
+Delta*	deltify(void*, int, void *, int, int *);
+
 /* proto handling */
 int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
 int	flushpkt(Conn*);
-int	parseuri(char *, char *, char *, char *, char *, char *);
-int	dialssh(Conn*, char *, char *, char *, char *);
-int	dialgit(Conn*, char *, char *, char *, char *);
-int	dialhttp(Conn*, char *, char *, char *, char *);
+void	initconn(Conn*, int, int);
+int	gitconnect(Conn *, char *, char*);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);

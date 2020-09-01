@@ -621,9 +621,14 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 				return "invalid object name";
 			if((c->obj = readobject(h)) == nil)
 				return "could not read object";
-			c->mode = (c->obj->type == GBlob) ? 0644 : QTDIR | 0755;
+			if(c->obj->type == GBlob || c->obj->type == GTag){
+				c->mode = 0644;
+				q->type = 0;
+			}else{
+				c->mode = DMDIR | 0755;
+				q->type = QTDIR;
+			}
 			q->path = qpath(o, Qobject, c->obj->id, Qobject);
-			q->type = (c->obj->type == GBlob) ? 0 : QTDIR;
 			q->vers = 0;
 		}
 		break;

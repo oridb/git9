@@ -7,6 +7,15 @@
 #define Contenthdr	"headers Content-Type: application/x-git-%s-pack-request"
 #define Accepthdr	"headers Accept: application/x-git-%s-pack-result"
 
+enum {
+	Nproto	= 16,
+	Nport	= 16,
+	Nhost	= 256,
+	Npath	= 128,
+	Nrepo	= 64,
+	Nbranch	= 32,
+};
+
 int chattygit;
 
 int
@@ -34,7 +43,7 @@ readpkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	buf[n] = 0;
 	if(chattygit)
-		fprint(2, "readpkt: %s:\t%.*s\n", len, nbuf, buf);
+		fprint(2, "<= %s:\t%.*s\n", len, nbuf, buf);
 	return n;
 }
 
@@ -50,7 +59,7 @@ writepkt(Conn *c, char *buf, int nbuf)
 	if(write(c->wfd, buf, nbuf) != nbuf)
 		return -1;
 	if(chattygit){
-		fprint(2, "writepkt: %s:\t", len);
+		fprint(2, "=> %s:\t", len);
 		write(2, buf, nbuf);
 		write(2, "\n", 1);
 	}
@@ -74,15 +83,15 @@ grab(char *dst, int n, char *p, char *e)
 	if(l >= n)
 		sysfatal("overlong component");
 	memcpy(dst, p, l);
-	dst[l + 1] = 0;
-
+	dst[l] = 0;
 }
 
-int
+static int
 parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 {
 	char *s, *p, *q;
 	int n, hasport;
+	print("uri: \"%s\"\n", uri);
 
 	p = strstr(uri, "://");
 	if(!p){
@@ -101,6 +110,8 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		snprint(port, Nport, "443");
 	else if(strncmp(proto, "http", 4) == 0)
 		snprint(port, Nport, "80");
+	else if(strncmp(proto, "hjgit", 5) == 0)
+		snprint(port, Nport, "17021");
 	else
 		hasport = 0;
 	s = p + 3;
@@ -138,7 +149,7 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	return 0;
 }
 
-int
+static int
 webclone(Conn *c, char *url)
 {
 	char buf[16];
@@ -167,7 +178,7 @@ err:
 	return -1;
 }
 
-int
+static int
 webopen(Conn *c, char *file, int mode)
 {
 	char path[128];
@@ -179,7 +190,7 @@ webopen(Conn *c, char *file, int mode)
 	return fd;
 }
 
-int
+static int
 issmarthttp(Conn *c, char *direction)
 {
 	char buf[Pktmax+1], svc[128];
@@ -200,7 +211,7 @@ issmarthttp(Conn *c, char *direction)
 	return 0;
 }
 
-int
+static int
 dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 {
 	char *geturl, *suff, *hsep, *psep;
@@ -230,7 +241,7 @@ dialhttp(Conn *c, char *host, char *port, char *path, char *direction)
 	return 0;
 }
 
-int
+static int
 dialssh(Conn *c, char *host, char *, char *path, char *direction)
 {
 	int pid, pfd[2];
@@ -247,25 +258,66 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 		dup(pfd[0], 1);
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
 		if(chattygit)
-			fprint(2, "exec ssh %s %s %s\n", host, cmd, path);
+			fprint(2, "exec ssh '%s' '%s' %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
 		c->type = ConnSsh;
 		c->rfd = pfd[1];
 		c->wfd = dup(pfd[1], -1);
-		return 0;
 	}
-	return -1;
+	return 0;
 }
 
-int
+static int
+dialhjgit(Conn *c, char *host, char *port, char *path, char *direction)
+{
+	char *ds, *p, *e, cmd[512];
+	int pid, pfd[2];
+
+	if((ds = netmkaddr(host, "tcp", port)) == nil)
+		return -1;
+	if(pipe(pfd) == -1)
+		sysfatal("unable to open pipe: %r");
+	pid = fork();
+	if(pid == -1)
+		sysfatal("unable to fork");
+	if(pid == 0){
+		close(pfd[1]);
+		dup(pfd[0], 0);
+		dup(pfd[0], 1);
+		if(chattygit)
+			fprint(2, "exec tlsclient -a %s\n", ds);
+		execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
+		sysfatal("exec: %r");
+	}else{
+		close(pfd[0]);
+		p = cmd;
+		e = cmd + sizeof(cmd);
+		p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
+		p = seprint(p + 1, e, "host=%s", host);
+		c->type = ConnGit9;
+		c->rfd = pfd[1];
+		c->wfd = dup(pfd[1], -1);
+		if(writepkt(c, cmd, p - cmd + 1) == -1){
+			fprint(2, "failed to write message\n");
+			close(c->rfd);
+			close(c->wfd);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+
+static int
 dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 {
 	char *ds, *p, *e, cmd[512];
 	int fd;
 
-	ds = netmkaddr(host, "tcp", port);
+	if((ds = netmkaddr(host, "tcp", port)) == nil)
+		return -1;
 	if(chattygit)
 		fprint(2, "dial %s git-%s-pack %s\n", ds, direction, path);
 	fd = dial(ds, nil, nil, nil);
@@ -275,7 +327,7 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 	e = cmd + sizeof(cmd);
 	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
 	p = seprint(p + 1, e, "host=%s", host);
-	c->type = ConnRaw;
+	c->type = ConnGit;
 	c->rfd = fd;
 	c->wfd = dup(fd, -1);
 	if(writepkt(c, cmd, p - cmd + 1) == -1){
@@ -284,6 +336,38 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 		return -1;
 	}
 	return 0;
+}
+
+void
+initconn(Conn *c, int rd, int wr)
+{
+	c->type = ConnGit;
+	c->rfd = rd;
+	c->wfd = wr;
+}
+
+int
+gitconnect(Conn *c, char *uri, char *direction)
+{
+	char proto[Nproto], host[Nhost], port[Nport];
+	char repo[Nrepo], path[Npath];
+
+	if(parseuri(uri, proto, host, port, path, repo) == -1){
+		werrstr("bad uri %s", uri);
+		return -1;
+	}
+
+	memset(c, 0, sizeof(Conn));
+	if(strcmp(proto, "ssh") == 0)
+		return dialssh(c, host, port, path, direction);
+	else if(strcmp(proto, "git") == 0)
+		return dialgit(c, host, port, path, direction);
+	else if(strcmp(proto, "hjgit") == 0)
+		return dialhjgit(c, host, port, path, direction);
+	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
+		return dialhttp(c, host, port, path, direction);
+	werrstr("unknown protocol %s", proto);
+	return -1;
 }
 
 int
@@ -336,9 +420,9 @@ closeconn(Conn *c)
 	close(c->rfd);
 	close(c->wfd);
 	switch(c->type){
-	case ConnRaw:
-
+	case ConnGit:
 		break;
+	case ConnGit9:
 	case ConnSsh:
 		free(wait());
 		break;

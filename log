@@ -2,39 +2,20 @@
 rfork en
 . /sys/lib/git/common.rc
 
-usage='
-	git/log [-e expr|-c commit] [-s] [file ...]
-'
-
 gitup
 
+flagfmt='e:expr expression, c:branch commit, s:short'; args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
+
 base=/mnt/git/object/
-branch=`{git/branch}
-expr=()
-short=()
-files=()
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -c
-		base=$2
-		shift
-	case -e
-		expr=$2
-		shift
-	case -s
-		short=true
-	case *
-		usage
-	}
-	shift
-}
-if(~ $1 --)
-	shift
+if(~ $#branch 0)
+	branch=`{git/branch}
 if(~ $#expr 0)
 	commits=`{git/query $branch}
 if not
 	commits=`{git/query $expr}
 
+files=()
 if(! ~ $#* 0)
 	files=`"{walk -f $gitrel/^$* | subst '^\./' | sort}
 
@@ -54,7 +35,7 @@ while(! ~ $#commits 0){
 		commits=`$nl{walk -emp -n0 $base^$commits | sort -rn | uniq | awk -F/ '{print $NF}'}
 
 	if(~ $#files 0 || ~ $show true){
-		if(~ $short true)
+		if(~ $short 1)
 			echo $c `{cat $base/$c/msg | sed 1q}
 		if not{
 			echo -n 'Hash:	'`''{cat $base/$c/hash}

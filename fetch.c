@@ -254,9 +254,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath];
-	int r, pfd;
+	int pfd;
 	Conn c;
 
 	ARGBEGIN{
@@ -271,25 +269,13 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	r = -1;
 	if(mkoutpath(packtmp) == -1)
 		sysfatal("could not create %s: %r", packtmp);
 	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
 		sysfatal("could not create %s: %r", packtmp);
 
-	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
-		sysfatal("bad uri %s", argv[0]);
-	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
-		r = dialssh(&c, host, port, path, "upload");
-	else if(strcmp(proto, "git") == 0)
-		r = dialgit(&c, host, port, path, "upload");
-	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
-		r = dialhttp(&c, host, port, path, "upload");
-	else
-		sysfatal("unknown protocol %s", proto);
-	
-	if(r == -1)
-		sysfatal("could not dial %s:%s: %r", proto, host);
+	if(gitconnect(&c, argv[0], "upload") == -1)
+		sysfatal("could not dial %s: %r", argv[0]);
 	if(fetchpack(&c, pfd, packtmp) == -1)
 		sysfatal("fetch failed: %r");
 	closeconn(&c);

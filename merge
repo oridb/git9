@@ -2,10 +2,6 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/merge theirs
-'
-
 fn merge{
 	ourbr=$1/tree
 	basebr=$2/tree
@@ -25,13 +21,21 @@ fn merge{
 			theirs=/dev/null
 		if(! ape/diff3 -m $ours $base $theirs > $f)
 			echo merge needed: $f
+
+		if(test -f $f)
+			git/add $f
+		if not
+			git/rm $f
 	}
 }
 
 gitup
 
+flagfmt=''; args='theirs'
+eval `''{aux/getflags $*} || exec aux/usage
+
 if(! ~ $#* 1)
-	usage
+	exec aux/usage
 
 theirs=`{git/query $1}
 ours=`{git/query HEAD}

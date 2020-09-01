@@ -2,10 +2,6 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/commit files...
-'
-
 fn whoami{
 	name=`{git/conf user.name}
 	email=`{git/conf user.email}
@@ -80,7 +76,7 @@ fn editmsg{
 
 fn parents{
 	if(test -f .git/index9/merge-parents)
-		parents=`{cat .git/index9/merge-parents}
+		parents=`{cat .git/index9/merge-parents | sort | uniq}
 	if not if(~ $initial true)
 		parents=()
 	if not
@@ -120,18 +116,14 @@ fn sigexit{
 
 gitup
 
-msgfile=/tmp/git-msg.$pid
-while(~ $1 -* && ! ~ $1 --){
-	switch($1){
-	case -m
-		shift; echo $1 >$msgfile.tmp
-	}
-	shift
-}
-if(~ $1 --)
-	shift
+flagfmt='m:msg message'; args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
 if(~ $#* 0)
-	usage
+	exec aux/usage
+
+msgfile=/tmp/git-msg.$pid
+if(~ $#msg 1)
+	echo $msg >$msgfile.tmp
 
 files=`{git/walk -c `{cleanname $gitrel/$*}}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)

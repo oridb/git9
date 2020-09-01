@@ -13,7 +13,7 @@ osinit(Objset *s)
 }
 
 void
-osfree(Objset *s)
+osclear(Objset *s)
 {
 	free(s->obj);
 }
@@ -60,7 +60,7 @@ osfind(Objset *s, Hash h)
 }
 
 int
-oshas(Objset *s, Object *o)
+oshas(Objset *s, Hash h)
 {
-	return osfind(s, o->hash) != nil;
+	return osfind(s, h) != nil;
 }

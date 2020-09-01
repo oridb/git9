@@ -2,10 +2,6 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-usage='
-	git/import [file ...]
-'
-
 diffpath=/tmp/gitimport.$pid.diff
 fn sigexit {
 	rm -f $diffpath
@@ -92,6 +88,9 @@ fn apply @{
 }
 
 gitup
+
+flagfmt=''; args='file ...'
+eval `''{aux/getflags $*} || exec aux/usage
 
 patches=(/fd/0)
 if(! ~ $#* 0)

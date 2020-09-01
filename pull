@@ -2,14 +2,6 @@
 rfork en
 . /sys/lib/git/common.rc
 
-usage='
-	git/pull [-u upstream] [-b branch]
-		-b       work with branch "branch"
-		-f       fetch updates without checking out
-		-i       display incoming commits
-		-u       pull from "upstream" (default "origin")
-'
-
 fn update{
 	branch=$1
 	upstream=$2
@@ -35,46 +27,24 @@ fn update{
 
 gitup
 
-branch=refs/`{git/branch}
-remote=()
-incoming=true
-checkout='true'
-upstream=origin
+flagfmt='a:allbranch, b:branch branch, f:fetchonly,
+         u:upstream upstream, q:quiet'
+args=''
+eval `''{aux/getflags $*} || exec aux/usage
 
-while(~ $1 -*){
-	switch($1){
-	case -u
-		upstream=$2
-		remote=`{git/conf 'remote "'$upstream'".url'}
-		if(~ $#remote 0){
-			upstream=SOMEONE
-			remote=$2
-		}
-		shift
-	case -b
-		branch=$2
-		shift
-	case -a
-		branch=''
-	case -f
-		checkout=()
-	case -q
-		incoming=()
-	case *
-		usage
-	}
-	shift
-}
-if(! ~ $#* 0)
-	usage
+if(~ $#branch 0)
+	branch=refs/`{git/branch}
+if(~ $allbranch 1)
+	branch=''
 
-if(~ $#remote 0)
-	remote=`{git/conf 'remote "'$upstream'".url'}
+if(~ $#upstream 0)
+	upstream=origin
+remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
 	die 'no remote to pull from'
 
 update $branch $upstream $remote
-if (~ $#checkout 0)
+if (~ $fetchonly 1)
 	exit
 
 local=`{git/branch}
@@ -99,7 +69,7 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 }
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
-if(! ~ $#incoming 0)
+if(~ $quiet 0)
 	git/log -s -e $local'..'$remote >[1=2]
 echo
 echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]

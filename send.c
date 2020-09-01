@@ -56,7 +56,7 @@ pack(Objset *send, Objset *skip, Object *o)
 	Object *s;
 	int i;
 
-	if(oshas(send, o) || oshas(skip, o))
+	if(oshas(send, o->hash) || oshas(skip, o->hash))
 		return;
 	osadd(send, o);
 	switch(o->type){
@@ -156,7 +156,7 @@ writeobject(int fd, Object *o, DigestState **st)
 }
 
 int
-writepack(Conn *c, Update *upd, int nupd)
+writepackdata(Conn *c, Update *upd, int nupd)
 {
 	Objset send, skip;
 	Object *o, *p;
@@ -203,7 +203,7 @@ writepack(Conn *c, Update *upd, int nupd)
 		e = n;
 	for(; q; q = n){
 		o = q->obj;
-		if(oshas(&skip, o) || oshas(&send, o))
+		if(oshas(&skip, o->hash) || oshas(&send, o->hash))
 			goto iter;
 		pack(&send, &skip, o);
 		for(i = 0; i < o->commit->nparent; i++){
@@ -372,7 +372,7 @@ sendpack(Conn *c)
 	if(send){
 		if(chattygit)
 			fprint(2, "sending pack...\n");
-		if(writepack(c, upd, nupd) == -1)
+		if(writepackdata(c, upd, nupd) == -1)
 			return -1;
 
 		if(readphase(c) == -1)
@@ -413,11 +413,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath];
 	char *br;
 	Conn c;
-	int r;
 
 	ARGBEGIN{
 	default:
@@ -454,21 +451,8 @@ main(int argc, char **argv)
 	gitinit();
 	if(argc != 1)
 		usage();
-	r = -1;
-	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
-		sysfatal("bad uri %s", argv[0]);
-
-	if(strcmp(proto, "ssh") == 0)
-		r = dialssh(&c, host, port, path, "receive");
-	else if(strcmp(proto, "git") == 0)
-		r = dialgit(&c, host, port, path, "receive");
-	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
-		r = dialhttp(&c, host, port, path, "receive");
-	else
-		sysfatal("unknown protocol %s", proto);
-	
-	if(r == -1)
-		sysfatal("could not dial %s:%s: %r", proto, host);
+	if(gitconnect(&c, argv[0], "receive") == -1)
+		sysfatal("git connect: %s: %r", argv[0]);
 	if(sendpack(&c) == -1)
 		sysfatal("send failed: %r");
 	closeconn(&c);

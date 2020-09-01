@@ -6,8 +6,10 @@ TARG=\
 	fetch\
 	fs\
 	query\
+	repack\
 	save\
 	send\
+	serve\
 	walk
 
 RC=\
@@ -27,6 +29,7 @@ RC=\
 	rm
 
 OFILES=\
+	delta.$O\
 	objset.$O\
 	ols.$O\
 	pack.$O\
@@ -53,16 +56,6 @@ install:V:
 
 uninstall:V:
 	rm -rf $BIN /sys/lib/git
-
-%.c %.h: %.y
-	$YACC $YFLAGS -D1 -d -s $stem $prereq
-	mv $stem.tab.c $stem.c
-	mv $stem.tab.h $stem.h
-
-%.c %.h: %.y
-	$YACC $YFLAGS -D1 -d -s $stem $prereq
-	mv $stem.tab.c $stem.c
-	mv $stem.tab.h $stem.h
 
 %.rcinstall:V:
 	cp $stem $BIN/$stem

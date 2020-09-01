@@ -6,6 +6,13 @@
 
 typedef struct Eval	Eval;
 typedef struct XObject	XObject;
+typedef struct Objq	Objq;
+
+enum {
+	Blank,
+	Keep,
+	Drop,
+};
 
 struct Eval {
 	char	*str;
@@ -22,6 +29,11 @@ struct XObject {
 	XObject	*next;
 };
 
+struct Objq {
+	Objq	*next;
+	Object	*o;
+	int	color;
+};
 
 void
 eatspace(Eval *ev)
@@ -212,8 +224,118 @@ lca(Eval *ev)
 	return 0;
 }
 
+static int
+repaint(Objset *keep, Objset *drop, Object *o)
+{
+	Object *p;
+	int i;
+
+	if(!oshas(keep, o->hash) && !oshas(drop, o->hash)){
+		dprint(2, "repaint: blank => drop %H\n", o->hash);
+		osadd(drop, o);
+		return 0;
+	}
+	if(oshas(keep, o->hash))
+		dprint(2, "repaint: keep => drop %H\n", o->hash);
+	osadd(drop, o);
+	for(i = 0; i < o->commit->nparent; i++){
+		if((p = readobject(o->commit->parent[i])) == nil)
+			return -1;
+		if(repaint(keep, drop, p) == -1)
+			return -1;
+		unref(p);
+	}
+	return 0;
+}
 
 int
+findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres)
+{
+	Objq *q, *e, *n, **p;
+	Objset keep, drop;
+	Object *o, *c;
+	int i;
+
+	e = nil;
+	q = nil;
+	p = &q;
+	osinit(&keep);
+	osinit(&drop);
+	for(i = 0; i < nhead; i++){
+		if((o = readobject(head[i])) == nil)
+			sysfatal("read head %H: %r", head[i]);
+		dprint(1, "twixt init: keep %H\n", o->hash);
+		e = emalloc(sizeof(Objq));
+		e->o = o;
+		e->color = Keep;
+		*p = e;
+		p = &e->next;
+		unref(o);
+	}		
+	for(i = 0; i < ntail; i++){
+		if((o = readobject(tail[i])) == nil)
+			sysfatal("read tail %H: %r", tail[i]);
+		dprint(1, "init: drop %H\n", o->hash);
+		e = emalloc(sizeof(Objq));
+		e->o = o;
+		e->color = Drop;
+		*p = e;
+		p = &e->next;
+		unref(o);
+	}
+
+	dprint(1, "finding twixt commits\n");
+	while(q != nil){
+		if(oshas(&drop, q->o->hash))
+			goto next;
+
+		if(oshas(&keep, q->o->hash) && q->color == Drop){
+			if(repaint(&keep, &drop, q->o) == -1)
+				goto error;
+		}else{
+			dprint(2, "visit: %s %H\n", q->color == Keep ? "keep" : "drop", q->o->hash);
+			if(q->color == Keep)
+				osadd(&keep, q->o);
+			else
+				osadd(&drop, q->o);
+			for(i = 0; i < q->o->commit->nparent; i++){
+				if((c = readobject(q->o->commit->parent[i])) == nil)
+					goto error;
+				dprint(2, "enqueue: %s %H\n", q->color == Keep ? "keep" : "drop", c->hash);
+				n = emalloc(sizeof(Objq));
+				n->color = q->color;
+				n->next = nil;
+				n->o = c;
+				e->next = n;
+				e = n;
+				unref(c);
+			}
+		}
+next:
+		n = q->next;
+		free(q);
+		q = n;
+	}
+	*res = emalloc(keep.nobj*sizeof(Object*));
+	*nres = 0;
+	for(i = 0; i < keep.sz; i++){
+		if(keep.obj[i] != nil && !oshas(&drop, keep.obj[i]->hash)){
+			(*res)[*nres] = keep.obj[i];
+			(*nres)++;
+		}
+	}
+	osclear(&keep);
+	osclear(&drop);
+	return 0;
+error:
+	for(; q != nil; q = n) {
+		n = q->next;
+		free(q);
+	}
+	return -1;
+}
+
+static int
 parent(Eval *ev)
 {
 	Object *o, *p;
@@ -231,14 +353,14 @@ parent(Eval *ev)
 	return 0;
 }
 
-int
+static int
 unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int keep)
 {
 	int i;
 
 	for(i = nobj; i >= 0; i--){
 		idx[i]++;
-		if(keep && !oshas(set, obj[i])){
+		if(keep && !oshas(set, obj[i]->hash)){
 			push(ev, obj[i]);
 			osadd(set, obj[i]);
 		}else{
@@ -252,7 +374,7 @@ unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int 
 	return -1;
 }
 
-int
+static int
 range(Eval *ev)
 {
 	Object *a, *b, *p, **all;
@@ -284,10 +406,10 @@ range(Eval *ev)
 		else if(p->commit->nparent == 0)
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		else if(oshas(&keep, p))
+		else if(oshas(&keep, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		else if(oshas(&skip, p))
+		else if(oshas(&skip, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
 		if(p->commit->nparent == 0)
@@ -444,4 +566,51 @@ resolveref(Hash *r, char *ref)
 	}
 	*r = ev.stk[0]->hash;
 	return 0;
+}
+
+int
+readrefdir(Hash **refs, char ***names, int *nrefs, char *dpath, char *dname)
+{
+	Dir *d, *e, *dir;
+	char *path, *name, *sep;
+	int ndir;
+
+	if((ndir = slurpdir(dpath, &dir)) == -1)
+		return -1;
+	sep = (*dname == '\0') ? "" : "/";
+	e = dir + ndir;
+	for(d = dir; d != e; d++){
+		path = smprint("%s/%s", dpath, d->name);
+		name = smprint("%s%s%s", dname, sep, d->name);
+		if(d->mode & DMDIR) {
+			if(readrefdir(refs, names, nrefs, path, name) == -1)
+				goto noref;
+		}else{
+			*refs = erealloc(*refs, (*nrefs + 1)*sizeof(Hash));
+			*names = erealloc(*names, (*nrefs + 1)*sizeof(char*));
+			if(resolveref(&(*refs)[*nrefs], name) == -1)
+				goto noref;
+			(*names)[*nrefs] = name;
+			*nrefs += 1;
+			goto next;
+		}
+noref:		free(name);
+next:		free(path);
+	}
+	return 0;
+}
+
+int
+listrefs(Hash **refs, char ***names)
+{
+	int nrefs;
+
+	*refs = nil;
+	*names = nil;
+	nrefs = 0;
+	if(readrefdir(refs, names, &nrefs, ".git/refs", "") == -1){
+		free(*refs);
+		return -1;
+	}
+	return nrefs;
 }

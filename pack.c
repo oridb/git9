@@ -4,11 +4,31 @@
 
 #include "git.h"
 
-typedef struct Buf Buf;
+typedef struct Buf	Buf;
+typedef struct Objmeta	Objmeta;
+typedef struct Compout	Compout;
+
+struct Objmeta {
+	int	type;
+	char	*path;
+	vlong	mtime;
+	Hash	hash;
+
+	Object	*obj;
+	Object	*base;
+	Delta	*delta;
+	int	ndelta;
+};
+
+struct Compout {
+	Biobuf *bfd;
+	DigestState *st;
+};
 
 struct Buf {
 	int len;
 	int sz;
+	int off;
 	char *data;
 };
 
@@ -312,10 +332,6 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 
 	while(d != ed){
 		c = *d++;
-		if(!c){
-			werrstr("bad delta encoding");
-			return -1;
-		}
 		/* copy from base */
 		if(c & 0x80){
 			o = 0;
@@ -446,6 +462,10 @@ readpacked(Biobuf *f, Object *o, int flag)
 			return -1;
 		l |= (c & 0x7f) << s;
 		s += 7;
+	}
+	if(l >= (1ULL << 32)){
+		werrstr("object too big");
+		return -1;
 	}
 
 	switch(t){
@@ -821,9 +841,9 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			assert(idx != nil);
 			o = Boffset(idx);
 			if(Bseek(idx, obj->off, 0) == -1)
-				sysfatal("could not seek to object offset");
+				return nil;
 			if(readpacked(idx, obj, flag) == -1)
-				sysfatal("could not reload object %H", obj->hash);
+				return nil;
 			if(Bseek(idx, o, 0) == -1)
 				sysfatal("could not restore offset");
 			cache(obj);
@@ -887,6 +907,9 @@ error:
 	return nil;
 }
 
+/*
+ * Loads and returns a cached object.
+ */
 Object*
 readobject(Hash h)
 {
@@ -895,6 +918,30 @@ readobject(Hash h)
 	o = readidxobject(nil, h, 0);
 	if(o)
 		ref(o);
+	return o;
+}
+
+/*
+ * Creates and returns a cached, cleared object
+ * that will get loaded some other time. Useful
+ * for performance if need to mark that a blob
+ * exists, but we don't care about its contents.
+ *
+ * The refcount of the returned object is 0, so
+ * it doesn't need to be unrefed.
+ */
+Object*
+clearedobject(Hash h, int type)
+{
+	Object *o;
+
+	if((o = osfind(&objcache, h)) != nil)
+		return o;
+
+	o = emalloc(sizeof(Object));
+	o->hash = h;
+	o->type = type;
+	osadd(&objcache, o);
 	return o;
 }
 
@@ -938,7 +985,7 @@ int
 indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
-	int nobj, nvalid, nbig, n, i, step;
+	int nobj, nvalid, nbig, n, i, pcnt, x;
 	Object *o, **objects;
 	DigestState *st;
 	char *valid;
@@ -961,19 +1008,21 @@ indexpack(char *pack, char *idx, Hash ph)
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
-	step = nobj/100;
-	if(!step)
-		step++;
 	while(nvalid != nobj){
-		fprint(2, "indexing (%d/%d):", nvalid, nobj);
+		fprint(2, "indexing %d objects:   0%%", nobj-nvalid);
 		n = 0;
+		pcnt = 0;
 		for(i = 0; i < nobj; i++){
 			if(valid[i]){
 				n++;
 				continue;
 			}
-			if(i % step == 0)
-				fprint(2, ".");
+			x = (i*100) / nobj;
+			if(x > pcnt){
+				pcnt = x;
+				if(pcnt%10 == 0)
+					fprint(2, "\b\b\b\b%3d%%", pcnt);
+			}
 			if(objects[i] == nil){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
@@ -993,7 +1042,7 @@ indexpack(char *pack, char *idx, Hash ph)
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
-		fprint(2, "\n");
+		fprint(2, "\b\b\b\b100%%\n");
 		if(n == nvalid){
 			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
@@ -1055,4 +1104,395 @@ error:
 	free(valid);
 	Bterm(f);
 	return -1;
+}
+
+static int
+dsortcmp(void *pa, void *pb)
+{
+	Objmeta *a, *b;
+	int cmp;
+
+	a = pa;
+	b = pb;
+	if(a->type != b->type)
+		return a->type - b->type;
+	cmp = strcmp(a->path, b->path);
+	if(cmp != 0)
+		return cmp;
+	if(a->mtime != b->mtime)
+		return a->mtime - b->mtime;
+	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
+}
+
+static int
+timecmp(void *pa, void *pb)
+{
+	Objmeta *a, *b;
+
+	a = pa;
+	b = pb;
+	return b->mtime - a->mtime;
+}
+
+static void
+addmeta(Objmeta **m, int *nm, int type, Hash h, char *path, vlong mtime)
+{
+	static Objset os;
+
+	*m = erealloc(*m, (*nm + 1)*sizeof(Objmeta));
+	memset(&(*m)[*nm], 0, sizeof(Objmeta));
+	(*m)[*nm].type = type;
+	(*m)[*nm].path = path;
+	(*m)[*nm].mtime = mtime;
+	(*m)[*nm].hash = h;
+	*nm += 1;
+}
+
+static int
+loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
+{
+	Object *t, *o;
+	Dirent *e;
+	char *p;
+	int i, k;
+
+	if(oshas(has, tree))
+		return 0;
+	if((t = readobject(tree)) == nil)
+		return -1;
+	osadd(has, t);
+	addmeta(m, nm, t->type, t->hash, dpath, mtime);
+	for(i = 0; i < t->tree->nent; i++){
+		e = &t->tree->ent[i];
+		if(oshas(has, e->h))
+			continue;
+		if(e->ismod)
+			continue;
+		k = (e->mode & DMDIR) ? GTree : GBlob;
+		o = clearedobject(e->h, k);
+		p = smprint("%s/%s", dpath, e->name);
+		if(k == GBlob){
+			osadd(has, o);
+			addmeta(m, nm, k, o->hash, p, mtime);
+		}else if(loadtree(m, nm, e->h, p, mtime, has) == -1)
+			return -1;
+	}
+	unref(t);
+	return 0;
+}
+
+static int
+loadcommit(Hash h, Objset *has, Objmeta **m, int *nm)
+{
+	Object *c;
+	int r;
+
+	if(oshas(has, h))
+		return 0;
+	if((c = readobject(h)) == nil)
+		return -1;
+	osadd(has, c);
+	addmeta(m, nm, c->type, c->hash, estrdup(""), c->commit->ctime);
+	r = loadtree(m, nm, c->commit->tree, "", c->commit->ctime, has);
+	unref(c);
+	return r;
+}
+
+static int
+readmeta(Object **commits, int ncommits, Objmeta **m)
+{
+	Objset has;
+	int i, nm;
+
+	*m = nil;
+	nm = 0;
+	osinit(&has);
+	for(i = 0; i < ncommits; i++){
+		dprint(2, "loading commit %H\n", commits[i]->hash);
+		if(loadcommit(commits[i]->hash, &has, m, &nm) == -1){
+			free(*m);
+			return -1;
+		}
+	}
+	osclear(&has);
+	return nm;
+}
+
+static int
+deltasz(Delta *d, int nd)
+{
+	int i, sz;
+	sz = 32;
+	for(i = 0; i < nd; i++)
+		sz += d[i].cpy ? 7 : d[i].len + 1;
+	return sz;
+}
+
+static void
+pickdeltas(Objmeta *meta, int nmeta)
+{
+	Objmeta *m, *p;
+	Object *a, *b;
+	Delta *d;
+	int i, x, nd, sz, pcnt, best;
+
+	pcnt = 0;
+	fprint(2, "deltifying %d objects:   0%%", nmeta);
+	qsort(meta, nmeta, sizeof(Objmeta), dsortcmp);
+	for(i = 0; i < nmeta; i++){
+		m = &meta[i];
+		x = (i*100) / nmeta;
+		if(x > pcnt){
+			pcnt = x;
+			if(pcnt%10 == 0)
+				fprint(2, "\b\b\b\b%3d%%", pcnt);
+		}
+		p = meta;
+		if(i > 10)
+			p = m - 10;
+		if((a = readobject(m->hash)) == nil)
+			sysfatal("missing object %H", m->hash);
+		best = a->size;
+		m->base = nil;
+		m->delta = nil;
+		m->ndelta = 0;
+		for(; p != m; p++){
+			if((b = readobject(p->hash)) == nil)
+				sysfatal("missing object %H", p->hash);
+			d = deltify(a->data, a->size, b->data, b->size, &nd);
+			sz = deltasz(d, nd);
+			if(sz + 32 < best){
+				free(m->delta);
+				best = sz;
+				m->base = b;
+				m->delta = d;
+				m->ndelta = nd;
+			}else
+				free(d);
+			unref(b);
+		}
+		unref(a);
+	}
+	fprint(2, "\b\b\b\b100%%\n");
+}
+
+static int
+compread(void *p, void *dst, int n)
+{
+	Buf *b;
+
+	b = p;
+	if(n > b->sz - b->off)
+		n = b->sz - b->off;
+	memcpy(dst, b->data + b->off, n);
+	b->off += n;
+	return n;
+}
+
+static int
+compwrite(void *p, void *buf, int n)
+{
+	return hwrite(((Compout *)p)->bfd, buf, n, &((Compout*)p)->st);
+}
+
+static int
+hcompress(Biobuf *bfd, void *buf, int sz, DigestState **st)
+{
+	int r;
+	Buf b ={
+		.off=0,
+		.data=buf,
+		.sz=sz,
+	};
+	Compout o = {
+		.bfd = bfd,
+		.st = *st,
+	};
+
+	r = deflatezlib(&o, compwrite, &b, compread, 6, 0);
+	*st = o.st;
+	return r;
+}
+
+static void
+append(char **p, int *len, int *sz, void *seg, int nseg)
+{
+	if(*len + nseg >= *sz){
+		while(*len + nseg >= *sz)
+			*sz += *sz/2;
+		*p = erealloc(*p, *sz);
+	}
+	memcpy(*p + *len, seg, nseg);
+	*len += nseg;
+}
+
+static int
+encodedelta(Objmeta *m, Object *o, Object *b, void **pp)
+{
+	char *p, *bp, buf[16];
+	int len, sz, n, i, j;
+	Delta *d;
+
+	sz = 128;
+	len = 0;
+	p = emalloc(sz);
+
+	/* base object size */
+	buf[0] = b->size & 0x7f;
+	n = b->size >> 7;
+	for(i = 1; n > 0; i++){
+		buf[i - 1] |= 0x80;
+		buf[i] = n & 0x7f;
+		n >>= 7;
+	}
+	append(&p, &len, &sz, buf, i);
+
+	/* target object size */
+	buf[0] = o->size & 0x7f;
+	n = o->size >> 7;
+	for(i = 1; n > 0; i++){
+		buf[i - 1] |= 0x80;
+		buf[i] = n & 0x7f;
+		n >>= 7;
+	}
+	append(&p, &len, &sz, buf, i);
+	for(j = 0; j < m->ndelta; j++){
+		d = &m->delta[j];
+		if(d->cpy){
+			n = d->off;
+			bp = buf + 1;
+			buf[0] = 0x81;
+			buf[1] = 0x00;
+			for(i = 0; i < sizeof(buf); i++) {
+				buf[0] |= 1<<i;
+				*bp++ = n & 0xff;
+				n >>= 8;
+				if(n == 0)
+					break;
+			}
+
+			n = d->len;
+			if(n != 0x10000) {
+				buf[0] |= 0x1<<4;
+				for(i = 0; i < sizeof(buf)-4 && n > 0; i++){
+					buf[0] |= 1<<(i + 4);
+					*bp++ = n & 0xff;
+					n >>= 8;
+				}
+			}
+			append(&p, &len, &sz, buf, bp - buf);
+		}else{
+			n = 0;
+			while(n != d->len){
+				buf[0] = (d->len - n < 127) ? d->len - n : 127;
+				append(&p, &len, &sz, buf, 1);
+				append(&p, &len, &sz, o->data + d->off + n, buf[0]);
+				n += buf[0];
+			}
+		}
+	}
+	*pp = p;
+	return len;
+}
+
+static int
+genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
+{
+	int i, j, n, x, res, pcnt, len, ret;
+	DigestState *st;
+	Biobuf *bfd;
+	Objmeta *m;
+	Object *o;
+	char *p, buf[16];
+
+	st = nil;
+	ret = -1;
+	pcnt = 0;
+	if((fd = dup(fd, -1)) == -1)
+		return -1;
+	if((bfd = Bfdopen(fd, OWRITE)) == nil)
+		return -1;
+	if(hwrite(bfd, "PACK", 4, &st) == -1)
+		return -1;
+	PUTBE32(buf, 2);
+	if(hwrite(bfd, buf, 4, &st) == -1)
+		return -1;
+	PUTBE32(buf, nmeta);
+	if(hwrite(bfd, buf, 4, &st) == -1)
+		return -1;
+	qsort(meta, nmeta, sizeof(Objmeta), timecmp);
+	fprint(2, "writing %d objects:   0%%", nmeta);
+	for(i = 0; i < nmeta; i++){
+		m = &meta[i];
+		x = (i*100) / nmeta;
+		if(x > pcnt){
+			pcnt = x;
+			if(pcnt%10 == 0)
+				fprint(2, "\b\b\b\b%3d%%", pcnt);
+		}
+		if((o = readobject(m->hash)) == nil)
+			return -1;
+		if(m->delta == nil){
+			len = o->size;
+			buf[0] = o->type << 4;
+			buf[0] |= len & 0xf;
+			len >>= 4;
+			for(j = 1; len != 0; j++){
+				assert(j < sizeof(buf));
+				buf[j-1] |= 0x80;
+				buf[j] = len & 0x7f;
+				len >>= 7;
+			}
+			hwrite(bfd, buf, j, &st);
+			if(hcompress(bfd, o->data, o->size, &st) == -1)
+				goto error;
+		}else{
+			n = encodedelta(m, o, m->base, &p);
+			len = n;
+			buf[0] = GRdelta << 4;
+			buf[0] |= len & 0xf;
+			len >>= 4;
+			for(j = 1; len != 0; j++){
+				assert(j < sizeof(buf));
+				buf[j-1] |= 0x80;
+				buf[j] = len & 0x7f;
+				len >>= 7;
+			}
+			hwrite(bfd, buf, j, &st);
+			hwrite(bfd, m->base->hash.h, sizeof(m->base->hash.h), &st);
+			res = hcompress(bfd, p, n, &st);
+			free(p);
+			if(res == -1)
+				goto error;
+		}
+		unref(o);
+	}
+	fprint(2, "\b\b\b\b100%%\n");
+	sha1(nil, 0, h->h, st);
+	if(Bwrite(bfd, h->h, sizeof(h->h)) == -1)
+		goto error;
+	ret = 0;
+error:
+	if(Bterm(bfd) == -1)
+		return -1;
+	return ret;
+}
+
+int
+writepack(int fd, Object **obj, int nobj, Hash *h)
+{
+	Objmeta *meta;
+	int nmeta;
+
+	dprint(1, "reading meta\n");
+	if((nmeta = readmeta(obj, nobj, &meta)) == -1)
+		return -1;
+	dprint(1, "picking deltas\n");
+	pickdeltas(meta, nmeta);
+	dprint(1, "generating pack\n");
+	if(genpack(fd, meta, nmeta, h) == -1){
+		free(meta);
+		return -1;
+	}
+	return 0;
 }
