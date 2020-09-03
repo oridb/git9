@@ -16,7 +16,7 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull, git/rm
 .PP
 .B git/branch
 [
-.B -a
+.B -adns
 ]
 [
 .B -b
@@ -291,17 +291,20 @@ To list all branches, pass the
 option.
 To switch between branches, pass a branch name.
 When passed the
-.I -c
-option, the branch will be created if it does not yet exist.
+.I -n
+option, the branch will be created, overwriting existing branch.
 When passed the
-.I -o original
+.I -b base
 option, the branch created is based off of
-.I original
+.I base
 instead of
 .I HEAD.
 When passed the
 .I -s
 option, the branch is created but the files are not checked out.
+When passed the
+.I -d
+option, the branch is deleted.
 
 .PP
 .B Git/log
