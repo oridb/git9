@@ -12,14 +12,14 @@ if(~ $#commit 0)
 files=()
 if(! ~ $#* 0)
 	files=`{cleanname $gitrel/$*}
-branch=`{/$cputype/bin/git/query -p $commit}
+branch=`{git/query -p $commit}
 if(~ $summarize 1){
-	/$cputype/bin/git/walk -fMAR $files
+	git/walk -fMAR $files
 	exit
 }
-dirty=`$nl{/$cputype/bin/git/walk -c -fRMA $files}
+dirty=`$nl{git/walk -c -fRMA $files}
 if(! ~ $commit HEAD)
-	dirty=($dirty `$nl{/$cputype/bin/git/query -c $commit HEAD | subst '^..'})
+	dirty=($dirty `$nl{git/query -c $commit HEAD | subst '^..'})
 for(f in $dirty){
 	orig=$branch/tree/$f
 	if(! test -f $orig)

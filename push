@@ -13,7 +13,7 @@ if(! ~ $#* 0)
 if(~ $pushall 1)
 	branch=`$nl{cd .git/refs/heads && walk -f}
 if(~ $#branch 0)
-	branch=`{/$cputype/bin/git/branch}
+	branch=`{git/branch}
 if(~ $#branch 0)
 	die 'no branches'
 if(~ $force 1)
@@ -24,13 +24,13 @@ if(~ $debug 1)
 if(~ $#upstream 0)
 	upstream=origin
 
-remote=`{/$cputype/bin/git/conf 'remote "'$upstream'".url'}
+remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
 	remote=$upstream
 branch=-b^$branch
 if(! ~ $#remove 0)
 	remove=-r^$remove
-updates=`$nl{/$cputype/bin/git/send $debug $force $branch $remove $remote || die $status}
+updates=`$nl{git/send $debug $force $branch $remove $remote || die $status}
 for(ln in $updates){
 	u=`{echo $ln}
 	refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}

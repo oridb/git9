@@ -20,7 +20,7 @@ fn cmd_init{
 		shift
 	}
 	ls >[1=2]
-	/$cputype/bin/git/init $opts $args
+	git/init $opts $args
 }
 
 fn cmd_clone{
@@ -39,15 +39,15 @@ fn cmd_clone{
 		}
 		shift
 	}
-	/$cputype/bin/git/clone $opts $args
+	git/clone $opts $args
 	if(~ $#branch 1)
-		/$cputype/bin/git/branch -n -b $1 origin/$1
+		git/branch -n -b $1 origin/$1
 }
 
 fn cmd_pull{
 	if(~ $1 -*)
 		die unknown options for pull $*
-	/$cputype/bin/git/pull
+	git/pull
 }
 
 fn cmd_fetch{
@@ -67,7 +67,7 @@ fn cmd_fetch{
 		}
 		shift
 	}	
-	/$cputype/bin/git/pull -f $opts
+	git/pull -f $opts
 }
 
 
@@ -76,7 +76,7 @@ fn cmd_checkout{
 		die unknown command pull $*
 	if(~ $#* 0)
 		die git checkout branch
-	/$cputype/bin/git/branch $b
+	git/branch $b
 }
 
 fn rev-parse{

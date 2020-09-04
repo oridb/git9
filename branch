@@ -30,18 +30,18 @@ if not
 	new=refs/heads/$branch
 
 if (~ $#baseref 1)
-	base=`{/$cputype/bin/git/query $baseref} || exit 'bad base'
+	base=`{git/query $baseref} || exit 'bad base'
 if not if(test -e .git/$new)
-	base=`{/$cputype/bin/git/query $new}
+	base=`{git/query $new}
 if not
-	base=`{/$cputype/bin/git/query HEAD}
+	base=`{git/query HEAD}
 
-modified=`$nl{/$cputype/bin/git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
-deleted=`$nl{/$cputype/bin/git/query -c HEAD $base | grep '^-' | subst '^..'}
+modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
+deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
 if(! ~ $#modified 0 || ! ~ $#deleted 0){
-	if(! /$cputype/bin/git/walk -q $modified $deleted){
-		/$cputype/bin/git/walk -fRMA $modified $deleted
+	if(! git/walk -q $modified $deleted){
+		git/walk -fRMA $modified $deleted
 		die 'uncommited changes would be clobbered'
 	}
 }
@@ -56,7 +56,7 @@ if(~ $#newbr 0){
 	if(! ~ $#baseref 0)
 		die update would clobber $branch with $baseref
 }
-commit=`{/$cputype/bin/git/query $base} || die 'branch does not exist:' $base
+commit=`{git/query $base} || die 'branch does not exist:' $base
 echo updating $new to $commit
 echo $commit > .git/$new
 
@@ -65,7 +65,7 @@ if(! ~ $#stay 0)
 	exit
 
 if(! ~ $#modified 0){
-	basedir=`{/$cputype/bin/git/query -p $base}
+	basedir=`{git/query -p $base}
 	for(m in $modified){
 		d=`{basename -d $m}
 		mkdir -p $d

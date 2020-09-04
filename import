@@ -8,12 +8,12 @@ fn sigexit {
 }
 
 fn apply @{
-	/$cputype/bin/git/fs
+	git/fs
 	email=''
 	name=''
 	msg=''
-	parents='-p'^`{/$cputype/bin/git/query HEAD}
-	branch=`{/$cputypeb/in/git/branch}
+	parents='-p'^`{git/query HEAD}
+	branch=`{git/branch}
 	if(test -e /mnt/git/branch/$branch/tree)
 		refpath=.git/refs/$branch
 	if not if(test -e /mnt/git/object/$branch/tree)
@@ -77,12 +77,12 @@ fn apply @{
 		files=`$nl{ape/patch -Ep1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
 		for(f in $files){
 			if(test -e $f)
-				/$cputype/bin/git/add $f
+				git/add $f
 			if not
-				/$cputype/bin/git/add -r $f
+				git/add -r $f
 		}
-		/$cputype/bin/git/walk -fRMA $files
-		hash=`{/$cputype/bin/git/save -n $name -e $email -m $msg -d $date $parents $files}
+		git/walk -fRMA $files
+		hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
 		echo $hash > $refpath
 	'
 }

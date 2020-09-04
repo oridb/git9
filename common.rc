@@ -31,7 +31,7 @@ fn subst{
 }
 
 fn gitup{
-	gitroot=`{/$cputype/bin/git/conf -r >[2]/dev/null}
+	gitroot=`{git/conf -r >[2]/dev/null}
 	if(~ $#gitroot 0)
 		die 'not a git repository'
 	gitrel=`{pwd | subst '^'$"gitroot'/?'}
@@ -44,7 +44,7 @@ fn gitup{
 	if(! grep -s '^repo '$gitroot'$' /mnt/git/ctl >[2]/dev/null)
 		startfs=true
 	if(~ $#startfs 1)
-		/$cputype/bin/git/fs
+		git/fs
 	if not
 		status=''
 }
