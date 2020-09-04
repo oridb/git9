@@ -44,7 +44,12 @@ Configure your user name and email:
 		email=ori@eigenstate.org
 	' > $home/lib/git/config
 
-And start committing!
+Read the docs:
+
+	% man 1 git
+	% man 4 gitfs
+
+And start committing!
 
 Structure
 ---------
@@ -163,6 +168,7 @@ The following utilities and binaries are provided:
 	log:	Prints the contents of a commmit log.
 	add:	Tells the repository to add a file to the next commit.
 	walk:	`du`, but for git status.
+	...	and more
 
 Supported protocols: git:// and git+ssh://. If someone
 implements others, I'll gladly accept patches.
@@ -174,6 +180,7 @@ To use git9 on 9legacy, these patches are necessary.
 
 	- rc-line-split: implement delim{...} syntax for rc
 	- walk: port walk command to 9legacy.
+	- aux/getflags: 9front updated it with support for named args
 
 Additionally, git9 defaults to editing with hold(1). This command
 is not present on 9legacy. Import it, or set $editor to your choice

@@ -485,8 +485,7 @@ git/push
 Repositories with submodules are effectively read-only.
 
 .PP
-There are a number of missing commands, features, and tools. Notable
-missing features include
-.I http
-clones, history editing, and formatted patch management.
+There are a some of missing commands, features, and tools, such as git/rebase
 
+.PP
+git/compat only works within a git repository.
