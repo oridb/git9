@@ -38,6 +38,8 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull, git/rm
 ]
 .I file...
 .PP
+.B git/compat
+.PP
 .B git/conf
 [
 .B -r
@@ -408,6 +410,16 @@ Removed from either working directory tracking list.
 .TP
 A
 Added, does not yet exist in a commit.
+
+.PP
+.B Git/compat
+spawns an rc subshell with a compatibility stub in
+.IR $path .
+This compatibility stub provides enough of the unix
+.I git
+commands to run tools like
+.I go get
+but not much more.
 
 .SH REF SYNTAX
 
