@@ -10,7 +10,7 @@ fn update{
 	bflag=()
 	if(! ~ $branch '')
 		bflag=(-b $branch)
-	{git/fetch $bflag -u $upstream $url >[2=3] || die $status} | awk '
+	{/$cputype/bin/git/fetch $bflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -33,13 +33,13 @@ args=''
 eval `''{aux/getflags $*} || exec aux/usage
 
 if(~ $#branch 0)
-	branch=refs/`{git/branch}
+	branch=refs/`{/$cputype/bin/git/branch}
 if(~ $allbranch 1)
 	branch=''
 
 if(~ $#upstream 0)
 	upstream=origin
-remote=`{git/conf 'remote "'$upstream'".url'}
+remote=`{/$cputype/bin/git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
 	die 'no remote to pull from'
 
@@ -47,22 +47,22 @@ update $branch $upstream $remote
 if (~ $fetchonly 1)
 	exit
 
-local=`{git/branch}
-remote=`{git/branch | subst '^(refs/)?heads' 'remotes/'$upstream}
+local=`{//$cputype/bin/git/branch}
+remote=`{/$cputype/bin/git/branch | subst '^(refs/)?heads' 'remotes/'$upstream}
 
 # we have local commits, but the remote hasn't changed.
 # in this case, we want to keep the local commits untouched.
-if(~ `{git/query HEAD $remote @} `{git/query $remote}){
+if(~ `{/$cputype/bin/git/query HEAD $remote @} `{/$cputype/bin/git/query $remote}){
 	echo 'up to date' >[1=2]
 	exit
 }
 # The remote repository and our HEAD have diverged: we
 # need to merge.
-if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
+if(! ~ `{/$cputype/bin/git/query HEAD $remote @} `{/$cputype/bin/git/query HEAD}){
 	>[1=2]{
-		echo ours:	`{git/query HEAD}
-		echo theirs:	`{git/query $remote}
-		echo common:	`{git/query HEAD $remote @}
+		echo ours:	`{/$cputype/bin/git/query HEAD}
+		echo theirs:	`{/$cputype/bin/git/query $remote}
+		echo common:	`{/$cputype/bin/git/query HEAD $remote @}
 		echo git/merge $remote
 	}
 	exit diverged
@@ -70,8 +70,8 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
 if(~ $quiet 0)
-	git/log -s -e $local'..'$remote >[1=2]
+	/$cputype/bin/git/log -s -e $local'..'$remote >[1=2]
 echo
-echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
-git/branch -n -b $remote $local
+echo $remote':' `{/$cputype/bin/git/query $local} '=>' `{/$cputype/bin/git/query $remote}  >[1=2]
+/$cputype/bin/git/branch -n -b $remote $local
 exit ''

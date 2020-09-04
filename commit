@@ -3,8 +3,8 @@ rfork ne
 . /sys/lib/git/common.rc
 
 fn whoami{
-	name=`{git/conf user.name}
-	email=`{git/conf user.email}
+	name=`{/$cputype/bin/git/conf user.name}
+	email=`{/$cputype/bin/git/conf user.email}
 	if(test -f /adm/keys.who){
 		if(~ $name '')
 			name=`{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
@@ -18,7 +18,7 @@ fn whoami{
 }
 
 fn findbranch{
-	branch=`{git/branch}
+	branch=`{/$cputype/bin/git/branch}
 	if(test -e /mnt/git/branch/$branch/tree){
 		refpath=.git/refs/$branch
 		initial=false
@@ -58,11 +58,11 @@ fn editmsg{
 			echo '#'
 			for(p in $parents)
 				echo '# parent:' $p
-			git/walk -fAMR $files | subst -g '^' '# '
+			/$cputype/bin/git/walk -fAMR $files | subst -g '^' '# '
 			echo '#'
 			echo '# Commit message:'
 		}
-		giteditor=`{git/conf core.editor}
+		giteditor=`{/$cputype/bin/git/conf core.editor}
 		if(~ $#editor 0)
 			editor=$giteditor
 		if(~ $#editor 0)
@@ -80,14 +80,14 @@ fn parents{
 	if not if(~ $initial true)
 		parents=()
 	if not
-		parents=`{git/query $branch}
+		parents=`{/$cputype/bin/git/query $branch}
 }
 
 fn commit{
 	msg=`"{cat $msgfile}
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
-	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags $files || die $status}
+	hash=`{/$cputype/bin/git/save -n $"name -e $"email  -m $"msg $pflags $files || die $status}
 	rm -f .git/index9/merge-parents
 }
 
@@ -125,7 +125,7 @@ msgfile=/tmp/git-msg.$pid
 if(~ $#msg 1)
 	echo $msg >$msgfile.tmp
 
-files=`{git/walk -c `{cleanname $gitrel/$*}}
+files=`{/$cputype/bin/git/walk -c `{cleanname $gitrel/$*}}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)
 	die 'nothing to commit' $status
 @{

@@ -9,11 +9,11 @@ eval `''{aux/getflags $*} || exec aux/usage
 
 base=/mnt/git/object/
 if(~ $#branch 0)
-	branch=`{git/branch}
+	branch=`{/$cputype/bin/git/branch}
 if(~ $#expr 0)
-	commits=`{git/query $branch}
+	commits=`{/$cputype/bin/git/query $branch}
 if not
-	commits=`{git/query $expr}
+	commits=`{/$cputype/bin/git/query $expr}
 
 files=()
 if(! ~ $#* 0)
@@ -24,7 +24,7 @@ while(! ~ $#commits 0){
 	show=()
 	c=$commits(1)
 	if(! ~ $#files 0){
-		ncomm=`{comm -12 /env/files <{git/query -c $c~ $c | subst '^..' | sort} | wc -l}
+		ncomm=`{comm -12 /env/files <{/$cputype/bin/git/query -c $c~ $c | subst '^..' | sort} | wc -l}
 		if(! ~ $ncomm 0)
 			show=true
 	}

@@ -30,7 +30,7 @@ fn clone{
 		echo '	url='$remote
 		echo '	fetch=+refs/heads/*:refs/remotes/origin/*'
 	}
-	{git/fetch $remote >[2=3] | awk '
+	{/$cputype/bin/git/fetch $remote >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD"){
 				headhash=$3
@@ -64,12 +64,12 @@ fn clone{
 	'} |[3] tr '\x0d' '\x0a' || die 'could not clone repository'
 
 	tree=/mnt/git/HEAD/tree
-	lbranch=`{git/branch}
+	lbranch=`{/$cputype/bin/git/branch}
 	rbranch=`{echo $lbranch | subst '^heads' 'remotes/origin'}
 	echo checking out repository...
 	if(test -f .git/refs/$rbranch){
 		cp .git/refs/$rbranch .git/refs/$lbranch
-		git/fs
+		/$cputype/bin/git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
 		for(f in `$nl{walk -f $tree | subst '^'$tree'/*'}){
