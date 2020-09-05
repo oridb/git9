@@ -5,9 +5,7 @@
 
 typedef struct Dblock	Dblock;
 typedef struct Delta	Delta;
-typedef struct Dset	Dset;
-typedef struct Objmeta	Objmeta;
-typedef struct Deltaset	Deltaset;
+typedef struct Dtab	Dtab;
 
 enum {
 	Blksz	= 127,
@@ -16,27 +14,17 @@ enum {
 };
 
 struct Dblock {
-	uchar	*p;
-	uchar	*s;
-	uchar	*e;
+	uchar	*buf;
+	int	len;
+	int	off;
 	u64int	rhash;
 	Hash	chash;
 };
 
-struct Objmeta {
-	Object	*obj;
-	char	*name;
-	vlong	time;
-	Delta	*delta;
-	int	ndelta;
-};
-
-struct Deltaset {
-	Objset	skip;
-	Objset	send;
-	Objmeta	*meta;
-	int	nmeta;
-	int	metasz;
+struct Dtab {
+	Dblock	*b;
+	int	nb;
+	int	sz;
 };
 
 static u64int
@@ -45,44 +33,46 @@ addh(u64int h, uchar v)
 	return h + v;
 }
 
-static int
-blkcmp(void *pa, void *pb)
-{
-	Dblock *a, *b;
-
-	a = (Dblock*)pa;
-	b = (Dblock*)pb;
-	if(b->rhash == a->rhash)
-		return 0;
-	return (a->rhash > b->rhash) ? -1 : 1;
-}
-
 static void
-initblk(Dblock *b, uchar *p, uchar *s, uchar *e, u64int rh)
+addblk(Dtab *dt, void *buf, int len, int off, u64int rh)
 {
-	b->p = p;
-	b->s = s;
-	b->e = e;
-	b->rhash = rh;
-	sha1(s, e - s, b->chash.h, nil);
+	int i, sz, probe;
+	Dblock *db;
+
+	probe = rh % dt->sz;
+	while(dt->b[probe].buf != nil){
+		if(len == dt->b[probe].len && memcmp(buf, dt->b[probe].buf, len) == 0)
+			return;
+		probe = (probe + 1) % dt->sz;
+	}
+	assert(dt->b[probe].buf == nil);
+	dt->b[probe].buf = buf;
+	dt->b[probe].len = len;
+	dt->b[probe].off = off;
+	dt->b[probe].rhash = rh;
+	dt->nb++;
+	sha1(buf, len, dt->b[probe].chash.h, nil);
+	if(dt->sz < 2*dt->nb){
+		sz = dt->sz;
+		db = dt->b;
+		dt->sz *= 2;
+		dt->nb = 0;
+		dt->b = emalloc(dt->sz * sizeof(Dblock));
+		for(i = 0; i < sz; i++)
+			if(db[i].buf != nil)
+				addblk(dt, db[i].buf, db[i].len, db[i].off, db[i].rhash);
+		free(db);
+	}		
 }
 
 static Dblock*
-findrough(Dblock *b, int nb, u64int rh)
+findrough(Dtab *dt, u64int rh)
 {
-	int mid, lo, hi;
+	int probe;
 
-	lo = 0;
-	hi = nb;
-	while(lo <= hi){
-		mid = (lo + hi)/2;
-		if(b[mid].rhash == rh)
-			return &b[mid];
-		else if(b[mid].rhash > rh)
-			lo = mid + 1;
-		else
-			hi = mid - 1;
-	}
+	for(probe = rh % dt->sz; dt->b[probe].buf != nil; probe++)
+		if(dt->b[probe].rhash == rh)
+			return &dt->b[probe];
 	return nil;
 }
 
@@ -107,12 +97,9 @@ nextblk(uchar *s, uchar *e, u64int *rh)
 static int
 sameblk(Dblock *b, Hash h, uchar *s, uchar *e)
 {
-	int n;
-
-	n = b->e - b->s;
-	if(n != e - s)
+	if(b->len != e - s)
 		return 0;
-	return hasheq(&b->chash, &h) && memcmp(b->s, s, n) == 0;
+	return hasheq(&b->chash, &h) && memcmp(b->buf, s, b->len) == 0;
 }
 
 static int
@@ -136,24 +123,25 @@ Delta*
 deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 {
 	Hash h;
-	Dblock *b, *k;
+	Dblock *k;
 	Delta *d;
+	Dtab dt;
 	uchar *l, *s, *e, *eb, *bp, *tp;
-	int i, nb, nd;
+	int i, nd, nb;
 	u64int rh;
 
 	bp = base;
 	tp = targ;
 	s = bp;
 	e = bp;
-	nb = (nbase + Blksz - 1) / Blksz;
-	b = emalloc(nb*sizeof(Dblock));
-	for(i = 0; i < nb; i++){
+	dt.b = emalloc(16*sizeof(Dblock));
+	dt.nb = 0;
+	dt.sz = 16;
+	while(e != bp + nbase){
 		e += nextblk(s, bp + nbase, &rh);
-		initblk(&b[i], bp, s, e, rh);
+		addblk(&dt, s, e - s, s - bp, rh);
 		s = e;
 	}
-	qsort(b, nb, sizeof(*b), blkcmp);
 
 	l = targ;
 	s = targ;
@@ -162,21 +150,23 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	nd = 0;
 	e += nextblk(s, tp + ntarg, &rh);
 	while(1){
-		if((k = findrough(b, nb, rh)) != nil){
+		if((k = findrough(&dt, rh)) != nil){
 			sha1(s, e - s, h.h, nil);
 			if(sameblk(k, h, s, e)){
-				eb = k->e;
+				nb = k->len;
+				eb = k->buf + k->len;
 				/* stretch the block as far as it'll go */
 				for(i = 0; i < (1<<24) - Blksz; i++){
 					if(e == tp + ntarg || eb == bp + nbase)
 						break;
 					if(*e != *eb)
 						break;
+					nb++;
 					eb++;
 					e++;
 				}
 				emitdelta(&d, &nd, 0, l - tp, s - l);
-				emitdelta(&d, &nd, 1, k->s - k->p, eb - k->s);
+				emitdelta(&d, &nd, 1, k->off, nb);
 				s = e;
 				l = e;
 				e += nextblk(s, tp + ntarg, &rh);
@@ -192,6 +182,6 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	}
 	emitdelta(&d, &nd, 0, l - tp, tp + ntarg - l);
 	*pnd = nd;
-	free(b);
+	free(dt.b);
 	return d;
 }
