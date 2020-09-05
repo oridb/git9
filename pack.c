@@ -1142,10 +1142,17 @@ addmeta(Objmeta **m, int *nm, int type, Hash h, char *path, vlong mtime)
 	*m = erealloc(*m, (*nm + 1)*sizeof(Objmeta));
 	memset(&(*m)[*nm], 0, sizeof(Objmeta));
 	(*m)[*nm].type = type;
-	(*m)[*nm].path = path;
+	(*m)[*nm].path = estrdup(path);
 	(*m)[*nm].mtime = mtime;
 	(*m)[*nm].hash = h;
 	*nm += 1;
+}
+
+static void
+freemeta(Objmeta *m)
+{
+	free(m->delta);
+	free(m->path);
 }
 
 static int
@@ -1174,8 +1181,11 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 		if(k == GBlob){
 			osadd(has, o);
 			addmeta(m, nm, k, o->hash, p, mtime);
-		}else if(loadtree(m, nm, e->h, p, mtime, has) == -1)
+		}else if(loadtree(m, nm, e->h, p, mtime, has) == -1){
+			free(p);
 			return -1;
+		}
+		free(p);
 	}
 	unref(t);
 	return 0;
@@ -1192,7 +1202,7 @@ loadcommit(Hash h, Objset *has, Objmeta **m, int *nm)
 	if((c = readobject(h)) == nil)
 		return -1;
 	osadd(has, c);
-	addmeta(m, nm, c->type, c->hash, estrdup(""), c->commit->ctime);
+	addmeta(m, nm, c->type, c->hash, "", c->commit->ctime);
 	r = loadtree(m, nm, c->commit->tree, "", c->commit->ctime, has);
 	unref(c);
 	return r;
@@ -1482,7 +1492,7 @@ int
 writepack(int fd, Object **obj, int nobj, Hash *h)
 {
 	Objmeta *meta;
-	int nmeta;
+	int i, r, nmeta;
 
 	dprint(1, "reading meta\n");
 	if((nmeta = readmeta(obj, nobj, &meta)) == -1)
@@ -1490,9 +1500,9 @@ writepack(int fd, Object **obj, int nobj, Hash *h)
 	dprint(1, "picking deltas\n");
 	pickdeltas(meta, nmeta);
 	dprint(1, "generating pack\n");
-	if(genpack(fd, meta, nmeta, h) == -1){
-		free(meta);
-		return -1;
-	}
-	return 0;
+	r = genpack(fd, meta, nmeta, h);
+	for(i = 0; i < nmeta; i++)
+		freemeta(&meta[i]);
+	free(meta);
+	return r;
 }

@@ -192,5 +192,6 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	}
 	emitdelta(&d, &nd, 0, l - tp, tp + ntarg - l);
 	*pnd = nd;
+	free(b);
 	return d;
 }

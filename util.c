@@ -67,7 +67,7 @@ erealloc(void *p, ulong n)
 	v = realloc(p, n);
 	if(v == nil)
 		sysfatal("realloc: %r");
-	setmalloctag(v, getcallerpc(&n));
+	setmalloctag(v, getcallerpc(&p));
 	return v;
 }
 

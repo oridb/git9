@@ -254,7 +254,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	Objq *q, *e, *n, **p;
 	Objset keep, drop;
 	Object *o, *c;
-	int i;
+	int i, ncolor;
 
 	e = nil;
 	q = nil;
@@ -287,12 +287,17 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	dprint(1, "finding twixt commits\n");
 	while(q != nil){
 		if(oshas(&drop, q->o->hash))
+			ncolor = Drop;
+		else if(oshas(&keep, q->o->hash))
+			ncolor = Keep;
+		else
+			ncolor = Blank;
+		if(ncolor == Drop || ncolor == Keep && q->color == Keep)
 			goto next;
-
-		if(oshas(&keep, q->o->hash) && q->color == Drop){
+		if(ncolor == Keep && q->color == Drop){
 			if(repaint(&keep, &drop, q->o) == -1)
 				goto error;
-		}else{
+		}else if (ncolor == Blank) {
 			dprint(2, "visit: %s %H\n", q->color == Keep ? "keep" : "drop", q->o->hash);
 			if(q->color == Keep)
 				osadd(&keep, q->o);
@@ -310,6 +315,8 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 				e = n;
 				unref(c);
 			}
+		}else{
+			sysfatal("oops");
 		}
 next:
 		n = q->next;
@@ -597,6 +604,7 @@ readrefdir(Hash **refs, char ***names, int *nrefs, char *dpath, char *dname)
 noref:		free(name);
 next:		free(path);
 	}
+	free(dir);
 	return 0;
 }
 
