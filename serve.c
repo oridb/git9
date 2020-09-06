@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <pool.h>
 #include <ctype.h>
 
 #include "git.h"
@@ -450,6 +449,9 @@ main(int argc, char **argv)
 	p = parsecmd(buf, cmd, sizeof(cmd));
 	if(snprint(path, sizeof(path), "%s/%s", pathpfx, p) == sizeof(path))
 		sysfatal("%s: path too long\n", p);
+	cleanname(path);
+	if(strncmp(path, pathpfx) != 0)
+		sysfatal("%s: path escapes prefix");
 	if(chdir(path) == -1)
 		sysfatal("cd %s: %r", p);
 	if(access(".git", AREAD) == -1)
