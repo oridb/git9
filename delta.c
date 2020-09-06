@@ -8,7 +8,10 @@ typedef struct Delta	Delta;
 typedef struct Dtab	Dtab;
 
 enum {
-	Blksz	= 127,
+	K	= 3,
+	Bconst	= 42,
+	Bmask	= 0x7f,
+	Bshift	= 7,
 	Hshift	= 113,
 	Hlast	= 1692137473L,
 };
@@ -32,6 +35,7 @@ addblk(Dtab *dt, void *buf, int len, int off, u64int rh)
 	int i, sz, probe;
 	Dblock *db;
 
+	rh >>= Bshift;
 	probe = rh % dt->sz;
 	while(dt->b[probe].buf != nil){
 		if(len == dt->b[probe].len && memcmp(buf, dt->b[probe].buf, len) == 0)
@@ -62,6 +66,7 @@ findrough(Dtab *dt, u64int rh)
 {
 	int probe;
 
+	rh >>= Bshift;
 	for(probe = rh % dt->sz; dt->b[probe].buf != nil; probe = (probe + 1) % dt->sz)
 		if(dt->b[probe].rhash == rh)
 			return &dt->b[probe];
@@ -69,20 +74,22 @@ findrough(Dtab *dt, u64int rh)
 }
 
 static int
-nextblk(uchar *s, uchar *e, u64int *rh)
+nextblk(uchar *s, uchar *e, u64int *ph)
 {
+	u64int rh;
 	uchar *p;
 	int i;
 
 	p = s;
-	*rh = 0;
-	for(i = 0; i < Blksz; i++){
+	rh = 0;
+	for(i = 0; (rh & Bmask) != Bconst; i++){
 		if(p == e)
 			break;
 		/* FIXME: better hash */
-		*rh *= Hshift;
-		*rh += *p++;
+		rh *= Hshift;
+		rh += *p++ + K;
 	}
+	*ph = rh;
 	return p - s;
 }
 
@@ -141,12 +148,12 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	nd = 0;
 	e += nextblk(s, tp + ntarg, &rh);
 	while(1){
-		if((k = findrough(&dt, rh)) != nil){
+		if((rh & Bmask) == Bconst && (k = findrough(&dt, rh)) != nil){
 			if(sameblk(k, s, e)){
 				nb = k->len;
 				eb = k->buf + k->len;
-				/* stretch the block as far as it'll go */
-				for(i = 0; i < (1<<24) - Blksz; i++){
+				/* stretch the block: 1<<24 is the max packfiles support. */
+				for(i = 0; i < (1<<24) - nb; i++){
 					if(e == tp + ntarg || eb == bp + nbase)
 						break;
 					if(*e != *eb)
@@ -168,7 +175,7 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 		/* got a better hash? apply within! */
 		rh -= *s++ * Hlast;
 		rh *= Hshift;
-		rh += *e++;
+		rh += *e++ + K;
 	}
 	emitdelta(&d, &nd, 0, l - tp, tp + ntarg - l);
 	*pnd = nd;
