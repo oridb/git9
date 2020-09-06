@@ -54,7 +54,7 @@ main(int argc, char **argv)
 
 	ARGBEGIN{
 	case 'd':
-		debug++;
+		chattygit++;
 		break;
 	default:
 		usage();

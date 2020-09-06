@@ -6,7 +6,8 @@
 
 Reprog *authorpat;
 Hash Zhash;
-int debug;
+
+int chattygit;
 
 Object*
 emptydir(void)
@@ -249,7 +250,7 @@ dprint(int v, char *fmt, ...)
 {
 	va_list ap;
 
-	if(debug < v)
+	if(chattygit < v)
 		return;
 	va_start(ap, fmt);
 	vfprint(2, fmt, ap);
