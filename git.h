@@ -41,6 +41,7 @@ enum {
 	Ccache	= 1 << 2,
 	Cexist	= 1 << 3,
 	Cparsed	= 1 << 5,
+	Cthin	= 1 << 6,
 };
 
 enum {
@@ -269,7 +270,7 @@ int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
 int	flushpkt(Conn*);
 void	initconn(Conn*, int, int);
-int	gitconnect(Conn *, char *, char*);
+int	gitconnect(Conn *, char *, char *);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);
