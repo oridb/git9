@@ -26,12 +26,6 @@ struct Dtab {
 	int	sz;
 };
 
-static u64int
-addh(u64int h, uchar v)
-{
-	return h + v;
-}
-
 static void
 addblk(Dtab *dt, void *buf, int len, int off, u64int rh)
 {

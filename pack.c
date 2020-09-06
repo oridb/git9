@@ -286,26 +286,6 @@ readvint(char *p, char **pp)
 }
 
 static int
-hashsearch(Hash *hlist, int nent, Hash h)
-{
-	int hi, lo, mid, d;
-
-	lo = 0;
-	hi = nent;
-	while(lo < hi){
-		mid = (lo + hi)/2;
-		d = memcmp(hlist[mid].h, h.h, sizeof h.h);
-		if(d < 0)
-			lo = mid + 1;
-		else if(d > 0)
-			hi = mid;
-		else
-			return mid;
-	}
-	return -1;
-}
-
-static int
 applydelta(Object *dst, Object *base, char *d, int nd)
 {
 	char *r, *b, *ed, *er;
@@ -919,7 +899,8 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	cache(obj);
 	return obj;
 error:
-	Bterm(f);
+	if(f != nil)
+		Bterm(f);
 	free(d);
 	free(new);
 	return nil;
@@ -1165,8 +1146,6 @@ timecmp(void *pa, void *pb)
 static void
 addmeta(Objmeta **m, int *nm, int type, Hash h, char *path, vlong mtime)
 {
-	static Objset os;
-
 	*m = erealloc(*m, (*nm + 1)*sizeof(Objmeta));
 	memset(&(*m)[*nm], 0, sizeof(Objmeta));
 	(*m)[*nm].type = type;

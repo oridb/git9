@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <pool.h>
 
 #include "git.h"
 
