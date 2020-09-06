@@ -384,7 +384,7 @@ recvpack(Conn *c)
 
 	if(recvnegotiate(c, &cur, &upd, &ref, &nupd) == -1)
 		sysfatal("negotiate refs: %r");
-	if(nupd != 0 && updatepack(c) == 0)
+	if(nupd != 0 && updatepack(c) == -1)
 		sysfatal("update pack: %r");
 	if(nupd != 0 && updaterefs(c, cur, upd, ref, nupd) == -1)
 		sysfatal("update refs: %r");

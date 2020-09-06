@@ -368,7 +368,7 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 	o->len = Boffset(f) - o->off;
 	if(d == nil || n != nd)
 		goto error;
-	if((b = readidxobject(f, h, flag)) == nil)
+	if((b = readidxobject(f, h, flag & ~Cidx)) == nil)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
