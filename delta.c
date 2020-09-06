@@ -18,7 +18,6 @@ struct Dblock {
 	int	len;
 	int	off;
 	u64int	rhash;
-	Hash	chash;
 };
 
 struct Dtab {
@@ -51,7 +50,6 @@ addblk(Dtab *dt, void *buf, int len, int off, u64int rh)
 	dt->b[probe].off = off;
 	dt->b[probe].rhash = rh;
 	dt->nb++;
-	sha1(buf, len, dt->b[probe].chash.h, nil);
 	if(dt->sz < 2*dt->nb){
 		sz = dt->sz;
 		db = dt->b;
@@ -95,11 +93,11 @@ nextblk(uchar *s, uchar *e, u64int *rh)
 }
 
 static int
-sameblk(Dblock *b, Hash h, uchar *s, uchar *e)
+sameblk(Dblock *b, uchar *s, uchar *e)
 {
 	if(b->len != e - s)
 		return 0;
-	return hasheq(&b->chash, &h) && memcmp(b->buf, s, b->len) == 0;
+	return memcmp(b->buf, s, b->len) == 0;
 }
 
 static int
@@ -122,7 +120,6 @@ emitdelta(Delta **pd, int *nd, int cpy, int off, int len)
 Delta*
 deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 {
-	Hash h;
 	Dblock *k;
 	Delta *d;
 	Dtab dt;
@@ -134,9 +131,9 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	tp = targ;
 	s = bp;
 	e = bp;
-	dt.b = emalloc(16*sizeof(Dblock));
 	dt.nb = 0;
-	dt.sz = 16;
+	dt.sz = 128;
+	dt.b = emalloc(dt.sz*sizeof(Dblock));
 	while(e != bp + nbase){
 		e += nextblk(s, bp + nbase, &rh);
 		addblk(&dt, s, e - s, s - bp, rh);
@@ -151,8 +148,7 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	e += nextblk(s, tp + ntarg, &rh);
 	while(1){
 		if((k = findrough(&dt, rh)) != nil){
-			sha1(s, e - s, h.h, nil);
-			if(sameblk(k, h, s, e)){
+			if(sameblk(k, s, e)){
 				nb = k->len;
 				eb = k->buf + k->len;
 				/* stretch the block as far as it'll go */
