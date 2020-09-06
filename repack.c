@@ -71,6 +71,7 @@ main(int argc, char **argv)
 		sysfatal("open %s: %r", TMPPATH("pack.tmp"));
 	if(writepack(fd, obj, nobj, &h) == -1)
 		sysfatal("writepack: %r");
+	free(obj);
 	if(indexpack(TMPPATH("pack.tmp"), TMPPATH("idx.tmp"), h) == -1)
 		sysfatal("indexpack: %r");
 	close(fd);

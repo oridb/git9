@@ -348,7 +348,10 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			if(d != ed && (c & 0x40)) l |= (*d++ << 16) & 0xff0000;
 			if(l == 0) l = 0x10000;
 
-			assert(o + l <= base->size);
+			if(o + l > base->size){
+				werrstr("garbled delta: out of bounds copy");
+				return -1;
+			}
 			memmove(r, b + o, l);
 			r += l;
 		/* inline data */
@@ -829,16 +832,23 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	char path[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
-	Object *obj;
+	Object *obj, *new;
 	int l, i, n;
 	vlong o;
 	Dir *d;
 
 	if((obj = osfind(&objcache, h)) != nil){
-		if(obj->flag & Cloaded)
-			return obj;
-		if(obj->flag & Cidx){
-			assert(idx != nil);
+		if(flag & Cidx){
+			/*
+			 * If we're indexing, we need to be careful
+			 * to only return objects within this pack,
+			 * so we don't load objects from outside the
+			 * current pack.
+			 */
+			if(!(obj->flag & Cidx))
+				return nil;
+			if(obj->flag & Cloaded)
+				return obj;
 			o = Boffset(idx);
 			if(Bseek(idx, obj->off, 0) == -1)
 				return nil;
@@ -849,10 +859,17 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			cache(obj);
 			return obj;
 		}
-	}else{
-		obj = emalloc(sizeof(Object));
-		obj->id = objcache.nobj + 1;
-		obj->hash = h;
+		if(obj->flag & Cloaded)
+			return obj;
+	}
+	if(flag & Cidx)
+		return nil;
+	new = nil;
+	if(obj == nil){
+		new = emalloc(sizeof(Object));
+		new->id = objcache.nobj + 1;
+		new->hash = h;
+		obj = new;
 	}
 
 	d = nil;
@@ -902,8 +919,9 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	cache(obj);
 	return obj;
 error:
+	Bterm(f);
 	free(d);
-	free(obj);
+	free(new);
 	return nil;
 }
 
@@ -942,6 +960,8 @@ clearedobject(Hash h, int type)
 	o->hash = h;
 	o->type = type;
 	osadd(&objcache, o);
+	o->id = objcache.nobj;
+	o->flag |= Cexist;
 	return o;
 }
 
@@ -985,7 +1005,8 @@ int
 indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
-	int nobj, nvalid, nbig, n, i, pcnt, x;
+	int nobj, npct, nvalid, nbig;
+	int i, n, r, x, pcnt;
 	Object *o, **objects;
 	DigestState *st;
 	char *valid;
@@ -1004,20 +1025,21 @@ indexpack(char *pack, char *idx, Hash ph)
 		return -1;
 	}
 
+	npct = 0;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
+	fprint(2, "indexing %d objects:   0%%", nobj);
 	while(nvalid != nobj){
-		fprint(2, "indexing %d objects:   0%%", nobj-nvalid);
 		n = 0;
 		pcnt = 0;
 		for(i = 0; i < nobj; i++){
+			x = (npct*100) / nobj;
 			if(valid[i]){
 				n++;
 				continue;
 			}
-			x = (i*100) / nobj;
 			if(x > pcnt){
 				pcnt = x;
 				if(pcnt%10 == 0)
@@ -1029,26 +1051,32 @@ indexpack(char *pack, char *idx, Hash ph)
 				objects[i] = o;
 			}
 			o = objects[i];
+			/*
+			 * We can seek around when packing delta chains.
+			 * Be extra careful while we don't know where all
+			 * the objects start.
+			 */
 			Bseek(f, o->off, 0);
-			if (readpacked(f, o, Cidx) == -1){
-				objects[i] = nil;
-				free(o);
+			r = readpacked(f, o, Cidx);
+			Bseek(f, o->off + o->len, 0);
+			if (r == -1)
 				continue;
-			}
+			Bseek(f, o->off + o->len, 0);
 			sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 			valid[i] = 1;
 			cache(o);
+			npct++;
 			n++;
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
-		fprint(2, "\b\b\b\b100%%\n");
 		if(n == nvalid){
 			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
 		}
 		nvalid = n;
 	}
+	fprint(2, "\b\b\b\b100%%\n");
 	Bterm(f);
 
 	st = nil;
@@ -1406,9 +1434,26 @@ encodedelta(Objmeta *m, Object *o, Object *b, void **pp)
 }
 
 static int
+packhdr(char *hdr, int ty, int len)
+{
+	int i;
+
+	hdr[0] = ty << 4;
+	hdr[0] |= len & 0xf;
+	len >>= 4;
+	for(i = 1; len != 0; i++){
+		assert(i < sizeof(hdr));
+		hdr[i-1] |= 0x80;
+		hdr[i] = len & 0x7f;
+		len >>= 7;
+	}
+	return i;
+}
+
+static int
 genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
 {
-	int i, j, n, x, res, pcnt, len, ret;
+	int i, nh, nd, x, res, pcnt, ret;
 	DigestState *st;
 	Biobuf *bfd;
 	Objmeta *m;
@@ -1443,34 +1488,16 @@ genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
 		if((o = readobject(m->hash)) == nil)
 			return -1;
 		if(m->delta == nil){
-			len = o->size;
-			buf[0] = o->type << 4;
-			buf[0] |= len & 0xf;
-			len >>= 4;
-			for(j = 1; len != 0; j++){
-				assert(j < sizeof(buf));
-				buf[j-1] |= 0x80;
-				buf[j] = len & 0x7f;
-				len >>= 7;
-			}
-			hwrite(bfd, buf, j, &st);
+			nh = packhdr(buf, o->type, o->size);
+			hwrite(bfd, buf, nh, &st);
 			if(hcompress(bfd, o->data, o->size, &st) == -1)
 				goto error;
 		}else{
-			n = encodedelta(m, o, m->base, &p);
-			len = n;
-			buf[0] = GRdelta << 4;
-			buf[0] |= len & 0xf;
-			len >>= 4;
-			for(j = 1; len != 0; j++){
-				assert(j < sizeof(buf));
-				buf[j-1] |= 0x80;
-				buf[j] = len & 0x7f;
-				len >>= 7;
-			}
-			hwrite(bfd, buf, j, &st);
+			nd = encodedelta(m, o, m->base, &p);
+			nh = packhdr(buf, GRdelta, nd);
+			hwrite(bfd, buf, nh, &st);
 			hwrite(bfd, m->base->hash.h, sizeof(m->base->hash.h), &st);
-			res = hcompress(bfd, p, n, &st);
+			res = hcompress(bfd, p, nd, &st);
 			free(p);
 			if(res == -1)
 				goto error;

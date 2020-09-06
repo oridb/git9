@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <pool.h>
 
 #include "git.h"
 
@@ -27,8 +26,10 @@ osadd(Objset *s, Object *o)
 
 	probe = GETBE32(o->hash.h) % s->sz;
 	while(s->obj[probe]){
-		if(hasheq(&s->obj[probe]->hash, &o->hash))
+		if(hasheq(&s->obj[probe]->hash, &o->hash)){
+			s->obj[probe] = o;
 			return;
+		}
 		probe = (probe + 1) % s->sz;
 	}
 	assert(s->obj[probe] == nil);

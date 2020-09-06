@@ -70,7 +70,7 @@ findrough(Dtab *dt, u64int rh)
 {
 	int probe;
 
-	for(probe = rh % dt->sz; dt->b[probe].buf != nil; probe++)
+	for(probe = rh % dt->sz; dt->b[probe].buf != nil; probe = (probe + 1) % dt->sz)
 		if(dt->b[probe].rhash == rh)
 			return &dt->b[probe];
 	return nil;
