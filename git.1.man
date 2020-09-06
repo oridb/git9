@@ -1,7 +1,8 @@
 .TH GIT 1
 .SH NAME
 git, git/conf, git/query, git/walk, git/clone, git/branch,
-git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull, git/rm
+git/commit, git/diff, git/init, git/log, git/merge, git/push,
+git/pull, git/rm, git/serve
 \- Manage git repositories.
 
 .SH SYNOPSIS
@@ -143,6 +144,15 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull, git/rm
 .I branch
 ]
 .PP
+.B git/serve
+[
+.B -w
+]
+[
+.B -r
+.I path
+]
+.PP
 .B git/query
 [
 .B -pc
@@ -228,6 +238,7 @@ of the clone source, with the
 .I .git
 stripped off if present.
 
+·PP
 .B Git/push
 is used to push the current changes to a remote repository.
 When no arguments are provided, the remote repository is taken from
@@ -246,10 +257,12 @@ When given the
 .I -r
 option, the branch is deleted from origin, instead of updated.
 
+.PP
 .B Git/revert
 restores the named files from HEAD. When passed the -c flag, restores files from
 the named commit.
 
+.PP
 .B Git/pull
 behaves in a similar manner to git/push, however it gets changes from
 the upstream repository.
@@ -262,6 +275,22 @@ When passed the
 option, the changes are pulled from
 .I upstream
 instead of the configured origin.
+
+.PP
+.B Git/serve
+serves repositories using the
+.I git://
+protocol over stdin.
+By default, it serves them read-only.
+The 
+.I -w
+flag, it allows pushing into repositories.
+The
+.I -r
+.B path
+flag serves repositories relative to
+.BR path .
+
 
 
 .PP
