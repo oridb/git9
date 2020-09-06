@@ -450,7 +450,7 @@ main(int argc, char **argv)
 		sysfatal("%s: path too long\n", p);
 	cleanname(path);
 	if(strncmp(pathpfx, path, strlen(pathpfx)) != 0)
-		sysfatal("%s: path escapes prefix");
+		sysfatal("%s: path escapes prefix", p);
 	if(chdir(path) == -1)
 		sysfatal("cd %s: %r", p);
 	if(access(".git", AREAD) == -1)
