@@ -143,7 +143,6 @@ servpack(Conn *c)
 	dprint(1, "finding twixt\n");
 	if(findtwixt(head, nhead, tail, ntail, &obj, &nobj) == -1)
 		sysfatal("twixt: %r");
-	fprint(2, "DPRINT!\n");
 	dprint(1, "writing pack\n");
 	if(nobj > 0 && writepack(c->wfd, obj, nobj, &h) == -1)
 		sysfatal("send: %r");
@@ -450,7 +449,7 @@ main(int argc, char **argv)
 	if(snprint(path, sizeof(path), "%s/%s", pathpfx, p) == sizeof(path))
 		sysfatal("%s: path too long\n", p);
 	cleanname(path);
-	if(strncmp(path, pathpfx) != 0)
+	if(strncmp(pathpfx, path, strlen(pathpfx)) != 0)
 		sysfatal("%s: path escapes prefix");
 	if(chdir(path) == -1)
 		sysfatal("cd %s: %r", p);
