@@ -43,7 +43,7 @@ readpkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	buf[n] = 0;
 	if(chattygit)
-		fprint(2, "<= %s:\t%.*s\n", len, nbuf, buf);
+		fprint(2, "=r> %s:\t%.*s\n", len, nbuf, buf);
 	return n;
 }
 
@@ -59,7 +59,7 @@ writepkt(Conn *c, char *buf, int nbuf)
 	if(write(c->wfd, buf, nbuf) != nbuf)
 		return -1;
 	if(chattygit){
-		fprint(2, "=> %s:\t", len);
+		fprint(2, "<=w= %s:\t", len);
 		write(2, buf, nbuf);
 		write(2, "\n", 1);
 	}
