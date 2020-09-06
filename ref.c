@@ -554,6 +554,7 @@ resolverefs(Hash **r, char *ref)
 	for(i = 0; i < ev.nstk; i++)
 		h[i] = ev.stk[i]->hash;
 	*r = h;
+	free(ev.stk);
 	return ev.nstk;
 }
 
@@ -572,6 +573,7 @@ resolveref(Hash *r, char *ref)
 		return -1;
 	}
 	*r = ev.stk[0]->hash;
+	free(ev.stk);
 	return 0;
 }
 
