@@ -270,7 +270,7 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 }
 
 static int
-dialhjgit(Conn *c, char *host, char *port, char *path, char *direction)
+dialhjgit(Conn *c, char *host, char *port, char *path, char *direction, int auth)
 {
 	char *ds, *p, *e, cmd[512];
 	int pid, pfd[2];
@@ -288,7 +288,10 @@ dialhjgit(Conn *c, char *host, char *port, char *path, char *direction)
 		dup(pfd[0], 1);
 		if(chattygit)
 			fprint(2, "exec tlsclient -a %s\n", ds);
-		execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
+		if(auth)
+			execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
+		else
+			execl("/bin/tlsclient", "tlsclient", ds, nil);
 		sysfatal("exec: %r");
 	}else{
 		close(pfd[0]);
@@ -363,7 +366,9 @@ gitconnect(Conn *c, char *uri, char *direction)
 	else if(strcmp(proto, "git") == 0)
 		return dialgit(c, host, port, path, direction);
 	else if(strcmp(proto, "hjgit") == 0)
-		return dialhjgit(c, host, port, path, direction);
+		return dialhjgit(c, host, port, path, direction, 1);
+	else if(strcmp(proto, "gits") == 0)
+		return dialhjgit(c, host, port, path, direction, 0);
 	else if(strcmp(proto, "http") == 0 || strcmp(proto, "https") == 0)
 		return dialhttp(c, host, port, path, direction);
 	werrstr("unknown protocol %s", proto);
