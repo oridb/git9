@@ -37,11 +37,15 @@ showrefs(Conn *c)
 		if(fmtpkt(c, "%H HEAD", head) == -1)
 			goto error;
 	}
+
 	if((nrefs = listrefs(&refs, &names)) == -1)
 		sysfatal("listrefs: %r");
-	for(i = 0; i < nrefs; i++)
+	for(i = 0; i < nrefs; i++){
+		if(strncmp(names[i], "heads/", strlen("heads/")) != 0)
+			continue;
 		if(fmtpkt(c, "%H refs/%s\n", refs[i], names[i]) == -1)
 			goto error;
+	}
 	if(flushpkt(c) == -1)
 		goto error;
 	ret = 0;
@@ -451,7 +455,7 @@ main(int argc, char **argv)
 	if(strncmp(pathpfx, path, strlen(pathpfx)) != 0)
 		sysfatal("%s: path escapes prefix", p);
 	if(chdir(path) == -1)
-		sysfatal("cd %s: %r", p);
+		sysfatal("cd %s: %r", path);
 	if(access(".git", AREAD) == -1)
 		sysfatal("no git repository");
 	if(strcmp(cmd, "git-receive-pack") == 0 && allowwrite)
