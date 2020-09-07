@@ -4,9 +4,6 @@
 
 #include "git.h"
 
-#define Packtmp ".git/objects/pack/recv.pack.tmp"
-#define Idxtmp ".git/objects/pack/recv.idx.tmp"
-
 char *pathpfx = "";
 int allowwrite;
 
@@ -282,11 +279,13 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 int
 updatepack(Conn *c)
 {
-	char buf[Pktmax];
+	char buf[Pktmax], packtmp[128], idxtmp[128];
 	int n, pfd, packsz;
 	Hash h;
 
-	if((pfd = create(Packtmp, ORDWR, 0644)) == -1)
+	snprint(packtmp, sizeof(packtmp), ".git/objects/pack/recv-%d.pack.tmp", getpid());
+	snprint(packtmp, sizeof(packtmp), ".git/objects/pack/recv-%d.idx.tmp", getpid());
+	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
 		return -1;
 	packsz = 0;
 	while(1){
@@ -301,18 +300,18 @@ updatepack(Conn *c)
 		dprint(1, "hash mismatch\n");
 		goto error1;
 	}
-	if(indexpack(Packtmp, Idxtmp, h) == -1){
+	if(indexpack(packtmp, idxtmp, h) == -1){
 		dprint(1, "indexing failed\n");
 		goto error1;
 	}
-	if(rename(Packtmp, Idxtmp, h) == -1){
+	if(rename(packtmp, idxtmp, h) == -1){
 		dprint(1, "rename failed: %r\n");
 		goto error2;
 	}
 	return 0;
 
-error2:	remove(Idxtmp);
-error1:	remove(Packtmp);
+error2:	remove(idxtmp);
+error1:	remove(packtmp);
 	return -1;
 }	
 
