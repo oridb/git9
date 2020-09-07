@@ -43,7 +43,7 @@ readpkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	buf[n] = 0;
 	if(chattygit)
-		fprint(2, "=r> %s:\t%.*s\n", len, nbuf, buf);
+		fprint(2, "=r=> %s:\t%.*s\n", len, nbuf, buf);
 	return n;
 }
 
@@ -70,7 +70,7 @@ int
 flushpkt(Conn *c)
 {
 	if(chattygit)
-		fprint(2, "writepkt: 0000\n");
+		fprint(2, "<=w= 0000\n");
 	return write(c->wfd, "0000", 4);
 }
 
