@@ -31,7 +31,7 @@ readpkt(Conn *c, char *buf, int nbuf)
 	n = strtol(len, &e, 16);
 	if(n == 0){
 		if(chattygit)
-			fprint(2, "readpkt: 0000\n");
+			fprint(2, "=r=> 0000\n");
 		return 0;
 	}
 	if(e != len + 4 || n <= 4)
