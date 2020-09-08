@@ -475,6 +475,41 @@ Between is defined as the set of all commits which are ancestors of
 and descendants of
 .B a.
 
+.SH PROTOCOLS
+.PP
+Git9 supports URL schemes of the format
+.BR transport://dial/repo/path .
+The transport portion specifies the protocol to use.
+The
+.I dial
+portion is either a plan 9 dial string, or a conventional
+.I host:port
+pair.
+For the ssh protocol, it may also include a
+.I user@
+prefix.
+.I repo/path
+portion is the path of the repository on the server.
+
+The supported transports are
+.B ssh://, git://, hjgit://, gits://, http://,
+and
+.BR https .
+Two of these are specific to git9:
+.I gits://
+and
+.IR hjgit:// .
+Both are the
+.I git://
+protocol, tunnelled over tls.
+.I Hjgit://
+authenticates with the server using Plan 9 authentication,
+using
+.IR tlsclient\ -a .
+Any of these protocol names may be prefixed with
+.IR git+ ,
+for copy-paste compatibility with Unix git.
+
 .SH EXAMPLES
 
 .PP
