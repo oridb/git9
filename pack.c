@@ -1044,7 +1044,6 @@ indexpack(char *pack, char *idx, Hash ph)
 			Bseek(f, o->off + o->len, 0);
 			if (r == -1)
 				continue;
-			Bseek(f, o->off + o->len, 0);
 			sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 			valid[i] = 1;
 			cache(o);

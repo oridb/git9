@@ -284,7 +284,7 @@ updatepack(Conn *c)
 	Hash h;
 
 	snprint(packtmp, sizeof(packtmp), ".git/objects/pack/recv-%d.pack.tmp", getpid());
-	snprint(packtmp, sizeof(packtmp), ".git/objects/pack/recv-%d.idx.tmp", getpid());
+	snprint(idxtmp, sizeof(idxtmp), ".git/objects/idx/recv-%d.idx.tmp", getpid());
 	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
 		return -1;
 	packsz = 0;
