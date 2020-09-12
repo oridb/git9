@@ -480,6 +480,8 @@ and descendants of
 Git9 supports URL schemes of the format
 .BR transport://dial/repo/path .
 The transport portion specifies the protocol to use.
+If the transport portion is omitted, then the transport used is
+.BR ssh .
 The
 .I dial
 portion is either a plan 9 dial string, or a conventional
