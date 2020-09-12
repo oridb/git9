@@ -94,11 +94,9 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	print("uri: \"%s\"\n", uri);
 
 	p = strstr(uri, "://");
-	if(!p){
-		werrstr("missing protocol");
-		return -1;
-	}
-	if(strncmp(uri, "git+", 4) == 0)
+	if(p == nil)
+		snprint(proto, Nproto, "ssh");
+	else if(strncmp(uri, "git+", 4) == 0)
 		grab(proto, Nproto, uri + 4, p);
 	else
 		grab(proto, Nproto, uri, p);
@@ -114,7 +112,7 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		snprint(port, Nport, "17021");
 	else
 		hasport = 0;
-	s = p + 3;
+	s = (p != nil) ? p + 3 : uri;
 	p = nil;
 	if(!hasport){
 		p = strstr(s, ":");
