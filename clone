@@ -2,8 +2,10 @@
 rfork en
 . /sys/lib/git/common.rc
 
-flagfmt=''; args='remote [local]'
+flagfmt='d:debug'; args='remote [local]'
 eval `''{aux/getflags $*} || exec aux/usage
+if(~ $debug 1)
+	debug=(-d)
 
 remote=`{echo $1 | subst -g '/*$'}
 local=$2
@@ -30,7 +32,7 @@ fn clone{
 		echo '	url='$remote
 		echo '	fetch=+refs/heads/*:refs/remotes/origin/*'
 	}
-	{git/fetch $remote >[2=3] | awk '
+	{git/fetch $debug $remote >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD"){
 				headhash=$3
