@@ -16,6 +16,8 @@ typedef struct Buf	Buf;
 typedef struct Dirent	Dirent;
 typedef struct Idxent	Idxent;
 typedef struct Objlist	Objlist;
+typedef struct Dtab	Dtab;
+typedef struct Dblock	Dblock;
 
 enum {
 	/* 5k objects should be enough */
@@ -95,12 +97,6 @@ struct Dirent {
 	char islink;
 };
 
-struct Delta {
-	int	cpy;
-	int	off;
-	int	len;
-};
-
 struct Object {
 	/* Git data */
 	Hash	hash;
@@ -155,6 +151,28 @@ struct Objset {
 	int	nobj;
 	int	sz;
 };
+
+struct Dtab {
+	uchar	*base;
+	int	nbase;
+	Dblock	*b;
+	int	nb;
+	int	sz;
+};
+
+struct Dblock {
+	uchar	*buf;
+	int	len;
+	int	off;
+	u64int	rhash;
+};
+
+struct Delta {
+	int	cpy;
+	int	off;
+	int	len;
+};
+
 
 #define GETBE16(b)\
 		((((b)[0] & 0xFFul) <<  8) | \
@@ -263,7 +281,9 @@ int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 
 /* packing */
-Delta*	deltify(void*, int, void *, int, int *);
+void	dtinit(Dtab *, void *, int);
+void	dtclear(Dtab*);
+Delta*	deltify(void*, int, Dtab*, int*);
 
 /* proto handling */
 int	readpkt(Conn*, char*, int);

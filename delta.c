@@ -3,10 +3,6 @@
 
 #include "git.h"
 
-typedef struct Dblock	Dblock;
-typedef struct Delta	Delta;
-typedef struct Dtab	Dtab;
-
 enum {
 	K	= 3,
 	Bconst	= 42,
@@ -14,19 +10,6 @@ enum {
 	Bshift	= 7,
 	Hshift	= 113,
 	Hlast	= 1692137473L,
-};
-
-struct Dblock {
-	uchar	*buf;
-	int	len;
-	int	off;
-	u64int	rhash;
-};
-
-struct Dtab {
-	Dblock	*b;
-	int	nb;
-	int	sz;
 };
 
 static void
@@ -117,44 +100,58 @@ emitdelta(Delta **pd, int *nd, int cpy, int off, int len)
 	return len;
 }
 
+void
+dtinit(Dtab *dt, void *base, int nbase)
+{
+	uchar *bp, *s, *e;
+	u64int rh;
+	
+	bp = base;
+	s = bp;
+	e = bp;
+	rh = 0;
+	dt->nb = 0;
+	dt->sz = 128;
+	dt->b = emalloc(dt->sz*sizeof(Dblock));
+	while(e != bp + nbase){
+		e += nextblk(s, bp + nbase, &rh);
+		addblk(dt, s, e - s, s - bp, rh);
+		s = e;
+	}
+}
+
+void
+dtclear(Dtab *dt)
+{
+	free(dt->b);
+}
 
 Delta*
-deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
+deltify(void *targ, int ntarg, Dtab *dt, int *pnd)
 {
 	Dblock *k;
 	Delta *d;
-	Dtab dt;
-	uchar *l, *s, *e, *eb, *bp, *tp;
+	uchar *l, *s, *e, *eb, *tp;
 	int i, nd, nb;
 	u64int rh;
 
-	bp = base;
-	tp = targ;
-	s = bp;
-	e = bp;
-	dt.nb = 0;
-	dt.sz = 128;
-	dt.b = emalloc(dt.sz*sizeof(Dblock));
-	while(e != bp + nbase){
-		e += nextblk(s, bp + nbase, &rh);
-		addblk(&dt, s, e - s, s - bp, rh);
-		s = e;
-	}
 
+	tp = targ;
 	l = targ;
 	s = targ;
 	e = targ;
 	d = nil;
 	nd = 0;
+	rh = 0;
 	e += nextblk(s, tp + ntarg, &rh);
 	while(1){
-		if((rh & Bmask) == Bconst && (k = findrough(&dt, rh)) != nil){
+		if((rh & Bmask) == Bconst && (k = findrough(dt, rh)) != nil){
 			if(sameblk(k, s, e)){
 				nb = k->len;
 				eb = k->buf + k->len;
 				/* stretch the block: 1<<24 is the max packfiles support. */
 				for(i = 0; i < (1<<24) - nb; i++){
-					if(e == tp + ntarg || eb == bp + nbase)
+					if(e == tp + ntarg || eb == dt->base + dt->nbase)
 						break;
 					if(*e != *eb)
 						break;
@@ -179,6 +176,5 @@ deltify(void *targ, int ntarg, void *base, int nbase, int *pnd)
 	}
 	emitdelta(&d, &nd, 0, l - tp, tp + ntarg - l);
 	*pnd = nd;
-	free(dt.b);
 	return d;
 }

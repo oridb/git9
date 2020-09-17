@@ -13,11 +13,13 @@ struct Objmeta {
 	char	*path;
 	vlong	mtime;
 	Hash	hash;
+	Dtab	tab;
 
 	Object	*obj;
 	Object	*base;
 	Delta	*delta;
 	int	ndelta;
+	Dtab 	dtab;
 };
 
 struct Compout {
@@ -1266,18 +1268,21 @@ pickdeltas(Objmeta *meta, int nmeta)
 				fprint(2, "\b\b\b\b%3d%%", pcnt);
 		}
 		p = meta;
-		if(i > 10)
+		if(i >= 10)
 			p = m - 10;
+		if(i >= 11)
+			dtclear(&p[-1].dtab);
 		if((a = readobject(m->hash)) == nil)
 			sysfatal("missing object %H", m->hash);
 		best = a->size;
 		m->base = nil;
 		m->delta = nil;
 		m->ndelta = 0;
+		dtinit(&m->dtab, a->data, a->size);
 		for(; p != m; p++){
 			if((b = readobject(p->hash)) == nil)
 				sysfatal("missing object %H", p->hash);
-			d = deltify(a->data, a->size, b->data, b->size, &nd);
+			d = deltify(a->data, a->size, &p->dtab, &nd);
 			sz = deltasz(d, nd);
 			if(sz + 32 < best){
 				free(m->delta);
@@ -1291,6 +1296,8 @@ pickdeltas(Objmeta *meta, int nmeta)
 		}
 		unref(a);
 	}
+	for(; p != m; p++)
+		dtclear(&p->dtab);
 	fprint(2, "\b\b\b\b100%%\n");
 }
 
