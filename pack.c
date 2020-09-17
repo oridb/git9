@@ -1256,6 +1256,8 @@ pickdeltas(Objmeta *meta, int nmeta)
 	Delta *d;
 	int i, x, nd, sz, pcnt, best;
 
+	m = nil;
+	p = nil;
 	pcnt = 0;
 	fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Objmeta), dsortcmp);
