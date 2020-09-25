@@ -9,16 +9,19 @@ typedef struct Objmeta	Objmeta;
 typedef struct Compout	Compout;
 
 struct Objmeta {
+	/* For sorting */
 	int	type;
 	char	*path;
 	vlong	mtime;
 	Hash	hash;
-	Dtab	tab;
 
+	/* The best delta we picked */
 	Object	*obj;
 	Object	*base;
 	Delta	*delta;
 	int	ndelta;
+	int	nchain;
+
 	Dtab 	dtab;
 };
 
@@ -1282,16 +1285,25 @@ pickdeltas(Objmeta *meta, int nmeta)
 		m->ndelta = 0;
 		dtinit(&m->dtab, a->data, a->size);
 		for(; p != m; p++){
+			/* lets not make the chains too long */
+			if(p->nchain >= 4095)
+				continue;
 			if((b = readobject(p->hash)) == nil)
 				sysfatal("missing object %H", p->hash);
 			d = deltify(a->data, a->size, &p->dtab, &nd);
 			sz = deltasz(d, nd);
 			if(sz + 32 < best){
+				/*
+				 * if we already picked a best delta,
+				 * replace it.
+				 */
 				free(m->delta);
 				best = sz;
 				m->base = b;
 				m->delta = d;
 				m->ndelta = nd;
+				m->nchain = p->nchain + 1;
+					
 			}else
 				free(d);
 			unref(b);
