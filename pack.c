@@ -8,21 +8,26 @@ typedef struct Buf	Buf;
 typedef struct Objmeta	Objmeta;
 typedef struct Compout	Compout;
 
+#define max(x, y) ((x) > (y) ? (x) : (y))
+
 struct Objmeta {
-	/* For sorting */
-	int	type;
+	Object	*obj;
 	char	*path;
 	vlong	mtime;
-	Hash	hash;
 
 	/* The best delta we picked */
-	Object	*obj;
+	Objmeta	*head;
+	Objmeta *prev;
 	Object	*base;
 	Delta	*delta;
 	int	ndelta;
 	int	nchain;
 
+	/* Only used for delta window */
 	Dtab 	dtab;
+
+	/* Only used for writing offset deltas */
+	vlong	off;
 };
 
 struct Compout {
@@ -273,18 +278,19 @@ preadbe64(Biobuf *b, vlong *v, vlong off)
 	return 0;
 }
 
-int
+static vlong
 readvint(char *p, char **pp)
 {
-	int i, n, c;
+	int s, c;
+	vlong n;
 	
-	i = 0;
+	s = 0;
 	n = 0;
 	do {
 		c = *p++;
-		n |= (c & 0x7f) << i;
-		i += 7;
-	} while (c & 0x80);
+		n |= (c & 0x7f) << s;
+		s += 7;
+	} while (c & 0x80 && s < 63);
 	*pp = p;
 
 	return n;
@@ -390,21 +396,19 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p, int flag)
 	Object b;
 	char *d;
 	vlong r;
-	int c, n;
+	int c, s, n;
 
-	r = 0;
 	d = nil;
-	while(1){
+	r = 0;
+	s = 0;
+	do {
 		if((c = Bgetc(f)) == -1)
-			goto error;
-		r |= c & 0x7f;
-		if (!(c & 0x80))
-			break;
-		r++;
-		r <<= 7;
-	}while(c & 0x80);
+			return -1;
+		r |= (c & 0x7f) << s;
+		s += 7;
+	} while (c & 0x80 && s < 63);
 
-	if(r > p){
+	if(r > p || s > 63){
 		werrstr("junk offset -%lld (from %lld)", r, p);
 		goto error;
 	}
@@ -1122,43 +1126,54 @@ error:
 }
 
 static int
-dsortcmp(void *pa, void *pb)
+deltaordercmp(void *pa, void *pb)
 {
 	Objmeta *a, *b;
 	int cmp;
 
-	a = pa;
-	b = pb;
-	if(a->type != b->type)
-		return a->type - b->type;
+	a = *(Objmeta**)pa;
+	b = *(Objmeta**)pb;
+	if(a->obj->type != b->obj->type)
+		return a->obj->type - b->obj->type;
 	cmp = strcmp(a->path, b->path);
 	if(cmp != 0)
 		return cmp;
 	if(a->mtime != b->mtime)
 		return a->mtime - b->mtime;
-	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
+	return memcmp(a->obj->hash.h, b->obj->hash.h, sizeof(a->obj->hash.h));
 }
 
 static int
-timecmp(void *pa, void *pb)
+writeordercmp(void *pa, void *pb)
 {
-	Objmeta *a, *b;
+	Objmeta *a, *b, *ahd, *bhd;
 
-	a = pa;
-	b = pb;
-	return b->mtime - a->mtime;
+	a = *(Objmeta**)pa;
+	b = *(Objmeta**)pb;
+	ahd = (a->head == nil) ? a : a->head;
+	bhd = (b->head == nil) ? b : b->head;
+	if(ahd->mtime != bhd->mtime)
+		return bhd->mtime - ahd->mtime;
+	if(ahd != bhd)
+		return (uintptr)bhd - (uintptr)ahd;
+	if(a->nchain != b->nchain)
+		return a->nchain - b->nchain;
+	return a->mtime - b->mtime;
 }
 
 static void
-addmeta(Objmeta **m, int *nm, int type, Hash h, char *path, vlong mtime)
+addmeta(Objmeta ***meta, int *nmeta, Object *o, char *path, vlong mtime)
 {
-	*m = erealloc(*m, (*nm + 1)*sizeof(Objmeta));
-	memset(&(*m)[*nm], 0, sizeof(Objmeta));
-	(*m)[*nm].type = type;
-	(*m)[*nm].path = estrdup(path);
-	(*m)[*nm].mtime = mtime;
-	(*m)[*nm].hash = h;
-	*nm += 1;
+	Objmeta *m;
+
+	m = emalloc(sizeof(Objmeta));
+	m->obj = o;
+	m->path = estrdup(path);
+	m->mtime = mtime;
+
+	*meta = erealloc(*meta, (*nmeta + 1)*sizeof(Objmeta));
+	(*meta)[*nmeta] = m;
+	*nmeta += 1;
 }
 
 static void
@@ -1166,10 +1181,11 @@ freemeta(Objmeta *m)
 {
 	free(m->delta);
 	free(m->path);
+	free(m);
 }
 
 static int
-loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
+loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime)
 {
 	Object *t, *o;
 	Dirent *e;
@@ -1181,7 +1197,7 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 	if((t = readobject(tree)) == nil)
 		return -1;
 	osadd(has, t);
-	addmeta(m, nm, t->type, t->hash, dpath, mtime);
+	addmeta(m, nm, t, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
 		if(oshas(has, e->h))
@@ -1193,8 +1209,8 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 		p = smprint("%s/%s", dpath, e->name);
 		if(k == GBlob){
 			osadd(has, o);
-			addmeta(m, nm, k, o->hash, p, mtime);
-		}else if(loadtree(m, nm, e->h, p, mtime, has) == -1){
+			addmeta(m, nm, o, p, mtime);
+		}else if(loadtree(m, nm, has, e->h, p, mtime) == -1){
 			free(p);
 			return -1;
 		}
@@ -1205,7 +1221,7 @@ loadtree(Objmeta **m, int *nm, Hash tree, char *dpath, vlong mtime, Objset *has)
 }
 
 static int
-loadcommit(Hash h, Objset *has, Objmeta **m, int *nm)
+loadcommit(Objmeta ***m, int *nm, Objset *has, Hash h)
 {
 	Object *c;
 	int r;
@@ -1215,14 +1231,14 @@ loadcommit(Hash h, Objset *has, Objmeta **m, int *nm)
 	if((c = readobject(h)) == nil)
 		return -1;
 	osadd(has, c);
-	addmeta(m, nm, c->type, c->hash, "", c->commit->ctime);
-	r = loadtree(m, nm, c->commit->tree, "", c->commit->ctime, has);
+	addmeta(m, nm, c, "", c->commit->ctime);
+	r = loadtree(m, nm, has, c->commit->tree, "", c->commit->ctime);
 	unref(c);
 	return r;
 }
 
 static int
-readmeta(Object **commits, int ncommits, Objmeta **m)
+readmeta(Object **commits, int ncommits, Objmeta ***m)
 {
 	Objset has;
 	int i, nm;
@@ -1232,7 +1248,7 @@ readmeta(Object **commits, int ncommits, Objmeta **m)
 	osinit(&has);
 	for(i = 0; i < ncommits; i++){
 		dprint(2, "loading commit %H\n", commits[i]->hash);
-		if(loadcommit(commits[i]->hash, &has, m, &nm) == -1){
+		if(loadcommit(m, &nm, &has, commits[i]->hash) == -1){
 			free(*m);
 			return -1;
 		}
@@ -1252,44 +1268,40 @@ deltasz(Delta *d, int nd)
 }
 
 static void
-pickdeltas(Objmeta *meta, int nmeta)
+pickdeltas(Objmeta **meta, int nmeta)
 {
 	Objmeta *m, *p;
 	Object *a, *b;
 	Delta *d;
-	int i, x, nd, sz, pcnt, best;
+	int i, j, x, nd, sz, pcnt, best;
 
-	m = nil;
-	p = nil;
 	pcnt = 0;
 	fprint(2, "deltifying %d objects:   0%%", nmeta);
-	qsort(meta, nmeta, sizeof(Objmeta), dsortcmp);
+	qsort(meta, nmeta, sizeof(Objmeta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
-		m = &meta[i];
+		m = meta[i];
 		x = (i*100) / nmeta;
 		if(x > pcnt){
 			pcnt = x;
 			if(pcnt%10 == 0)
 				fprint(2, "\b\b\b\b%3d%%", pcnt);
 		}
-		p = meta;
-		if(i >= 10)
-			p = m - 10;
-		if(i >= 11)
-			dtclear(&p[-1].dtab);
-		if((a = readobject(m->hash)) == nil)
-			sysfatal("missing object %H", m->hash);
+		if((a = readobject(m->obj->hash)) == nil)
+			sysfatal("readobject %H: %r", m->obj->hash);
 		best = a->size;
 		m->base = nil;
 		m->delta = nil;
 		m->ndelta = 0;
 		dtinit(&m->dtab, a->data, a->size);
-		for(; p != m; p++){
+		if(i >= 11)
+			dtclear(&meta[i-11]->dtab);
+		for(j = max(0, i - 10); j < i; j++){
+			p = meta[j];
 			/* lets not make the chains too long */
 			if(p->nchain >= 4095)
 				continue;
-			if((b = readobject(p->hash)) == nil)
-				sysfatal("missing object %H", p->hash);
+			if((b = readobject(p->obj->hash)) == nil)
+				sysfatal("readobject %H: %r", p->obj->hash);
 			d = deltify(a->data, a->size, &p->dtab, &nd);
 			sz = deltasz(d, nd);
 			if(sz + 32 < best){
@@ -1303,6 +1315,10 @@ pickdeltas(Objmeta *meta, int nmeta)
 				m->delta = d;
 				m->ndelta = nd;
 				m->nchain = p->nchain + 1;
+				m->prev = p;
+				m->head = p->head;
+				if(m->head == nil)
+					m->head = p;
 					
 			}else
 				free(d);
@@ -1310,8 +1326,8 @@ pickdeltas(Objmeta *meta, int nmeta)
 		}
 		unref(a);
 	}
-	for(; p != m; p++)
-		dtclear(&p->dtab);
+	for(i = max(0, nmeta - 10); i < nmeta; i++)
+		dtclear(&meta[i]->dtab);
 	fprint(2, "\b\b\b\b100%%\n");
 }
 
@@ -1443,7 +1459,6 @@ packhdr(char *hdr, int ty, int len)
 	hdr[0] |= len & 0xf;
 	len >>= 4;
 	for(i = 1; len != 0; i++){
-		assert(i < sizeof(hdr));
 		hdr[i-1] |= 0x80;
 		hdr[i] = len & 0x7f;
 		len >>= 7;
@@ -1452,14 +1467,31 @@ packhdr(char *hdr, int ty, int len)
 }
 
 static int
-genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
+packoff(char *hdr, int off)
+{
+	int i;
+
+	hdr[0] = off & 0x7f;
+	off >>= 7;
+	for(i = 1; off != 0; i++){
+		assert(i < sizeof(hdr));
+		hdr[i-1] |= 0x80;
+		hdr[i] = off & 0x7f;
+		off >>= 7;
+	}
+	return i;
+
+}
+
+static int
+genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 {
 	int i, nh, nd, x, res, pcnt, ret;
 	DigestState *st;
 	Biobuf *bfd;
 	Objmeta *m;
 	Object *o;
-	char *p, buf[16];
+	char *p, buf[32];
 
 	st = nil;
 	ret = -1;
@@ -1476,17 +1508,17 @@ genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
 	PUTBE32(buf, nmeta);
 	if(hwrite(bfd, buf, 4, &st) == -1)
 		return -1;
-	qsort(meta, nmeta, sizeof(Objmeta), timecmp);
+	qsort(meta, nmeta, sizeof(Objmeta*), writeordercmp);
 	fprint(2, "writing %d objects:   0%%", nmeta);
 	for(i = 0; i < nmeta; i++){
-		m = &meta[i];
+		m = meta[i];
 		x = (i*100) / nmeta;
 		if(x > pcnt){
 			pcnt = x;
 			if(pcnt%10 == 0)
 				fprint(2, "\b\b\b\b%3d%%", pcnt);
 		}
-		if((o = readobject(m->hash)) == nil)
+		if((o = readobject(m->obj->hash)) == nil)
 			return -1;
 		if(m->delta == nil){
 			nh = packhdr(buf, o->type, o->size);
@@ -1494,10 +1526,26 @@ genpack(int fd, Objmeta *meta, int nmeta, Hash *h)
 			if(hcompress(bfd, o->data, o->size, &st) == -1)
 				goto error;
 		}else{
+			m->off = Boffset(bfd);
 			nd = encodedelta(m, o, m->base, &p);
-			nh = packhdr(buf, GRdelta, nd);
-			hwrite(bfd, buf, nh, &st);
-			hwrite(bfd, m->base->hash.h, sizeof(m->base->hash.h), &st);
+			if(odelta && m->prev->off != 0){
+				nh = 0;
+				nh += packhdr(buf, GOdelta, nd);
+				nh += packoff(buf+nh, m->off - m->prev->off);
+#ifdef NOPE
+				print("Odelta %d %lld\n\t", nd, m->off - m->prev->off);
+				for(int j = 0; j < nh; j++)
+					print("%02x:", buf[j] & 0xff);
+				print("\n");
+				if(m->off == 444541)
+					abort();
+#endif
+				hwrite(bfd, buf, nh, &st);
+			}else{
+				nh = packhdr(buf, GRdelta, nd);
+				hwrite(bfd, buf, nh, &st);
+				hwrite(bfd, m->base->hash.h, sizeof(m->base->hash.h), &st);
+			}
 			res = hcompress(bfd, p, nd, &st);
 			free(p);
 			if(res == -1)
@@ -1519,7 +1567,7 @@ error:
 int
 writepack(int fd, Object **obj, int nobj, Hash *h)
 {
-	Objmeta *meta;
+	Objmeta **meta;
 	int i, r, nmeta;
 
 	dprint(1, "reading meta\n");
@@ -1528,9 +1576,9 @@ writepack(int fd, Object **obj, int nobj, Hash *h)
 	dprint(1, "picking deltas\n");
 	pickdeltas(meta, nmeta);
 	dprint(1, "generating pack\n");
-	r = genpack(fd, meta, nmeta, h);
+	r = genpack(fd, meta, nmeta, h, 1);
 	for(i = 0; i < nmeta; i++)
-		freemeta(&meta[i]);
+		freemeta(meta[i]);
 	free(meta);
 	return r;
 }
