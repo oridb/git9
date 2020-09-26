@@ -347,7 +347,10 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 			r += l;
 		/* inline data */
 		}else{
-			assert(c <= ed - d);
+			if(c > ed - d){
+				werrstr("garbled delta: write past object");
+				return -1;
+			}
 			memmove(r, d, c);
 			d += c;
 			r += c;
@@ -1467,7 +1470,7 @@ packhdr(char *hdr, int ty, int len)
 }
 
 static int
-packoff(char *hdr, int off)
+packoff(char *hdr, vlong off)
 {
 	int i;
 
@@ -1532,14 +1535,6 @@ genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 				nh = 0;
 				nh += packhdr(buf, GOdelta, nd);
 				nh += packoff(buf+nh, m->off - m->prev->off);
-#ifdef NOPE
-				print("Odelta %d %lld\n\t", nd, m->off - m->prev->off);
-				for(int j = 0; j < nh; j++)
-					print("%02x:", buf[j] & 0xff);
-				print("\n");
-				if(m->off == 444541)
-					abort();
-#endif
 				hwrite(bfd, buf, nh, &st);
 			}else{
 				nh = packhdr(buf, GRdelta, nd);
