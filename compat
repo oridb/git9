@@ -108,11 +108,15 @@ fn cmd_show-ref{
 }
 
 fn cmd_remote{
-	if(! ~ $1 add)
+	if({! ~ $#* 3 && ! ~ $#* 4} || ! ~ $1 add)
 		die unimplemented remote cmd $*
+	name=$2
+	url=$3
+	if(~ $3 '--')
+		url=$4
 	>>$gitroot/.git/config{
-		echo '[remote "'$2'"]'
-		echo '	url='$3
+		echo '[remote "'$name'"]'
+		echo '	url='$url
 	}
 }
 
@@ -142,5 +146,6 @@ if(! test -f '/env/fn#cmd_'$1){
 	die git $1: commmand not implemented
 }
 
-gitroot=`{git/conf -r} || exit repo
+if(! ~ $1 init && ! ~ $1 clone)
+	gitroot=`{git/conf -r} || die repo
 cmd_$1 $*(2-)
