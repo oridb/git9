@@ -8,9 +8,12 @@ fn update{
 	url=$3
 	dir=$4
 	bflag=()
-	if(! ~ $branch '')
+	dflag=()
+	if(! ~ $#branch 0)
 		bflag=(-b $branch)
-	{git/fetch $bflag -u $upstream $url >[2=3] || die $status} | awk '
+	if(! ~ $#debug 0)
+		dflag='-d'
+	{git/fetch $dflag $bflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -27,8 +30,8 @@ fn update{
 
 gitup
 
-flagfmt='a:allbranch, b:branch branch, f:fetchonly,
-         u:upstream upstream, q:quiet'
+flagfmt='a:allbranch, b:branch branch, d:debug,
+	f:fetchonly, u:upstream upstream, q:quiet'
 args=''
 eval `''{aux/getflags $*} || exec aux/usage
 

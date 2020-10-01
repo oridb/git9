@@ -227,7 +227,6 @@ extern Reprog	*authorpat;
 extern Objset	objcache;
 extern Hash	Zhash;
 extern int	chattygit;
-extern int	debug;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int

@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 
 #include "git.h"
 
@@ -16,7 +17,39 @@ enum {
 	Nbranch	= 32,
 };
 
-int chattygit;
+void
+tracepkt(int v, char *pfx, char *b, int n)
+{
+	char *f;
+	int o, i;
+
+	if(chattygit < v)
+		return;
+	o = 0;
+	f = emalloc(n*4 + 1);
+	for(i = 0; i < n; i++){
+		if(isprint(b[i])){
+			f[o++] = b[i];
+			continue;
+		}
+		f[o++] = '\\';
+		switch(b[i]){
+		case '\\':	f[o++] = '\\';	break;
+		case '\n':	f[o++] = 'n';	break;
+		case '\r':	f[o++] = 'r';	break;
+		case '\v':	f[o++] = 'v';	break;
+		case '\0':	f[o++] = '0';	break;
+		default:
+			f[o++] = 'x';
+			f[o++] = "0123456789abcdef"[(b[i]>>4)&0xf];
+			f[o++] = "0123456789abcdef"[(b[i]>>0)&0xf];
+			break;
+		}
+	}
+	f[o] = '\0';
+	fprint(2, "%s %04x:\t%s\n", pfx, n, f);
+	free(f);
+}
 
 int
 readpkt(Conn *c, char *buf, int nbuf)
@@ -30,20 +63,18 @@ readpkt(Conn *c, char *buf, int nbuf)
 	len[4] = 0;
 	n = strtol(len, &e, 16);
 	if(n == 0){
-		if(chattygit)
-			fprint(2, "=r=> 0000\n");
+		dprint(1, "=r=> 0000\n");
 		return 0;
 	}
 	if(e != len + 4 || n <= 4)
-		sysfatal("invalid packet line length");
+		sysfatal("pktline: bad length '%s'", len);
 	n  -= 4;
 	if(n >= nbuf)
-		sysfatal("buffer too small");
+		sysfatal("pktline: undersize buffer");
 	if(readn(c->rfd, buf, n) != n)
 		return -1;
 	buf[n] = 0;
-	if(chattygit)
-		fprint(2, "=r=> %s:\t%.*s\n", len, nbuf, buf);
+	tracepkt(1, "=r=>", buf, n);
 	return n;
 }
 
@@ -58,19 +89,14 @@ writepkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	if(write(c->wfd, buf, nbuf) != nbuf)
 		return -1;
-	if(chattygit){
-		fprint(2, "<=w= %s:\t", len);
-		write(2, buf, nbuf);
-		write(2, "\n", 1);
-	}
+	tracepkt(1, "<=w=", buf, nbuf);
 	return 0;
 }
 
 int
 flushpkt(Conn *c)
 {
-	if(chattygit)
-		fprint(2, "<=w= 0000\n");
+	dprint(1, "<=w= 0000\n");
 	return write(c->wfd, "0000", 4);
 }
 
@@ -163,8 +189,7 @@ webclone(Conn *c, char *url)
 	/* github will behave differently based on useragent */
 	if(write(c->cfd, Useragent, sizeof(Useragent)) == -1)
 		return -1;
-	if(chattygit)
-		fprint(2, "open url %s\n", url);
+	dprint(1, "open url %s\n", url);
 	if(fprint(c->cfd, "url %s", url) == -1)
 		goto err;
 	free(c->dir);
@@ -255,8 +280,7 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
-		if(chattygit)
-			fprint(2, "exec ssh '%s' '%s' %s\n", host, cmd, path);
+		dprint(1, "exec ssh '%s' '%s' %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
@@ -284,8 +308,7 @@ dialhjgit(Conn *c, char *host, char *port, char *path, char *direction, int auth
 		close(pfd[1]);
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
-		if(chattygit)
-			fprint(2, "exec tlsclient -a %s\n", ds);
+		dprint(1, "exec tlsclient -a %s\n", ds);
 		if(auth)
 			execl("/bin/tlsclient", "tlsclient", "-a", ds, nil);
 		else
@@ -319,8 +342,7 @@ dialgit(Conn *c, char *host, char *port, char *path, char *direction)
 
 	if((ds = netmkaddr(host, "tcp", port)) == nil)
 		return -1;
-	if(chattygit)
-		fprint(2, "dial %s git-%s-pack %s\n", ds, direction, path);
+	dprint(1, "dial %s git-%s-pack %s\n", ds, direction, path);
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
@@ -379,8 +401,7 @@ writephase(Conn *c)
 	char hdr[128];
 	int n;
 
-	if(chattygit)
-		fprint(2, "start write phase\n");
+	dprint(1, "start write phase\n");
 	if(c->type != ConnHttp)
 		return 0;
 
@@ -405,8 +426,7 @@ writephase(Conn *c)
 int
 readphase(Conn *c)
 {
-	if(chattygit)
-		fprint(2, "start read phase\n");
+	dprint(1, "start read phase\n");
 	if(c->type != ConnHttp)
 		return 0;
 	if(close(c->wfd) == -1)
