@@ -278,6 +278,7 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
+int	findrepo(char *, int);
 
 /* packing */
 void	dtinit(Dtab *, void *, int);

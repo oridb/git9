@@ -136,26 +136,6 @@ dedup(Wres *r)
 	r->npath = o + 1;
 }
 
-static void
-findroot(void)
-{
-	char path[256], buf[256], *p;
-
-	if(access("/mnt/git/ctl", AEXIST) != 0)
-		sysfatal("no running git/fs");
-	if((getwd(path, sizeof(path))) == nil)
-		sysfatal("could not get wd: %r");
-	while((p = strrchr(path, '/')) != nil){
-		snprint(buf, sizeof(buf), "%s/.git", path);
-		if(access(buf, AEXIST) == 0){
-			chdir(path);
-			return;
-		}
-		*p = '\0';
-	}
-	sysfatal("not a git repository");
-}
-
 int
 sameqid(Dir *d, char *qf)
 {
@@ -224,7 +204,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *rpath, *tpath, *bpath, buf[8];
+	char *rpath, *tpath, *bpath, buf[8], repo[512];
 	char *p, *e;
 	int i, dirty;
 	Wres r;
@@ -254,7 +234,11 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND
 
-	findroot();
+	if(access("/mnt/git/ctl", AEXIST) != 0)
+		sysfatal("no running git/fs");
+	if(findrepo(repo, sizeof(repo)) == -1)
+		sysfatal("find root: %r");
+	chdir(repo);
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
 	if(access("/mnt/git/ctl", AEXIST) != 0)

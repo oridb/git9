@@ -130,7 +130,7 @@ main(int argc, char **argv)
 	int i, j, n;
 	Hash *h;
 	char *p, *e, *s;
-	char query[2048];
+	char query[2048], repo[512];
 
 	ARGBEGIN{
 	case 'p':	fullpath++;	break;
@@ -139,6 +139,10 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	gitinit();
+	if(findrepo(repo, sizeof(repo)) == -1)
+		sysfatal("find root: %r");
+	if(argc == 0)
+		usage();
 	fmtinstall('P', Pfmt);
 	s = "";
 	p = query;

@@ -256,3 +256,25 @@ dprint(int v, char *fmt, ...)
 	vfprint(2, fmt, ap);
 	va_end(ap);
 }
+
+/* Finds the directory containing the git repo. */
+int
+findrepo(char *buf, int nbuf)
+{
+	char *p, *suff;
+
+	suff = "/.git/HEAD";
+	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
+		return -1;
+
+	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
+		strcpy(p, suff);
+		if(access(buf, AEXIST) == 0){
+			*p = 0;
+			return 0;
+		}
+		*p = '\0';
+	}
+	werrstr("not a git repository");
+	return -1;
+}

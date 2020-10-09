@@ -35,24 +35,6 @@ showconf(char *cfg, char *sect, char *key)
 	return 0;
 }
 
-static void
-showroot(void)
-{
-	char path[256], buf[256], *p;
-
-	if((getwd(path, sizeof(path))) == nil)
-		sysfatal("could not get wd: %r");
-	while((p = strrchr(path, '/')) != nil){
-		snprint(buf, sizeof(buf), "%s/.git/HEAD", path);
-		if(access(buf, AEXIST) == 0){
-			print("%s\n", path);
-			return;
-		}
-		*p = '\0';
-	}
-	sysfatal("not a git repository");
-}
-
 
 void
 usage(void)
@@ -66,7 +48,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *file[32], *p, *s;
+	char *file[32], repo[512], *p, *s;
 	int i, j, nfile, findroot;
 
 	nfile = 0;
@@ -77,8 +59,12 @@ main(int argc, char **argv)
 	default:	usage();			break;
 	}ARGEND;
 
-	if(findroot)
-		showroot();
+	if(findroot){
+		if(findrepo(repo, sizeof(repo)) == -1)
+			sysfatal("%r");
+		print("%s\n", repo);
+		exits(nil);
+	}
 	if(nfile == 0){
 		file[nfile++] = ".git/config";
 		if((p = getenv("home")) != nil)
