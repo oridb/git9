@@ -238,7 +238,8 @@ main(int argc, char **argv)
 		sysfatal("no running git/fs");
 	if(findrepo(repo, sizeof(repo)) == -1)
 		sysfatal("find root: %r");
-	chdir(repo);
+	if(chdir(repo) == -1)
+		sysfatal("chdir: %r");
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
 	if(access("/mnt/git/ctl", AEXIST) != 0)

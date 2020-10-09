@@ -139,11 +139,14 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	gitinit();
-	if(findrepo(repo, sizeof(repo)) == -1)
-		sysfatal("find root: %r");
+	fmtinstall('P', Pfmt);
+
 	if(argc == 0)
 		usage();
-	fmtinstall('P', Pfmt);
+	if(findrepo(repo, sizeof(repo)) == -1)
+		sysfatal("find root: %r");
+	if(chdir(repo) == -1)
+		sysfatal("chdir: %r");
 	s = "";
 	p = query;
 	e = query + nelem(query);
