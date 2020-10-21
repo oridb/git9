@@ -33,13 +33,23 @@ fn clone{
 		echo '	fetch=+refs/heads/*:refs/remotes/origin/*'
 	}
 	{git/fetch $debug $remote >[2=3] | awk '
-		/^remote/{
+		BEGIN{
+			headref=""
+			headhash=""
+		}
+		/^symref /{
+			if($2 == "HEAD"){
+				gsub("^refs/heads", "refs/remotes/origin", $3)
+				gsub("^refs/tags", "refs/remotes/origin/tags", $3)
+				headref=$3
+			}
+		}
+		/^remote /{
 			if($2=="HEAD"){
 				headhash=$3
-				headref=""
-			}else{
+			}else if(match($2, "^refs/(heads|tags)/")){
 				gsub("^refs/heads", "refs/remotes/origin", $2)
-				if($2 == "refs/remotes/origin/master" || $3 == headhash)
+				if($2 == headref || (headref == "" && $3 == headhash))
 					headref=$2
 				outfile = ".git/" $2
 				outdir = outfile

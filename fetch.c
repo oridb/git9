@@ -135,18 +135,46 @@ branchmatch(char *br, char *pat)
 	return strcmp(br, name) == 0;
 }
 
+char *
+matchcap(char *s, char *cap, int full)
+{
+	if(strncmp(s, cap, strlen(cap)) == 0)
+		if(!full || strlen(s) == strlen(cap))
+			return s + strlen(cap);
+	return nil;
+}
+
+void
+handlecaps(char *caps)
+{
+	char *p, *n, *c, *r;
+
+	for(p = caps; p != nil; p = n){
+		n = strchr(p, ' ');
+		if(n != nil)
+			*n++ = 0;
+		if((c = matchcap(p, "symref=", 0)) != nil){
+			if((r = strchr(c, ':')) != nil){
+				*r++ = '\0';
+				print("symref %s %s\n", c, r);
+			}
+		}
+	}
+}
+
 int
 fetchpack(Conn *c, int pfd, char *packtmp)
 {
 	char buf[Pktmax], idxtmp[256], *sp[3];
 	Hash h, *have, *want;
-	int nref, refsz;
+	int nref, refsz, first;
 	int i, n, req;
 	vlong packsz;
 	Object *o;
 
 	nref = 0;
 	refsz = 16;
+	first = 1;
 	have = emalloc(refsz * sizeof(have[0]));
 	want = emalloc(refsz * sizeof(want[0]));
 	while(1){
@@ -157,6 +185,11 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 			break;
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
+
+		if(first && n > strlen(buf))
+			handlecaps(buf + strlen(buf) + 1);
+		first = 0;
+
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(strstr(sp[1], "^{}"))
 			continue;
