@@ -399,19 +399,19 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p, int flag)
 	Object b;
 	char *d;
 	vlong r;
-	int c, s, n;
+	int c, n;
 
 	d = nil;
-	r = 0;
-	s = 0;
-	do {
+	if((c = Bgetc(f)) == -1)
+		return -1;
+	r = c & 0x7f;
+	while(c & 0x80 && r < (1ULL<<56)){
 		if((c = Bgetc(f)) == -1)
 			return -1;
-		r |= (c & 0x7f) << s;
-		s += 7;
-	} while (c & 0x80 && s < 63);
+		r = ((r + 1)<<7) | (c & 0x7f);
+	}
 
-	if(r > p || s > 63){
+	if(r > p || r >= (1ULL<<56)){
 		werrstr("junk offset -%lld (from %lld)", r, p);
 		goto error;
 	}
@@ -1472,18 +1472,17 @@ packhdr(char *hdr, int ty, int len)
 static int
 packoff(char *hdr, vlong off)
 {
-	int i;
+	int i, j;
+	char rbuf[8];
 
-	hdr[0] = off & 0x7f;
-	off >>= 7;
-	for(i = 1; off != 0; i++){
-		assert(i < sizeof(hdr));
-		hdr[i-1] |= 0x80;
-		hdr[i] = off & 0x7f;
-		off >>= 7;
-	}
-	return i;
+	rbuf[0] = off & 0x7f;
+	for(i = 1; (off >>= 7) != 0; i++)
+		rbuf[i] |= (--off & 0x7f)|0x80;
 
+	j = 0;
+	while(i > 0)
+		hdr[j++] = rbuf[--i];
+	return j;
 }
 
 static int
