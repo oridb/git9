@@ -79,7 +79,12 @@ fn cmd_checkout{
 	git/branch $b
 }
 
-fn rev-parse{
+fn cmd_submodule {
+	if(test -f .gitmodules)
+		die 'submodules unsupported'
+}
+
+fn cmd_rev-parse{
 	while(~ $1 -*){
 		switch($1){
 		case --git-dir
