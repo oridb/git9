@@ -131,21 +131,23 @@ fn usage{
 }
 
 fn die {
-	>[1=2] echo $*
-	exit boom
+	>[1=2] echo git $_cmdname: $*
+	exit $_cmdname: $*
 }
 
+_cmdname=$1
 if(~ $0 *compat){
 	ramfs -m /n/gitcompat
-	cp $0 /n/gitcompat/git
+	touch /n/gitcompat/git
+	bind $0 /n/gitcompat/git
 	path=( /n/gitcompat $path )
 	exec rc
 }
 
-if(! test -f '/env/fn#cmd_'$1){
+if(! test -f '/env/fn#cmd_'$1)
 	die git $1: commmand not implemented
-}
-
 if(! ~ $1 init && ! ~ $1 clone)
 	gitroot=`{git/conf -r} || die repo
+
 cmd_$1 $*(2-)
+exit ''
