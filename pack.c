@@ -230,7 +230,7 @@ bdecompress(Buf *d, Biobuf *b, vlong *csz)
 	vlong o;
 
 	o = Boffset(b);
-	if(inflatezlib(d, bappend, b, breadc) == -1){
+	if(inflatezlib(d, bappend, b, breadc) == -1 || d->data == nil){
 		free(d->data);
 		return -1;
 	}
