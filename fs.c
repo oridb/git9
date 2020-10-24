@@ -334,8 +334,10 @@ objgen(int i, Dir *d, void *p)
 	while(ols->idx <= i){
 		if(olsnext(ols, &h) == -1)
 			return -1;
-		if((o = readobject(h)) == nil)
+		if((o = readobject(h)) == nil){
+			fprint(2, "corrupt object %H\n", h);
 			return -1;
+		}
 	}
 	if(o != nil){
 		snprint(name, sizeof(name), "%H", o->hash);
