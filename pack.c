@@ -871,7 +871,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
 		if(readloose(f, obj, flag) == -1)
-			goto error;
+			goto errorf;
 		Bterm(f);
 		parseobject(obj);
 		cache(obj);
@@ -904,17 +904,17 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	if((f = Bopen(path, OREAD)) == nil)
 		goto error;
 	if(Bseek(f, o, 0) == -1)
-		goto error;
+		goto errorf;
 	if(readpacked(f, obj, flag) == -1)
-		goto error;
+		goto errorf;
 	Bterm(f);
 	parseobject(obj);
 	free(d);
 	cache(obj);
 	return obj;
+errorf:
+	Bterm(f);
 error:
-	if(f != nil)
-		Bterm(f);
 	free(d);
 	free(new);
 	return nil;
@@ -1092,7 +1092,6 @@ indexpack(char *pack, char *idx, Hash ph)
 		hwrite(f, o->hash.h, sizeof(o->hash.h), &st);
 	}
 
-	/* fuck it, pointless */
 	for(i = 0; i < nobj; i++){
 		PUTBE32(buf, objects[i]->crc);
 		hwrite(f, buf, 4, &st);
