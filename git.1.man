@@ -12,6 +12,7 @@ git/pull, git/rm, git/serve
 .B -r
 ]
 .I path...
+.PP
 .B git/rm
 .I path...
 .PP
@@ -238,7 +239,7 @@ of the clone source, with the
 .I .git
 stripped off if present.
 
-·PP
+.PP
 .B Git/push
 is used to push the current changes to a remote repository.
 When no arguments are provided, the remote repository is taken from
