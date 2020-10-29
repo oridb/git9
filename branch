@@ -58,6 +58,10 @@ if(~ $#newbr 0){
 }
 commit=`{git/query $base} || die 'branch does not exist:' $base
 echo updating $new to $commit
+
+if(~ $new */*)
+	mkdir -p .git/`{basename -d $new}
+
 echo $commit > .git/$new
 
 
