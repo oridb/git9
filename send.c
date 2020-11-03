@@ -172,9 +172,10 @@ writepackdata(Conn *c, Update *upd, int nupd)
 		u = &upd[i];
 		if(hasheq(&u->theirs, &Zhash))
 			continue;
-		if((o = readobject(u->theirs)) == nil)
+		if((o = readobject(u->theirs)) != nil)
+			pack(&skip, &skip, o);
+		if(!force && o == nil)
 			sysfatal("could not read %H", u->theirs);
-		pack(&skip, &skip, o);
 		unref(o);
 	}
 
