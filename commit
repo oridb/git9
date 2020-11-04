@@ -84,7 +84,7 @@ fn parents{
 }
 
 fn commit{
-	msg=`"{cat $msgfile}
+	msg=`''{cat $msgfile}
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
 	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags $files || die $status}
