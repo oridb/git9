@@ -5,26 +5,28 @@ rfork ne
 flagfmt='b:bare, u:upstream upstream'; args='name'
 eval `''{aux/getflags $*} || exec aux/usage
 
-~ $bare 1 && sub='' || sub='/.git'
-
-if(~ $#* 0)
-	dir=.
-if not if(~ $#* 1)
-	dir=$1
-if not
+dir=$1
+if(~ $#dir 0)
 	exec aux/usage
+dotgit=$dir/.git
+if(~ $#bare 1)
+	dotgit=$dir
+name=`{basename `{cleanname -d `{pwd} $dir}}
+if(~ $#upstream 0){
+	upstream=`{git/conf 'defaults "origin".baseurl'}
+	if(! ~ $#upstream 0)
+		upstream=$upstream/$name
+}
 
-if(test -e $dir$sub)
-	die $dir$sub already exists
+if(test -e $dotgit)
+	die $dotgit already exists
 
-mkdir -p $dir$sub
-dircp /sys/lib/git/template $dir/$sub
-mkdir -p $dir/$sub/refs/heads
-mkdir -p $dir/$sub/refs/remotes
->>$dir/$sub/config {
+mkdir -p $dotgit/refs/^(heads remotes)
+dircp /sys/lib/git/template $dotgit
+>>$dotgit/config {
 	if(! ~ $#upstream 0){
 		echo '[remote "origin"]'
-		echo '	url='$upstream
+		echo '	url = '$upstream
 	}
 	echo '[branch "master"]'
 	echo '	remote = origin'
