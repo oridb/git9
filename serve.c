@@ -415,7 +415,7 @@ parsecmd(char *buf, char *cmd, int ncmd)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dw]\n", argv0);
+	fprint(2, "usage: %s [-dw] [-r rel]\n", argv0);
 	exits("usage");
 }
 
