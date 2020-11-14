@@ -136,6 +136,8 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 		snprint(port, Nport, "80");
 	else if(strncmp(proto, "hjgit", 5) == 0)
 		snprint(port, Nport, "17021");
+	else if(strncmp(proto, "gits", 5) == 0)
+		snprint(port, Nport, "9419");
 	else
 		hasport = 0;
 	s = (p != nil) ? p + 3 : uri;
