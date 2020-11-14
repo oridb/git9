@@ -422,10 +422,12 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p, int flag)
 		goto error;
 	if(Bseek(f, p - r, 0) == -1)
 		goto error;
+	memset(&b, 0, sizeof(Object));
 	if(readpacked(f, &b, flag) == -1)
 		goto error;
 	if(applydelta(o, &b, d, nd) == -1)
 		goto error;
+	clear(&b);
 	free(d);
 	return 0;
 error:
