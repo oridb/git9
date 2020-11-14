@@ -26,6 +26,7 @@ mntgen /mnt/scratch
 for(c in $commits){
 	cp=`{git/query -p $c}
 	pp=`{git/query -p $c'^'}
+	fc=`$nl{git/query -c $c~ $c | sed 's/^..//'}
 
 	@{
 		rfork n
@@ -56,7 +57,8 @@ for(c in $commits){
 			next
 		}
 		{print; printf "\n"}'
-		ape/diff -urN a b
+		for(f in $fc)
+			ape/diff -urN a/$rel b/$rel
 	} >$patchfile
 	if(~ $#patchdir 0){
 		cat $patchfile
