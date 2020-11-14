@@ -58,7 +58,7 @@ for(c in $commits){
 		}
 		{print; printf "\n"}'
 		for(f in $fc)
-			ape/diff -urN a/$rel b/$rel
+			ape/diff -urN a/$f b/$f
 	} >$patchfile
 	if(~ $#patchdir 0){
 		cat $patchfile
