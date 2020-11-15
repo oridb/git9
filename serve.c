@@ -1,11 +1,13 @@
 #include <u.h>
 #include <libc.h>
 #include <ctype.h>
+#include <auth.h>
 
 #include "git.h"
 
-char *pathpfx = "";
-int allowwrite;
+char	*pathpfx = "/usr/git";
+char	*namespace = nil;
+int	allowwrite;
 
 int
 fmtpkt(Conn *c, char *fmt, ...)
@@ -277,14 +279,40 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 }
 
 int
+mkdir(char *dir)
+{
+	char buf[ERRMAX];
+	int f;
+
+	if(access(dir, AEXIST) == 0)
+		return 0;
+	if((f = create(dir, OREAD, DMDIR | 0755)) == -1){
+		rerrstr(buf, sizeof(buf));
+		if(strstr(buf, "exist") == nil)
+			return -1;
+	}
+	close(f);
+	return 0;
+}
+
+int
 updatepack(Conn *c)
 {
-	char buf[Pktmax], packtmp[128], idxtmp[128];
+	char buf[Pktmax], packtmp[128], idxtmp[128], ebuf[ERRMAX];
 	int n, pfd, packsz;
 	Hash h;
 
+	/* make sure the needed dirs exist */
+	if(mkdir(".git/objects") == -1)
+		return -1;
+	if(mkdir(".git/objects/pack") == -1)
+		return -1;
+	if(mkdir(".git/refs") == -1)
+		return -1;
+	if(mkdir(".git/refs/heads") == -1)
+		return -1;
 	snprint(packtmp, sizeof(packtmp), ".git/objects/pack/recv-%d.pack.tmp", getpid());
-	snprint(idxtmp, sizeof(idxtmp), ".git/objects/idx/recv-%d.idx.tmp", getpid());
+	snprint(idxtmp, sizeof(idxtmp), ".git/objects/pack/recv-%d.idx.tmp", getpid());
 	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
 		return -1;
 	packsz = 0;
@@ -292,7 +320,13 @@ updatepack(Conn *c)
 		n = read(c->rfd, buf, sizeof(buf));
 		if(n == 0)
 			break;
-		if(n == -1 || write(pfd, buf, n) != n)
+		if(n == -1){
+			rerrstr(ebuf, sizeof(ebuf));
+			if(strstr(ebuf, "hungup") == nil)
+				return -1;
+			break;
+		}
+		if(write(pfd, buf, n) != n)
 			return -1;
 		packsz += n;
 	}
@@ -301,7 +335,7 @@ updatepack(Conn *c)
 		goto error1;
 	}
 	if(indexpack(packtmp, idxtmp, h) == -1){
-		dprint(1, "indexing failed\n");
+		dprint(1, "indexing failed: %r\n");
 		goto error1;
 	}
 	if(rename(packtmp, idxtmp, h) == -1){
@@ -321,7 +355,7 @@ lockrepo(void)
 	int fd, i;
 
 	for(i = 0; i < 10; i++) {
-		if((fd = create(".git/index9/lock", ORDWR|OEXCL, 0644))!= -1)
+		if((fd = create(".git/_lock", ORDWR|OTRUNC|OEXCL, 0644))!= -1)
 			return fd;
 		sleep(250);
 	}
@@ -374,7 +408,6 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	ret = 0;
 error:
 	close(lockfd);
-	remove(".git/index9/lock");
 	return ret;
 }
 
@@ -422,7 +455,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *p, cmd[32], buf[512], path[512];
+	char *repo, cmd[32], buf[512];
+	char *user;
 	Conn c;
 
 	ARGBEGIN{
@@ -434,6 +468,9 @@ main(int argc, char **argv)
 		if(*pathpfx != '/')
 			sysfatal("path prefix must begin with '/'");
 		break;
+	case 'n':
+		namespace=EARGF(usage());
+		break;
 	case 'w':
 		allowwrite++;
 		break;
@@ -443,18 +480,27 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	gitinit();
-	initconn(&c, 0, 1);
+	user = "none";
+	if(allowwrite)
+		user = getuser();
+	if(newns(user, namespace) == -1)
+		sysfatal("addns: %r");
+	if(bind(pathpfx, "/", MREPL) == -1)
+		sysfatal("bind: %r");
+	if(rfork(RFNOMNT) == -1)
+		sysfatal("rfork: %r");
 
+	initconn(&c, 0, 1);
 	if(readpkt(&c, buf, sizeof(buf)) == -1)
 		sysfatal("readpkt: %r");
-	p = parsecmd(buf, cmd, sizeof(cmd));
-	if(snprint(path, sizeof(path), "%s/%s", pathpfx, p) == sizeof(path))
-		sysfatal("%s: path too long\n", p);
-	cleanname(path);
-	if(strncmp(pathpfx, path, strlen(pathpfx)) != 0)
-		sysfatal("%s: path escapes prefix", p);
-	if(chdir(path) == -1)
-		sysfatal("cd %s: %r", path);
+	repo = parsecmd(buf, cmd, sizeof(cmd));
+	cleanname(repo);
+	if(strncmp(repo, "../", 3) == 0)
+		sysfatal("invalid path %s\n", repo);
+	if(bind(repo, "/", MREPL) == -1)
+		sysfatal("enter %s: %r", repo);
+	if(chdir("/") == -1)
+		sysfatal("chdir: %r");
 	if(access(".git", AREAD) == -1)
 		sysfatal("no git repository");
 	if(strcmp(cmd, "git-receive-pack") == 0 && allowwrite)
