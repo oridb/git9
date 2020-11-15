@@ -7,6 +7,7 @@ typedef struct Objq	Objq;
 typedef struct Buf	Buf;
 typedef struct Compout	Compout;
 typedef struct Update	Update;
+typedef struct Capset	Capset;
 
 struct Buf {
 	int off;
@@ -28,6 +29,12 @@ struct Update {
 	char	ref[128];
 	Hash	theirs;
 	Hash	ours;
+};
+
+struct Capset {
+	int	sideband;
+	int	sideband64k;
+	int	report;
 };
 
 int sendall;
@@ -284,14 +291,44 @@ readours(Update **ret)
 	return nu;	
 }
 
+char *
+matchcap(char *s, char *cap, int full)
+{
+	if(strncmp(s, cap, strlen(cap)) == 0)
+		if(!full || strlen(s) == strlen(cap))
+			return s + strlen(cap);
+	return nil;
+}
+
+void
+parsecaps(char *caps, Capset *cs)
+{
+	char *p, *n;
+
+	memset(cs, 0, sizeof(Capset));
+	for(p = caps; p != nil; p = n){
+		n = strchr(p, ' ');
+		if(n != nil)
+			*n++ = 0;
+		if(matchcap(p, "report-status", 1) != nil)
+			cs->report = 1;
+		if(matchcap(p, "side-band", 1) != nil)
+			cs->sideband = 1;
+		if(matchcap(p, "side-band-64k", 1) != nil)
+			cs->sideband64k = 1;
+	}
+}
+
 int
 sendpack(Conn *c)
 {
-	int i, n, r, nupd, nsp, send;
+	int i, n, r, nupd, nsp, send, first;
 	char buf[Pktmax], *sp[3];
 	Update *upd, *u;
 	Object *a, *b, *p;
+	Capset cs;
 
+	first = 1;
 	nupd = readours(&upd);
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
@@ -299,6 +336,9 @@ sendpack(Conn *c)
 			return -1;
 		if(n == 0)
 			break;
+		if(first && n > strlen(buf))
+			parsecaps(buf + strlen(buf) + 1, &cs);
+		first = 0;
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
 
@@ -353,7 +393,7 @@ sendpack(Conn *c)
 		 * Github doesn't advertise any capabilities, so we can't check
 		 * for compatibility. We just need to add it blindly.
 		 */
-		if(i == 0){
+		if(i == 0 && cs.report){
 			buf[n++] = '\0';
 			n += snprint(buf + n, sizeof(buf) - n, " report-status");
 		}
@@ -370,15 +410,13 @@ sendpack(Conn *c)
 	if(!send)
 		print("nothing to send\n");
 	if(send){
-		if(chattygit)
-			fprint(2, "sending pack...\n");
+		dprint(1, "sending pack...\n");
 		if(writepackdata(c, upd, nupd) == -1)
 			return -1;
-
-		if(readphase(c) == -1)
+		if(cs.report && readphase(c) == -1)
 			return -1;
 		/* We asked for a status report, may as well use it. */
-		while((n = readpkt(c, buf, sizeof(buf))) > 0){
+		while(cs.report && (n = readpkt(c, buf, sizeof(buf))) > 0){
  			buf[n] = 0;
 			if(chattygit)
 				fprint(2, "done sending pack, status %s\n", buf);
