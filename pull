@@ -41,8 +41,11 @@ if(~ $allbranch 1)
 	branch=''
 
 if(~ $#upstream 0)
-	upstream=origin
-remote=`{git/conf 'remote "'$upstream'".url'}
+	remote=`{git/conf 'remote "origin".url'}
+if not
+	remote=`{git/conf 'remote "'$upstream'".url'}
+if(~ $#remote 0)
+	remote=$upstream
 if(~ $#remote 0)
 	die 'no remote to pull from'
 
