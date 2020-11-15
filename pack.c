@@ -1571,7 +1571,7 @@ writepack(int fd, Object **obj, int nobj, Hash *h)
 	dprint(1, "picking deltas\n");
 	pickdeltas(meta, nmeta);
 	dprint(1, "generating pack\n");
-	r = genpack(fd, meta, nmeta, h, 1);
+	r = genpack(fd, meta, nmeta, h, 0);
 	for(i = 0; i < nmeta; i++)
 		freemeta(meta[i]);
 	free(meta);
