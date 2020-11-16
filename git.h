@@ -20,8 +20,6 @@ typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
 
 enum {
-	/* 5k objects should be enough */
-	Cachemax	= 5*1024,
 	Pathmax		= 512,
 	Hashsz		= 20,
 	Pktmax		= 65536,
@@ -227,6 +225,7 @@ extern Reprog	*authorpat;
 extern Objset	objcache;
 extern Hash	Zhash;
 extern int	chattygit;
+extern int	cachemax;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int

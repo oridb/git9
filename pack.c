@@ -49,6 +49,7 @@ Objset objcache;
 Object *lruhead;
 Object *lrutail;
 int	ncache;
+int	cachemax = 1024;
 
 static void
 clear(Object *o)
@@ -137,7 +138,7 @@ cache(Object *o)
 		ref(o);
 		ncache++;
 	}
-	while(ncache > Cachemax){
+	while(ncache > cachemax){
 		p = lrutail;
 		lrutail = p->prev;
 		lrutail->next = nil;
