@@ -9,7 +9,7 @@ eval `''{aux/getflags $*} || exec aux/usage
 
 commit=/mnt/git/HEAD
 if(~ $#query 1)
-	commit=`{git/query -p $commit}
+	commit=`{git/query -p $query}
 
 for(f in `$nl{cd $commit/tree/ && walk -f ./$gitrel/$*}){
 	mkdir -p `{basename -d $f}
