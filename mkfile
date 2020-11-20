@@ -56,7 +56,7 @@ install:V:
 	mk $MKFLAGS /sys/lib/git/template
 
 uninstall:V:
-	rm -rf $BIN /sys/lib/git
+	rm -rf $BIN /sys/lib/git /sys/man/1/git /sys/man/4/gitfs
 
 %.rcinstall:V:
 	cp $stem $BIN/$stem
