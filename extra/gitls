@@ -1,0 +1,154 @@
+#!/bin/rc -e
+
+cd $1
+shift
+
+rfork ne
+nl='
+'
+
+fn htcat {
+	sed '
+		s/&/\&amp;/g;
+		s/</\&lt;/g;
+		s/>/\&gt;/g;
+		s/"/\&quot;/g;
+		s/''/\&#39;/g
+	' $*
+}
+
+fn resolveref {
+	if(~ $refname HEAD)
+		echo $refname
+	if not if(test -d /mnt/git/branch/$refname/tree)
+		echo branch/$refname
+	if not if(test -d /mnt/git/object/$refname/tree)
+		echo object/$refname
+	if not
+		status='bad ref'
+}
+
+
+echo '
+<!DOCTYPE html>
+<html>
+
+<head>
+	<style type="text/css">
+		body{
+			margin: 3em auto;
+			max-width: 50em;
+			font-family: sans-serif;
+		}
+		h1,h2{
+			font-size: 1.3em;
+			color: #4c4c99;
+		}
+		h3{
+			font-size: 1em;
+			color: #4c4c99;
+		}
+		#desc{
+		}
+		#code{
+			background: #ffffea;
+			border: #99994cff
+		}
+	</style>
+ 	<link rel="alternate" type="application/rss+xml" href="feed.rss" title="rss">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>git webls</title>
+</head>
+<body>
+'
+
+switch($1){
+case 'list'
+	rfork m
+	echo '<h1>Repos</h1>'
+	echo '<dl>'
+	for(repo in `$nl{ls}){
+		if(test -d $repo/.git){
+			echo '<dt><a href="/git/'$repo'/HEAD/info.html">'$repo'</a></dt>'
+			echo '<dd>'
+			if(test -f $repo/.git/desc)
+				htcat $repo/.git/desc
+			if not
+				echo 'code some guy wrote'
+			echo '</dd>'
+		}
+	}
+	echo '</dl>'
+
+case 'info'
+	repo=$2
+	refname=$3
+
+	@{
+	cd $repo
+	git/fs
+	rfork m
+
+	if(! ref=`{resolveref $refname})
+		echo '<b>invalid ref '$refname'</b>'
+	cd /mnt/git/$ref/tree
+	if(~ $file '')
+		file='.'
+	hash=`{cat /mnt/git/$ref/hash}
+	echo '<h1>Git: <a href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>'
+	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
+	echo '<pre id="desc">'
+	htcat /mnt/git/object/$hash/msg
+	echo '</pre>'
+	echo '<p><a href='/git/$repo/$hash/f.html'>files</a>'
+	echo '<pre id="code">'
+	for(f in `$nl{ls})
+		echo '<a href="'$f'/f.html">'$f'</a>'
+	echo '</pre>'
+	echo '<pre id="desc">'
+	if(test -f README)
+		htcat README
+	if not if (test -f README.md)
+		htcat README.md
+	if not
+		echo 'this repo has no description'
+	echo '</pre>'
+	}
+case 'view'
+	repo=$2
+	refname=$3
+	file=$4
+
+	@{
+	cd $repo
+	git/fs
+	rfork m
+
+	if(! ref=`{resolveref $refname})
+		echo '<b>invalid ref '$refname'</b>'
+
+	cd /mnt/git/$ref/tree
+	if(~ $file '')
+		file='.'
+	hash=`{cat /mnt/git/$ref/hash}
+
+	echo '<h1>Git: <a href=/git/'$repo'/'$hash'/info.html>'$repo'</a></h1>'
+	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
+	echo '<pre id="desc">'
+	htcat /mnt/git/object/$hash/msg
+	echo '</pre>'
+	echo '<pre id="code">'
+	if(test -f $file){
+		htcat $file
+	}
+	if not if(test -d $file){
+		cd $file
+		for(f in `$nl{ls})
+			echo '<a href="'$f'/f.html">'$f'</a>'
+	}
+	echo '</pre>'
+	}
+}
+
+echo '</body>'
+echo '</html>'

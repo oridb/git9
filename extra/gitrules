@@ -1,0 +1,4 @@
+/repos.html				/bin/gitls /usr/git list
+/([^'/]+)/info.html			/bin/gitls /usr/git info '\1' HEAD
+/([^'/]+)/([^'/]+)/info.html		/bin/gitls /usr/git info '\1' '\2'
+/([^'/]+)/([^'/]+)/(([^']+)/)?f.html	/bin/gitls /usr/git view '\1' '\2' '\4'
