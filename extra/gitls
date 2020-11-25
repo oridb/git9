@@ -82,6 +82,7 @@ case 'list'
 
 case 'info'
 	repo=$2
+	repodir=`{pwd}^/$repo/.git
 	refname=$3
 
 	@{
@@ -95,7 +96,7 @@ case 'info'
 	if(~ $file '')
 		file='.'
 	hash=`{cat /mnt/git/$ref/hash}
-	echo '<h1>Git: <a href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>'
+	echo '<h1><a href="/git/repos.html">Git</a>: <a href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>'
 	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
 	echo '<pre id="desc">'
 	htcat /mnt/git/object/$hash/msg
@@ -109,16 +110,21 @@ case 'info'
 	}		
 	echo '</pre>'
 	echo '<pre id="desc">'
-	if(test -f README)
+	if(test -f $repodir/README)
+		htcat $repodir/README
+	if not if(test -f README)
 		htcat README
 	if not if (test -f README.md)
 		htcat README.md
+	if not if(test -f $repodir/desc)
+		htcat $repodir/desc
 	if not
 		echo 'this repo has no description'
 	echo '</pre>'
 	}
 case 'view'
 	repo=$2
+	repodir=`{pwd}^/$repo/.git
 	refname=$3
 	file=$4
 
@@ -135,7 +141,7 @@ case 'view'
 		file='.'
 	hash=`{cat /mnt/git/$ref/hash}
 
-	echo '<h1>Git: <a href=/git/'$repo'/'$hash'/info.html>'$repo'</a></h1>'
+	echo '<h1><a href="/git/repos.html">Git</a>: <a href=/git/'$repo'/'$hash'/info.html>'$repo'</a></h1>'
 	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
 	echo '<pre id="desc">'
 	htcat /mnt/git/object/$hash/msg
