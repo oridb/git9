@@ -77,15 +77,15 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 		if(n == 0)
 			break;
 		if(strncmp(pkt, "want ", 5) != 0){
-			fmtpkt(c, "ERR  protocol garble %s\n", pkt);
+			werrstr(" protocol garble %s", pkt);
 			goto error;
 		}
 		if(hparse(&h, &pkt[5]) == -1){
-			fmtpkt(c, "ERR  garbled want\n");
+			werrstr(" garbled want");
 			goto error;
 		}
 		if((o = readobject(h)) == nil){
-			fmtpkt(c, "ERR requested nonexistent object");
+			werrstr("requested nonexistent object");
 			goto error;
 		}
 		unref(o);
@@ -98,24 +98,24 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 	while(1){
 		if((n = readpkt(c, pkt, sizeof(pkt))) == -1)
 			goto error;
-		if(strcmp(pkt, "done") == 0 || strcmp(pkt, "done\n") == 0)
+		if(strcmp(pkt, "done") == 0 || strcmp(pkt, "done") == 0)
 			break;
 		if(n == 0){
-			if(!acked && fmtpkt(c, "NAK\n") == -1)
+			if(!acked && fmtpkt(c, "NAK") == -1)
 					goto error;
 		}
 		if(strncmp(pkt, "have ", 5) != 0){
-			fmtpkt(c, "ERR  protocol garble %s\n", pkt);
+			werrstr(" protocol garble %s", pkt);
 			goto error;
 		}
 		if(hparse(&h, &pkt[5]) == -1){
-			fmtpkt(c, "ERR  garbled have\n");
+			werrstr(" garbled have");
 			goto error;
 		}
 		if((o = readobject(h)) == nil)
 			continue;
 		if(!acked){
-			if(fmtpkt(c, "ACK %H\n", h) == -1)
+			if(fmtpkt(c, "ACK %H", h) == -1)
 				goto error;
 			acked = 1;
 		}
@@ -128,6 +128,7 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 		goto error;
 	return 0;
 error:
+	fmtpkt(c, "ERR %r\n");
 	free(*head);
 	free(*tail);
 	return -1;
@@ -355,7 +356,7 @@ lockrepo(void)
 	int fd, i;
 
 	for(i = 0; i < 10; i++) {
-		if((fd = create(".git/_lock", ORDWR|OTRUNC|OEXCL, 0644))!= -1)
+		if((fd = create(".git/_lock", ORCLOSE|ORDWR|OTRUNC|OEXCL, 0644))!= -1)
 			return fd;
 		sleep(250);
 	}
@@ -372,34 +373,34 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 
 	ret = -1;
 	if((lockfd = lockrepo()) == -1){
-		fmtpkt(c, "ERR repo locked\n");
+		werrstr("repo locked\n");
 		return -1;
 	}
 	for(i = 0; i < nupd; i++){
 		if(resolveref(&h, ref[i]) == 0 && !hasheq(&h, &cur[i])){
-			fmtpkt(c, "ERR old ref changed: %s", ref[i]);
+			werrstr("old ref changed: %s", ref[i]);
 			goto error;
 		}
 		if((o = readobject(upd[i])) == nil){
-			fmtpkt(c, "ERR update to nonexistent hash %H", upd[i]);
+			werrstr("update to nonexistent hash %H", upd[i]);
 			goto error;
 		}
 		unref(o);
 		if(o->type != GCommit){
-			fmtpkt(c, "ERR not commit: %H", upd[i]);
+			werrstr("not commit: %H", upd[i]);
 			goto error;
 		}
 		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
-			fmtpkt(c, "ERR ref path too long: %s", ref[i]);
+			werrstr("ref path too long: %s", ref[i]);
 			goto error;
 		}
-		if((fd = create(refpath, OWRITE, 0644)) == -1){
-			fmtpkt(c, "ERR open ref: %r");
+		if((fd = create(refpath, OWRITE|OTRUNC, 0644)) == -1){
+			werrstr("open ref: %r");
 			goto error;
 		}
 		if(fprint(fd, "%H", upd[i]) == -1){
+			werrstr("upate ref: %r");
 			close(fd);
-			fmtpkt(c, "ERR upate ref: %r");
 			goto error;
 		}
 		close(fd);
@@ -407,6 +408,7 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 		
 	ret = 0;
 error:
+	fmtpkt(c, "ERR %r");
 	close(lockfd);
 	return ret;
 }
