@@ -102,8 +102,11 @@ case 'info'
 	echo '</pre>'
 	echo '<p><a href='/git/$repo/$hash/f.html'>files</a>'
 	echo '<pre id="code">'
-	for(f in `$nl{ls})
-		echo '<a href="'$f'/f.html">'$f'</a>'
+	for(f in `$nl{ls}){
+		url=`$nl{echo -n $f/f.html | urlencode}
+		fname=`$nl{echo -n $f | htcat}
+		echo '<a href="'$url'">'$fname'</a>'
+	}		
 	echo '</pre>'
 	echo '<pre id="desc">'
 	if(test -f README)
@@ -143,8 +146,11 @@ case 'view'
 	}
 	if not if(test -d $file){
 		cd $file
-		for(f in `$nl{ls})
-			echo '<a href="'$f'/f.html">'$f'</a>'
+		for(f in `$nl{ls}){
+			url=`$nl{echo -n $f/f.html | urlencode}
+			fname=`$nl{echo -n $f | htcat}
+			echo '<a href="'$url'">'$fname'</a>'
+		}
 	}
 	echo '</pre>'
 	}
