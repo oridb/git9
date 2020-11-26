@@ -4,16 +4,22 @@
 
 #include "git.h"
 
+int	findroot;
+int	showall;
+int	nfile;
+char	*file[32];
+
 static int
 showconf(char *cfg, char *sect, char *key)
 {
 	char *ln, *p;
 	Biobuf *f;
-	int foundsect, nsect, nkey;
+	int foundsect, nsect, nkey, found;
 
 	if((f = Bopen(cfg, OREAD)) == nil)
 		return 0;
 
+	found = 0;
 	nsect = sect ? strlen(sect) : 0;
 	nkey = strlen(key);
 	foundsect = (sect == nil);
@@ -27,12 +33,16 @@ showconf(char *cfg, char *sect, char *key)
 				continue;
 			p = strip(p + 1);
 			print("%s\n", p);
-			free(ln);
-			return 1;
+			found = 1;
+			if(!showall){
+				free(ln);
+				goto done;
+			}
 		}
 		free(ln);
 	}
-	return 0;
+done:
+	return found;
 }
 
 
@@ -48,14 +58,13 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *file[32], repo[512], *p, *s;
-	int i, j, nfile, findroot;
+	char repo[512], *p, *s;
+	int i, j;
 
-	nfile = 0;
-	findroot = 0;
 	ARGBEGIN{
 	case 'f':	file[nfile++]=EARGF(usage());	break;
 	case 'r':	findroot++;			break;
+	case 'a':	showall++;			break;
 	default:	usage();			break;
 	}ARGEND;
 

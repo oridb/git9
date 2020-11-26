@@ -24,26 +24,28 @@ if(~ $debug 1)
 if(~ $#upstream 0)
 	upstream=origin
 
-remote=`{git/conf 'remote "'$upstream'".url'}
+remotes=`$nl{git/conf -a 'remote "'$upstream'".url'}
 if(~ $#remote 0)
-	remote=$upstream
+	remotes=$upstream
 branch=-b^$branch
 if(! ~ $#remove 0)
 	remove=-r^$remove
-updates=`$nl{git/send $debug $force $branch $remove $remote || die $status}
-for(ln in $updates){
-	u=`{echo $ln}
-	refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}
-	switch($u(1)){
-	case update;
-		mkdir -p `{basename -d $refpath}
-		echo $u(4) > $refpath
-		echo $u(2)^':' $u(3) '=>' $u(4)
-	case delete;
-		echo $u(2)^': removed'
-		rm -f $refpath
-	case uptodate;
-		echo $u(2)^': up to date'
+for(remote in $remotes){
+	updates=`$nl{git/send $debug $force $branch $remove $remote || die $status}
+	for(ln in $updates){
+		u=`{echo $ln}
+		refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}
+		switch($u(1)){
+		case update;
+			mkdir -p `{basename -d $refpath}
+			echo $u(4) > $refpath
+			echo $u(2)^':' $u(3) '=>' $u(4)
+		case delete;
+			echo $u(2)^': removed'
+			rm -f $refpath
+		case uptodate;
+			echo $u(2)^': up to date'
+		}
 	}
 }
 exit ''
