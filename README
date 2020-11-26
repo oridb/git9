@@ -22,15 +22,15 @@ Getting Started
 Get a bootstrap copy:
 
 	% cd /tmp
-	% hget https://github.com/oridb/git9/archive/master.tar.gz | tar xvz
+	% hget https://orib.dev/git/git9/HEAD/snap.tar.gz | tar xvz
 	% cd git9-master
 	% mk all
 	% mk install
 
-Get an updatable version from git:
+Then get an updatable version from git:
 
 	% cd $home/src
-	% git/clone https://github.com/oridb/git9
+	% git/clone gits://orib.dev/git9
 	% cd git9
 	% mk all
 	% mk install
