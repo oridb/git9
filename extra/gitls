@@ -28,47 +28,77 @@ fn resolveref {
 		status='bad ref'
 }
 
+fn repons {
+	mntgen
+	mntgen /mnt/mnt
+	bind /bin /mnt/bin
+	bind /tmp /mnt/tmp
+	bind -c /env /mnt/env
+	bind $1 /mnt/$repo
+	bind /mnt /
+	cd /mnt/$repo
+	git/fs
+	rfork m
+}
 
-echo '
-<!DOCTYPE html>
-<html>
 
-<head>
-	<style type="text/css">
-		body{
-			margin: 3em auto;
-			max-width: 50em;
-			font-family: sans-serif;
-		}
-		h1,h2{
-			font-size: 1.3em;
-			color: #4c4c99;
-		}
-		h3{
-			font-size: 1em;
-			color: #4c4c99;
-		}
-		#desc{
-		}
-		#code{
-			background: #ffffea;
-			border: #99994cff
-		}
-	</style>
- 	<link rel="alternate" type="application/rss+xml" href="feed.rss" title="rss">
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<title>git webls</title>
-</head>
-<body>
-'
+fn prelude {
+	echo '
+	<!DOCTYPE html>
+	<html>
+	
+	<head>
+		<style type="text/css">
+			body{
+				margin: 3em auto;
+				max-width: 50em;
+				font-family: sans-serif;
+			}
+			h1,h2{
+				font-size: 1.3em;
+				color: #4c4c99;
+			}
+			h3{
+				font-size: 1em;
+				color: #4c4c99;
+			}
+			#desc{
+			}
+			#code{
+				background: #ffffea;
+				border: #99994cff
+			}
+		</style>
+	 	<link rel="alternate" type="application/rss+xml" href="feed.rss" title="rss">
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>git webls</title>
+	</head>
+	<body>
+	'
+}
 
 switch($1){
+case 'tar'
+	repo=$2
+	refname=$3
+	@{
+	repons $2
+	if(! ref=`{resolveref $refname}){
+		echo '<b>invalid ref '$refname'</b>'
+		exit
+	}
+	bind /mnt/git/$ref/tree /mnt/$repo
+	cd /mnt
+	tar cz $repo
+	}
+
 case 'list'
 	rfork m
-	echo '<h1>Repos</h1>'
-	echo '<dl>'
+	prelude
+	echo '	<h1>Repos</h1>
+		<dl>'
 	for(repo in `$nl{ls}){
-		if(test -d $repo/.git){
+		if(test -e $repo/.git/webpublish){
 			echo '<dt><a href="/git/'$repo'/HEAD/info.html">'$repo'</a></dt>'
 			echo '<dd>'
 			if(test -f $repo/.git/desc)
@@ -82,34 +112,41 @@ case 'list'
 
 case 'info'
 	repo=$2
-	repodir=`{pwd}^/$repo/.git
+	repodir=/mnt/$repo/.git
 	refname=$3
-
 	@{
-	cd $repo
-	git/fs
-	rfork m
-
-	if(! ref=`{resolveref $refname})
+	repons $repo
+	if(! ref=`{resolveref $refname}){
 		echo '<b>invalid ref '$refname'</b>'
+		exit
+	}
 	cd /mnt/git/$ref/tree
-	if(~ $file '')
-		file='.'
 	hash=`{cat /mnt/git/$ref/hash}
-	echo '<h1><a href="/git/repos.html">Git</a>: <a href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>'
-	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
-	echo '<pre id="desc">'
+
+	prelude $repo $ref $repo
+	echo '	<h1><a href="/git/repos.html">Git</a>: <a
+		href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>
+		<p>'$repo' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>
+		<pre id="desc">'
 	htcat /mnt/git/object/$hash/msg
-	echo '</pre>'
-	echo '<p><a href='/git/$repo/$hash/f.html'>files</a>'
-	echo '<pre id="code">'
+	echo '	</pre>
+		<h2>Code</h2>
+		<p>
+		<b>clone:</b> git://orib.dev/'$repo', gits://orib.dev/'$repo'<br>
+		<b>push:</b> hjgit://orib.dev/'$repo'<br>
+		<b>tar:</b> <a href="'/git/$repo/$hash/snap.tar.gz'">snap.tar.gz</a><br>'
+	if(test -f $repodir/contact)
+		echo '<b>patches to: </b>'^`$nl{cat $repodir/contact}^'<br>
+			</p>
+			<pre id="code">'
 	for(f in `$nl{ls}){
 		url=`$nl{echo -n $f/f.html | urlencode}
 		fname=`$nl{echo -n $f | htcat}
 		echo '<a href="'$url'">'$fname'</a>'
 	}		
-	echo '</pre>'
-	echo '<pre id="desc">'
+	echo '</pre>
+		<h2>About This Repo</h2>
+		<pre id="desc">'
 	if(test -f $repodir/README)
 		htcat $repodir/README
 	if not if(test -f README)
@@ -120,33 +157,34 @@ case 'info'
 		htcat $repodir/desc
 	if not
 		echo 'this repo has no description'
-	echo '</pre>'
+	echo '
+		</pre>
+		</body>
+		</html>
+	'
 	}
+
 case 'view'
 	repo=$2
-	repodir=`{pwd}^/$repo/.git
+	repodir=/mnt/$repo/.git
 	refname=$3
 	file=$4
-
 	@{
-	cd $repo
-	git/fs
-	rfork m
-
-	if(! ref=`{resolveref $refname})
+	repons $repo
+	if(! ref=`{resolveref $refname}){
 		echo '<b>invalid ref '$refname'</b>'
-
+		exit
+	}
 	cd /mnt/git/$ref/tree
 	if(~ $file '')
 		file='.'
 	hash=`{cat /mnt/git/$ref/hash}
 
-	echo '<h1><a href="/git/repos.html">Git</a>: <a href=/git/'$repo'/'$hash'/info.html>'$repo'</a></h1>'
-	echo '<p>'$file' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>'
-	echo '<pre id="desc">'
-	htcat /mnt/git/object/$hash/msg
-	echo '</pre>'
-	echo '<pre id="code">'
+	prelude
+	echo '	<h1><a href="/git/repos.html">Git</a>: <a
+		href='/git/$repo/$ref/info.html'>'$repo'</a></h1>
+		<p>'$repo' @ <a href="'/git/$repo/$hash/f.html'">'$hash'</a>
+		<pre id="code">'
 	if(test -f $file){
 		htcat $file
 	}
@@ -158,9 +196,8 @@ case 'view'
 			echo '<a href="'$url'">'$fname'</a>'
 		}
 	}
-	echo '</pre>'
+	echo '	</pre>
+		</body>
+		</html>'
 	}
 }
-
-echo '</body>'
-echo '</html>'
