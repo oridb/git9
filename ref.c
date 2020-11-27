@@ -262,8 +262,12 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	osinit(&keep);
 	osinit(&drop);
 	for(i = 0; i < nhead; i++){
-		if((o = readobject(head[i])) == nil)
-			sysfatal("read head %H: %r", head[i]);
+		if(hasheq(&head[i], &Zhash))
+			continue;
+		if((o = readobject(head[i])) == nil){
+			werrstr("read head %H: %r", head[i]);
+			return -1;
+		}
 		dprint(1, "twixt init: keep %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
 		e->o = o;
@@ -273,8 +277,12 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
-		if((o = readobject(tail[i])) == nil)
-			sysfatal("read tail %H: %r", tail[i]);
+		if(hasheq(&tail[i], &Zhash))
+			continue;
+		if((o = readobject(tail[i])) == nil){
+			werrstr("read tail %H: %r", tail[i]);
+			return -1;
+		}
 		dprint(1, "init: drop %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
 		e->o = o;

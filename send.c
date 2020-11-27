@@ -3,33 +3,7 @@
 
 #include "git.h"
 
-typedef struct Objq	Objq;
-typedef struct Buf	Buf;
-typedef struct Compout	Compout;
-typedef struct Update	Update;
 typedef struct Capset	Capset;
-
-struct Buf {
-	int off;
-	int sz;
-	uchar *data;
-};
-
-struct Compout {
-	int fd;
-	DigestState *st;
-};
-
-struct Objq {
-	Objq *next;
-	Object *obj;
-};
-
-struct Update {
-	char	ref[128];
-	Hash	theirs;
-	Hash	ours;
-};
 
 struct Capset {
 	int	sideband;
@@ -46,229 +20,32 @@ int nremoved;
 int npacked;
 int nsent;
 
-static int
-hwrite(int fd, void *buf, int nbuf, DigestState **st)
-{
-	if(write(fd, buf, nbuf) != nbuf)
-		return -1;
-	*st = sha1(buf, nbuf, nil, *st);
-	return nbuf;
-}
-
-void
-pack(Objset *send, Objset *skip, Object *o)
-{
-	Dirent *e;
-	Object *s;
-	int i;
-
-	if(oshas(send, o->hash) || oshas(skip, o->hash))
-		return;
-	osadd(send, o);
-	switch(o->type){
-	case GCommit:
-		if((s = readobject(o->commit->tree)) == nil)
-			sysfatal("could not read tree %H: %r", o->hash);
-		pack(send, skip, s);
-		unref(s);
-		break;
-	case GTree:
-		for(i = 0; i < o->tree->nent; i++){
-			e = &o->tree->ent[i];
-			if ((s = readobject(e->h)) == nil)
-				sysfatal("could not read entry %H: %r", e->h);
-			pack(send, skip, s);
-			unref(s);
-		}
-		break;
-	default:
-		break;
-	}
-}
-
 int
-compread(void *p, void *dst, int n)
-{
-	Buf *b;
-
-	b = p;
-	if(n > b->sz - b->off)
-		n = b->sz - b->off;
-	memcpy(dst, b->data + b->off, n);
-	b->off += n;
-	return n;
-}
-
-int
-compwrite(void *p, void *buf, int n)
-{
-	Compout *o;
-
-	o = p;
-	o->st = sha1(buf, n, nil, o->st);
-	return write(o->fd, buf, n);
-}
-
-int
-compress(int fd, void *buf, int sz, DigestState **st)
-{
-	int r;
-	Buf b ={
-		.off=0,
-		.data=buf,
-		.sz=sz,
-	};
-	Compout o = {
-		.fd = fd,
-		.st = *st,
-	};
-
-	r = deflatezlib(&o, compwrite, &b, compread, 6, 0);
-	*st = o.st;
-	return r;
-}
-
-int
-writeobject(int fd, Object *o, DigestState **st)
-{
-	char hdr[8];
-	uvlong sz;
-	int i;
-
-	i = 1;
-	sz = o->size;
-	hdr[0] = o->type << 4;
-	hdr[0] |= sz & 0xf;
-	if(sz >= (1 << 4)){
-		hdr[0] |= 0x80;
-		sz >>= 4;
-	
-		for(i = 1; i < sizeof(hdr); i++){
-			hdr[i] = sz & 0x7f;
-			if(sz <= 0x7f){
-				i++;
-				break;
-			}
-			hdr[i] |= 0x80;
-			sz >>= 7;
-		}
-	}
-
-	if(hwrite(fd, hdr, i, st) != i)
-		return -1;
-	if(compress(fd, o->data, o->size, st) == -1)
-		return -1;
-	return 0;
-}
-
-int
-writepackdata(Conn *c, Update *upd, int nupd)
-{
-	Objset send, skip;
-	Object *o, *p;
-	Objq *q, *n, *e;
-	DigestState *st;
-	Update *u;
-	char buf[4];
-	Hash h;
-	int i;
-
-	osinit(&send);
-	osinit(&skip);
-	for(i = 0; i < nupd; i++){
-		u = &upd[i];
-		if(hasheq(&u->theirs, &Zhash))
-			continue;
-		if((o = readobject(u->theirs)) != nil)
-			pack(&skip, &skip, o);
-		if(!force && o == nil)
-			sysfatal("could not read %H", u->theirs);
-		unref(o);
-	}
-
-	q = nil;
-	e = nil;
-	for(i = 0; i < nupd; i++){
-		u = &upd[i];
-		if((o = readobject(u->ours)) == nil){
-			if(!force)
-				sysfatal("could not read object %H", u->ours);
-			continue;
-		}
-		n = emalloc(sizeof(Objq));
-		n->obj = o;
-		unref(o);
-		if(!q){
-			q = n;
-			e = n;
-		}else{
-			e->next = n;
-		}
-	}
-
-	for(n = q; n; n = n->next)
-		e = n;
-	for(; q; q = n){
-		o = q->obj;
-		if(oshas(&skip, o->hash) || oshas(&send, o->hash))
-			goto iter;
-		pack(&send, &skip, o);
-		for(i = 0; i < o->commit->nparent; i++){
-			if((p = readobject(o->commit->parent[i])) == nil)
-				sysfatal("could not read parent of %H", o->hash);
-			e->next = emalloc(sizeof(Objq));
-			e->next->obj = p;
-			e = e->next;
-		}
-iter:
-		n = q->next;
-		free(q);
-	}
-
-	st = nil;
-	PUTBE32(buf, send.nobj);
-	if(hwrite(c->wfd, "PACK\0\0\0\02", 8, &st) != 8)
-		return -1;
-	if(hwrite(c->wfd, buf, 4, &st) == -1)
-		return -1;
-	for(i = 0; i < send.sz; i++){
-		if(!send.obj[i])
-			continue;
-		o = readobject(send.obj[i]->hash);
-		if(writeobject(c->wfd, o, &st) == -1)
-			return -1;
-		unref(o);
-	}
-	sha1(nil, 0, h.h, st);
-	if(write(c->wfd, h.h, sizeof(h.h)) == -1)
-		return -1;
-	return 0;
-}
-
-Update*
-findref(Update *u, int nu, char *ref)
+findref(char **r, int nr, char *ref)
 {
 	int i;
 
-	for(i = 0; i < nu; i++)
-		if(strcmp(u[i].ref, ref) == 0)
-			return &u[i];
-	return nil;
+	for(i = 0; i < nr; i++)
+		if(strcmp(r[i], ref) == 0)
+			break;
+	return i;
 }
 
 int
-readours(Update **ret)
+readours(Hash **tailp, char ***refp)
 {
-	Update *u, *r;
-	int nu, i;
-	char *pfx;
-	Hash *h;
+	int nu, i, idx;
+	char *r, *pfx, **ref;
+	Hash *tail;
 
+	if(sendall)
+		return listrefs(tailp, refp);
 	nu = 0;
-	u = emalloc((nremoved + nbranch)*sizeof(Update));
+	tail = emalloc((nremoved + nbranch)*sizeof(Hash));
+	ref = emalloc((nremoved + nbranch)*sizeof(char*));
 	for(i = 0; i < nbranch; i++){
-		snprint(u[nu].ref, sizeof(u[nu].ref), "%s", branch[i]);
-		if(resolveref(&u[nu].ours, branch[i]) == -1)
+		ref[nu] = estrdup(branch[i]);
+		if(resolveref(&tail[nu], branch[i]) == -1)
 			sysfatal("broken branch %s", branch[i]);
 		nu++;
 	}
@@ -278,16 +55,16 @@ readours(Update **ret)
 			pfx = "refs/";
 		if(strstr(removed[i], "refs/heads/") == removed[i])
 			pfx = "";
-		snprint(u[nu].ref, sizeof(u[nu].ref), "%s%s", pfx, removed[i]);
-		h = &u[nu].ours;
-		if((r = findref(u, nu, u[nu].ref)) != nil)
-			h = &r->ours;
+		if((r = smprint("%s%s", pfx, removed[i])) == nil)
+			sysfatal("smprint: %r");
+		if((idx = findref(ref, nu, r)) == nu)
+			nu = idx;
 		else
-			nu++;
-		memcpy(h, &Zhash, sizeof(Hash));
+			free(r);
+		memcpy(&tail[idx], &Zhash, sizeof(Hash));
 	}
-
-	*ret = u;
+	*tailp = tail;
+	*refp = ref;
 	return nu;	
 }
 
@@ -322,14 +99,16 @@ parsecaps(char *caps, Capset *cs)
 int
 sendpack(Conn *c)
 {
-	int i, n, r, nupd, nsp, send, first;
+	int i, n, r, idx, nupd, nobj, nsp, send, first;
 	char buf[Pktmax], *sp[3];
-	Update *upd, *u;
-	Object *a, *b, *p;
+	Hash h, *theirs, *ours;
+	Object *a, *b, *p, **obj;
+	char **refs;
 	Capset cs;
 
 	first = 1;
-	nupd = readours(&upd);
+	nupd = readours(&ours, &refs);
+	theirs = emalloc(nupd*sizeof(Hash));
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
@@ -344,11 +123,10 @@ sendpack(Conn *c)
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\r\n") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
-		if((u = findref(upd, nupd, sp[1])) == nil)
+		if((idx = findref(refs, nupd, sp[1])) == -1)
 			continue;
-		if(hparse(&u->theirs, sp[0]) == -1)
+		if(hparse(&theirs[idx], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		snprint(u->ref, sizeof(u->ref), sp[1]);
 	}
 
 	if(writephase(c) == -1)
@@ -356,13 +134,12 @@ sendpack(Conn *c)
 	r = 0;
 	send = 0;
 	for(i = 0; i < nupd; i++){
-		u = &upd[i];
-		a = readobject(u->theirs);
-		b = readobject(u->ours);
+		a = readobject(theirs[i]);
+		b = readobject(ours[i]);
 		p = nil;
-		if(a && b)
+		if(a != nil && b != nil)
 			p = ancestor(a, b);
-		if(!force && !hasheq(&u->theirs, &Zhash) && (a == nil || p != a)){
+		if(!force && !hasheq(&theirs[i], &Zhash) && (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
 			send=0;
@@ -372,16 +149,16 @@ sendpack(Conn *c)
 		unref(a);
 		unref(b);
 		unref(p);
-		if(hasheq(&u->ours, &Zhash)){
-			print("removed %s\n", u->ref);
+		if(hasheq(&ours[i], &Zhash)){
+			print("removed %s\n", refs[i]);
 			continue;
 		}
-		if(hasheq(&u->theirs, &u->ours)){
-			print("uptodate %s\n", u->ref);
+		if(hasheq(&theirs[i], &ours[i])){
+			print("uptodate %s\n", refs[i]);
 			continue;
 		}
-		print("update %s %H %H\n", u->ref, u->theirs, u->ours);
-		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
+		print("update %s %H %H\n", refs[i], theirs[i], ours[i]);
+		n = snprint(buf, sizeof(buf), "%H %H %s", theirs[i], ours[i], refs[i]);
 
 		/*
 		 * Workaround for github.
@@ -410,8 +187,9 @@ sendpack(Conn *c)
 	if(!send)
 		print("nothing to send\n");
 	if(send){
-		dprint(1, "sending pack...\n");
-		if(writepackdata(c, upd, nupd) == -1)
+		if(findtwixt(ours, nupd, theirs, nupd, &obj, &nobj) == -1)
+			return -1;
+		if(writepack(c->wfd, obj, nobj, &h) == -1)
 			return -1;
 		if(cs.report && readphase(c) == -1)
 			return -1;

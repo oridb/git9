@@ -74,7 +74,8 @@ fn apply @{
 	rc -c '
 		echo applying $msg | sed 1q
 		date=`{seconds $date}
-		files=`$nl{ape/patch -Ep1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''}
+		if(! files=`$nl{ape/patch -Ep1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''})
+			die 'patch failed'
 		for(f in $files){
 			if(test -e $f)
 				git/add $f
