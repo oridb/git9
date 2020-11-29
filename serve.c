@@ -98,7 +98,7 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 	while(1){
 		if((n = readpkt(c, pkt, sizeof(pkt))) == -1)
 			goto error;
-		if(strncmp(pkt, "done") == 0)
+		if(strncmp(pkt, "done", 4) == 0)
 			break;
 		if(n == 0){
 			if(!acked && fmtpkt(c, "NAK") == -1)
@@ -499,8 +499,10 @@ main(int argc, char **argv)
 	cleanname(repo);
 	if(strncmp(repo, "../", 3) == 0)
 		sysfatal("invalid path %s\n", repo);
-	if(bind(repo, "/", MREPL) == -1)
+	if(bind(repo, "/", MREPL) == -1){
+		fmtpkt(&c, "ERR no repo %r\n");
 		sysfatal("enter %s: %r", repo);
+	}
 	if(chdir("/") == -1)
 		sysfatal("chdir: %r");
 	if(access(".git", AREAD) == -1)
