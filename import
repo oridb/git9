@@ -45,7 +45,7 @@ fn apply @{
 		state="body"
 		next
 	}
-	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	]*$/){
+	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	].*$/){
 		state="diff"
 		print > ENVIRON["diffpath"]
 	}
