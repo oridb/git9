@@ -532,12 +532,14 @@ for copy-paste compatibility with Unix git.
 .PP
 In order to create a new repository, run
 .B git/init:
-
+.PP
 .EX
 git/init myrepo
 .EE
 
+.PP
 To clone an existing repository from a git server, run:
+.PP
 .EX
 git/clone git://github.com/Harvey-OS/harvey
 cd harvey
@@ -546,13 +548,28 @@ git/commit foo.c
 git/push
 .EE
 
-.SH FILES
-.TP .git
-.TP .git/config
-.TP $home/lib/git/config
+.PP
+To set a user and email for commits, run:
+.PP
+.EX
+% mkdir $home/lib/git
+% >$home/lib/git/config echo '
+[user]
+        name = Ori Bernstein
+        email = ori@eigenstate.org'
+.EE
 
-.SH SOURCE
-.B /sys/src/cmd/git
+.SH FILES
+.TP
+$repo/.git
+The full git repository.
+.TP
+$repo/.git/config
+The configuration file for a repository.
+.TP
+$home/lib/git/config
+The global configuration for git.
+The contents of this file are used as fallbacks for the per-repository config.
 
 .SH SEE ALSO
 .IR hg (1)
@@ -564,9 +581,7 @@ git/push
 .SH BUGS
 .PP
 Repositories with submodules are effectively read-only.
-
 .PP
 There are a some of missing commands, features, and tools, such as git/rebase
-
 .PP
 git/compat only works within a git repository.
