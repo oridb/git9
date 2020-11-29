@@ -47,7 +47,6 @@ fn apply @{
 	}
 	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	].*$/){
 		state="diff"
-		print > ENVIRON["diffpath"]
 	}
 	state=="body" {
 		if(didthis == 0){
@@ -75,7 +74,7 @@ fn apply @{
 		echo applying $msg | sed 1q
 		date=`{seconds $date}
 		if(! files=`$nl{ape/patch -Ep1 < $diffpath | sed ''s/^patching file `(.*)''''/\1/''})
-			die 'patch failed'
+			die ''patch failed''
 		for(f in $files){
 			if(test -e $f)
 				git/add $f
