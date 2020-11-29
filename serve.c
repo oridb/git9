@@ -98,7 +98,7 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 	while(1){
 		if((n = readpkt(c, pkt, sizeof(pkt))) == -1)
 			goto error;
-		if(strcmp(pkt, "done") == 0 || strcmp(pkt, "done") == 0)
+		if(strncmp(pkt, "done") == 0)
 			break;
 		if(n == 0){
 			if(!acked && fmtpkt(c, "NAK") == -1)
