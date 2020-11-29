@@ -26,6 +26,6 @@ for(f in $dirty){
 		orig=/dev/null
 	if(! test -f $f)
 		f=/dev/null
-	ape/diff -up $orig $f
+	diff -u $orig $f
 }
 exit ''
