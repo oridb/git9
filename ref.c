@@ -35,6 +35,10 @@ struct Objq {
 	int	color;
 };
 
+static Object zcommit = {
+	.type=GCommit
+};
+
 void
 eatspace(Eval *ev)
 {
@@ -52,7 +56,7 @@ objdatecmp(void *pa, void *pb)
 	assert(a->type == GCommit && b->type == GCommit);
 	if(a->commit->mtime == b->commit->mtime)
 		return 0;
-	else if(a->commit->mtime < b->commit->mtime)
+	else if(a->commit->mtime > b->commit->mtime)
 		return -1;
 	else
 		return 1;
@@ -415,7 +419,7 @@ range(Eval *ev)
 		idx = erealloc(idx, (nall + 1)*sizeof(int));
 		all[nall] = p;
 		idx[nall] = 0;
-		if(p == a)
+		if(p == a || p->commit->nparent == 0 && a == &zcommit)
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
 		else if(p->commit->nparent == 0)
@@ -431,6 +435,8 @@ range(Eval *ev)
 			break;
 		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
 			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
+		if(p->type != GCommit)
+			sysfatal("not commit: %H", p->hash);
 		nall++;
 	}
 	free(all);
@@ -494,7 +500,10 @@ evalpostfix(Eval *ev)
 	if(readref(&h, name) == -1){
 		werrstr("invalid ref %s", name);
 		return -1;
-	}else if((o = readobject(h)) == nil){
+	}
+	if(hasheq(&h, &Zhash))
+		o = &zcommit;
+	else if((o = readobject(h)) == nil){
 		werrstr("invalid ref %s (hash %H)", name, h);
 		return -1;
 	}
