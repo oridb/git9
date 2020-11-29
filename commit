@@ -75,7 +75,9 @@ fn editmsg{
 }
 
 fn parents{
-	if(test -f .git/index9/merge-parents)
+	if(! ~ $#amend 0)
+		parents=`{cat /mnt/git/HEAD/parent}
+	if not if(test -f .git/index9/merge-parents)
 		parents=`{cat .git/index9/merge-parents | sort | uniq}
 	if not if(~ $initial true)
 		parents=()
@@ -116,7 +118,7 @@ fn sigexit{
 
 gitup
 
-flagfmt='m:msg message'; args='file ...'
+flagfmt='m:msg message, a:amend'; args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 if(~ $#* 0)
 	exec aux/usage
@@ -124,6 +126,10 @@ if(~ $#* 0)
 msgfile=/tmp/git-msg.$pid
 if(~ $#msg 1)
 	echo $msg >$msgfile.tmp
+if not if(~ $#amend 1){
+	msg=1
+	cat /mnt/git/HEAD/msg >$msgfile.tmp
+}
 
 files=`{git/walk -c `{cleanname $gitrel/$*}}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)

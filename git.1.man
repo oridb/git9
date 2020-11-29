@@ -36,6 +36,9 @@ git/pull, git/rm, git/serve
 .PP
 .B git/commit
 [
+.B -a
+]
+[
 .B -m msg
 ]
 .I file...
@@ -308,11 +311,22 @@ The copy of the file in the repository is left untouched.
 .PP
 .B Git/rm
 is an alias for
-.I git/add.
+.IR git/add -r .
 
 .PP
 .B Git/commit
-creates a new commit which updates the files passed.
+creates a new commit consisting of all changes to the specified files.
+By default, an editor is opened to prepare the commit message.
+The
+.I -m
+supplies the commit message directly.
+The
+.I -a
+flag amends the contents of the previous commit, reusing the message.
+To a commit message,
+.I -a
+can be used in conjuction with
+.IR -m .
 
 .PP
 .B Git/branch
