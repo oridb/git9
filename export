@@ -76,3 +76,4 @@ for(c in $commits){
 	n=`{echo $n + 1 | bc}
 }
 exit ''
+test
