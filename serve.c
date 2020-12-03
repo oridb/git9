@@ -31,10 +31,9 @@ showrefs(Conn *c)
 	char **names;
 
 	ret = -1;
-	nrefs = 0;
 	if(resolveref(&head, "HEAD") != -1) {
 		if(fmtpkt(c, "%H HEAD", head) == -1)
-			goto error;
+			goto noref;
 	}
 
 	if((nrefs = listrefs(&refs, &names)) == -1)
@@ -53,6 +52,7 @@ error:
 		free(names[i]);
 	free(names);
 	free(refs);
+noref:
 	return ret;
 }
 
