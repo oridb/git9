@@ -45,14 +45,10 @@ fn apply @{
 		state="body"
 		next
 	}
-	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	].*$/){
+	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	]*$/){
 		state="diff"
 	}
 	state=="body" {
-		if(didthis == 0){
-			printf "\n" > "/env/msg"
-			didthis = 1
-		}
 		print > "/env/msg"
 	}
 	state=="diff" {

@@ -36,27 +36,28 @@ for(c in $commits){
 		
 		echo From $c
 		echo From: `{cat $cp/author}
-		echo Date: `{date -m `{mtime $cp/author | awk '{print $1}'}}
+		echo Date: `{date -um `{mtime $cp/author | awk '{print $1}'}}
 		<$cp/msg awk '
-		BEGIN {RS = ""; FS = "\n"}
 		NR == 1 {
 			n = ENVIRON["n"]
 			m = ENVIRON["m"]
+			msg=$0
 			if(m > 1)
 				patch = sprintf("[PATCH %d/%d]", n, m)
 			else
 				patch = "[PATCH]"
-			printf "Subject: %s", patch
-			for(i = 1; i <= NF; i++)
-				msg = msg " " $i
-			printf "%s\n\n", msg
+			printf "Subject: %s %s\n\n", patch, msg
 			
 			gsub("^[ 	]|[ 	]$", "", msg)
 			gsub("[/ 	]", "-", msg)
 			printf "%.4d-%s.patch", n, msg >ENVIRON["patchname"]
 			next
 		}
-		{print; printf "\n"}'
+		{
+			print
+		}'
+		echo '---'
+		echo diff `{basename $pp} `{basename $cp}
 		for(f in $fc){
 			a=a/$f
 			if(! test -e $a)
