@@ -78,14 +78,16 @@ fn apply @{
 				git/add -r $f
 		}
 		git/walk -fRMA $files
-		hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
-		echo $hash > $refpath
+		if(~ $#nocommit 0){
+			hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
+			echo $hash > $refpath
+		}
 	'
 }
 
 gitup
 
-flagfmt=''; args='file ...'
+flagfmt='n:nocommit'; args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 
 patches=(/fd/0)
