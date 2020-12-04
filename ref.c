@@ -335,7 +335,7 @@ next:
 		free(q);
 		q = n;
 	}
-	*res = emalloc(keep.nobj*sizeof(Object*));
+	*res = eamalloc(keep.nobj, sizeof(Object*));
 	*nres = 0;
 	for(i = 0; i < keep.sz; i++){
 		if(keep.obj[i] != nil && !oshas(&drop, keep.obj[i]->hash)){
@@ -568,7 +568,7 @@ resolverefs(Hash **r, char *ref)
 		free(ev.stk);
 		return -1;
 	}
-	h = emalloc(ev.nstk*sizeof(Hash));
+	h = eamalloc(ev.nstk, sizeof(Hash));
 	for(i = 0; i < ev.nstk; i++)
 		h[i] = ev.stk[i]->hash;
 	*r = h;

@@ -240,8 +240,8 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 	r = -1;
 	nsub = 0;
 	nent = t->tree->nent;
-	ent = emalloc(nent * sizeof(*ent));
-	sub = emalloc((epath - path)*sizeof(Object*));
+	ent = eamalloc(nent, sizeof(*ent));
+	sub = eamalloc((epath - path), sizeof(Object*));
 	memcpy(ent, t->tree->ent, nent*sizeof(*ent));
 	for(p = path; p != epath; p = ep){
 		ne = pathelt(elt, sizeof(elt), *p + off, &isdir);

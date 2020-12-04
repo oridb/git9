@@ -8,7 +8,7 @@ osinit(Objset *s)
 {
 	s->sz = 16;
 	s->nobj = 0;
-	s->obj = emalloc(s->sz * sizeof(Hash));
+	s->obj = eamalloc(s->sz, sizeof(Hash));
 }
 
 void
@@ -41,7 +41,7 @@ osadd(Objset *s, Object *o)
 
 		s->sz *= 2;
 		s->nobj = 0;
-		s->obj = emalloc(s->sz * sizeof(Hash));
+		s->obj = eamalloc(s->sz, sizeof(Hash));
 		for(i = 0; i < sz; i++)
 			if(obj[i])
 				osadd(s, obj[i]);

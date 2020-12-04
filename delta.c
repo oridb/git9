@@ -36,7 +36,7 @@ addblk(Dtab *dt, void *buf, int len, int off, u64int rh)
 		db = dt->b;
 		dt->sz *= 2;
 		dt->nb = 0;
-		dt->b = emalloc(dt->sz * sizeof(Dblock));
+		dt->b = eamalloc(dt->sz, sizeof(Dblock));
 		for(i = 0; i < sz; i++)
 			if(db[i].buf != nil)
 				addblk(dt, db[i].buf, db[i].len, db[i].off, db[i].rhash);
@@ -112,7 +112,7 @@ dtinit(Dtab *dt, void *base, int nbase)
 	rh = 0;
 	dt->nb = 0;
 	dt->sz = 128;
-	dt->b = emalloc(dt->sz*sizeof(Dblock));
+	dt->b = eamalloc(dt->sz, sizeof(Dblock));
 	while(e != bp + nbase){
 		e += nextblk(s, bp + nbase, &rh);
 		addblk(dt, s, e - s, s - bp, rh);

@@ -41,8 +41,8 @@ readours(Hash **tailp, char ***refp)
 	if(sendall)
 		return listrefs(tailp, refp);
 	nu = 0;
-	tail = emalloc((nremoved + nbranch)*sizeof(Hash));
-	ref = emalloc((nremoved + nbranch)*sizeof(char*));
+	tail = eamalloc((nremoved + nbranch), sizeof(Hash));
+	ref = eamalloc((nremoved + nbranch), sizeof(char*));
 	for(i = 0; i < nbranch; i++){
 		ref[nu] = estrdup(branch[i]);
 		if(resolveref(&tail[nu], branch[i]) == -1)
@@ -108,7 +108,7 @@ sendpack(Conn *c)
 
 	first = 1;
 	nupd = readours(&ours, &refs);
-	theirs = emalloc(nupd*sizeof(Hash));
+	theirs = eamalloc(nupd, sizeof(Hash));
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)

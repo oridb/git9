@@ -669,7 +669,7 @@ gitclone(Fid *o, Fid *n)
 	oaux = o->aux;
 	aux = emalloc(sizeof(Gitaux));
 	aux->ncrumb = oaux->ncrumb;
-	aux->crumb = emalloc(oaux->ncrumb * sizeof(Crumb));
+	aux->crumb = eamalloc(oaux->ncrumb, sizeof(Crumb));
 	for(i = 0; i < aux->ncrumb; i++){
 		aux->crumb[i] = oaux->crumb[i];
 		aux->crumb[i].name = estrdup(oaux->crumb[i].name);

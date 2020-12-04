@@ -8,6 +8,7 @@ Reprog *authorpat;
 Hash Zhash;
 
 int chattygit;
+int hidepct;
 
 Object*
 emptydir(void)
@@ -61,11 +62,41 @@ emalloc(ulong n)
 }
 
 void *
+eamalloc(ulong n, ulong sz)
+{
+	uvlong na;
+	void *v;
+
+	if((na = (uvlong)n*(uvlong)sz) >= (1ULL<<30))
+		sysfatal("alloc: overflow");
+	v = mallocz(na, 1);
+	if(v == nil)
+		sysfatal("malloc: %r");
+	setmalloctag(v, getcallerpc(&n));
+	return v;
+}
+
+void *
 erealloc(void *p, ulong n)
 {
 	void *v;
 	
 	v = realloc(p, n);
+	if(v == nil)
+		sysfatal("realloc: %r");
+	setmalloctag(v, getcallerpc(&p));
+	return v;
+}
+
+void *
+earealloc(void *p, ulong n, ulong sz)
+{
+	uvlong na;
+	void *v;
+
+	if((na = (uvlong)n*(uvlong)sz) >= (1ULL<<30))
+		sysfatal("alloc: overflow");
+	v = realloc(p, na);
 	if(v == nil)
 		sysfatal("realloc: %r");
 	setmalloctag(v, getcallerpc(&p));

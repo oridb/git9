@@ -175,8 +175,8 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 	nref = 0;
 	refsz = 16;
 	first = 1;
-	have = emalloc(refsz * sizeof(have[0]));
-	want = emalloc(refsz * sizeof(want[0]));
+	have = eamalloc(refsz, sizeof(have[0]));
+	want = eamalloc(refsz, sizeof(want[0]));
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)

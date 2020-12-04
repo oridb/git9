@@ -269,7 +269,9 @@ void	olsfree(Objlist *);
 
 /* util functions */
 void	dprint(int, char *, ...);
+void	*eamalloc(ulong, ulong);
 void	*emalloc(ulong);
+void	*earealloc(void *, ulong, ulong);
 void	*erealloc(void *, ulong);
 char	*estrdup(char *);
 int	slurpdir(char *, Dir **);
