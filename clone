@@ -98,6 +98,12 @@ fn clone{
 	}
 }
 
+fn sigint {
+	echo cancelled clone $remote: cleaning $local >[1=2]
+	rm -rf $local
+	exit interrupted
+}
+
 @{clone}
 st=$status
 if(! ~ $st ''){
