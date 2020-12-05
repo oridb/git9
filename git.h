@@ -248,7 +248,7 @@ Object	*readobject(Hash);
 Object	*clearedobject(Hash, int);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
-int	writepack(int, Object **, int, Hash*);
+int	writepack(int, Hash*, int, Hash*, int, Hash*);
 int	hasheq(Hash *, Hash *);
 Object	*ref(Object *);
 void	unref(Object *);

@@ -138,17 +138,13 @@ int
 servpack(Conn *c)
 {
 	Hash *head, *tail, h;
-	Object **obj;
-	int nhead, ntail, nobj;
+	int nhead, ntail;
 
 	dprint(1, "negotiating pack\n");
 	if(servnegotiate(c, &head, &nhead, &tail, &ntail) == -1)
 		sysfatal("negotiate: %r");
-	dprint(1, "finding twixt\n");
-	if(findtwixt(head, nhead, tail, ntail, &obj, &nobj) == -1)
-		sysfatal("twixt: %r");
 	dprint(1, "writing pack\n");
-	if(nobj > 0 && writepack(c->wfd, obj, nobj, &h) == -1)
+	if(writepack(c->wfd, head, nhead, tail, ntail, &h) == -1)
 		sysfatal("send: %r");
 	return 0;
 }

@@ -1167,10 +1167,15 @@ writeordercmp(void *pa, void *pb)
 }
 
 static void
-addmeta(Objmeta ***meta, int *nmeta, Object *o, char *path, vlong mtime)
+addmeta(Objmeta ***meta, int *nmeta, Objset *has, Object *o, char *path, vlong mtime)
 {
 	Objmeta *m;
 
+	if(oshas(has, o->hash))
+		return;
+	osadd(has, o);
+	if(meta == nil)
+		return;
 	m = emalloc(sizeof(Objmeta));
 	m->obj = o;
 	m->path = estrdup(path);
@@ -1201,8 +1206,7 @@ loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime
 		return 0;
 	if((t = readobject(tree)) == nil)
 		return -1;
-	osadd(has, t);
-	addmeta(m, nm, t, dpath, mtime);
+	addmeta(m, nm, has, t, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
 		if(oshas(has, e->h))
@@ -1212,10 +1216,9 @@ loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime
 		k = (e->mode & DMDIR) ? GTree : GBlob;
 		o = clearedobject(e->h, k);
 		p = smprint("%s/%s", dpath, e->name);
-		if(k == GBlob){
-			osadd(has, o);
-			addmeta(m, nm, o, p, mtime);
-		}else if(loadtree(m, nm, has, e->h, p, mtime) == -1){
+		if(k == GBlob)
+			addmeta(m, nm, has, o, p, mtime);
+		else if(loadtree(m, nm, has, e->h, p, mtime) == -1){
 			free(p);
 			return -1;
 		}
@@ -1235,31 +1238,39 @@ loadcommit(Objmeta ***m, int *nm, Objset *has, Hash h)
 		return 0;
 	if((c = readobject(h)) == nil)
 		return -1;
-	osadd(has, c);
-	addmeta(m, nm, c, "", c->commit->ctime);
+	addmeta(m, nm, has, c, "", c->commit->ctime);
 	r = loadtree(m, nm, has, c->commit->tree, "", c->commit->ctime);
 	unref(c);
 	return r;
 }
 
 static int
-readmeta(Object **commits, int ncommits, Objmeta ***m)
+readmeta(Hash *theirs, int ntheirs, Hash *ours, int nours, Objmeta ***m)
 {
+	Object **obj;
 	Objset has;
-	int i, nm;
+	int i, nm, nobj;
 
 	*m = nil;
 	nm = 0;
 	osinit(&has);
-	for(i = 0; i < ncommits; i++){
-		dprint(2, "loading commit %H\n", commits[i]->hash);
-		if(loadcommit(m, &nm, &has, commits[i]->hash) == -1){
-			free(*m);
-			return -1;
-		}
-	}
+	if(findtwixt(theirs, ntheirs, ours, nours, &obj, &nobj) == -1)
+		sysfatal("load twixt: %r");
+	if(nobj == 0)
+		return 0;
+	for(i = 0; i < nours; i++)
+		if(!hasheq(&ours[i], &Zhash))
+			if(loadcommit(nil, nil, &has, ours[i]) == -1)
+				goto out;
+	for(i = 0; i < nobj; i++)
+		if(loadcommit(m, &nm, &has, obj[i]->hash) == -1)
+			goto out;
 	osclear(&has);
 	return nm;
+out:
+	osclear(&has);
+	free(*m);
+	return -1;
 }
 
 static int
@@ -1281,12 +1292,14 @@ pickdeltas(Objmeta **meta, int nmeta)
 	int i, j, x, nd, sz, pcnt, best;
 
 	pcnt = 0;
-	fprint(2, "deltifying %d objects:   0%%", nmeta);
+	dprint(1, "picking deltas\n");
+	if(interactive)
+		fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Objmeta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
 		x = (i*100) / nmeta;
-		if(x > pcnt){
+		if(interactive && x > pcnt){
 			pcnt = x;
 			if(pcnt%10 == 0)
 				fprint(2, "\b\b\b\b%3d%%", pcnt);
@@ -1561,15 +1574,15 @@ error:
 }
 
 int
-writepack(int fd, Object **obj, int nobj, Hash *h)
+writepack(int fd, Hash *theirs, int ntheirs, Hash *ours, int nours, Hash *h)
 {
 	Objmeta **meta;
 	int i, r, nmeta;
 
-	dprint(1, "reading meta\n");
-	if((nmeta = readmeta(obj, nobj, &meta)) == -1)
+	if((nmeta = readmeta(theirs, ntheirs, ours, nours, &meta)) == -1)
 		return -1;
-	dprint(1, "picking deltas\n");
+	if(nmeta == 0)
+		return 0;
 	pickdeltas(meta, nmeta);
 	dprint(1, "generating pack\n");
 	r = genpack(fd, meta, nmeta, h, 0);

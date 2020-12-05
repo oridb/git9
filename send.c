@@ -99,10 +99,10 @@ parsecaps(char *caps, Capset *cs)
 int
 sendpack(Conn *c)
 {
-	int i, n, r, idx, nupd, nobj, nsp, send, first;
+	int i, n, r, idx, nupd, nsp, send, first;
 	char buf[Pktmax], *sp[3];
 	Hash h, *theirs, *ours;
-	Object *a, *b, *p, **obj;
+	Object *a, *b, *p;
 	char **refs;
 	Capset cs;
 
@@ -187,9 +187,7 @@ sendpack(Conn *c)
 	if(!send)
 		print("nothing to send\n");
 	if(send){
-		if(findtwixt(ours, nupd, theirs, nupd, &obj, &nobj) == -1)
-			return -1;
-		if(writepack(c->wfd, obj, nobj, &h) == -1)
+		if(writepack(c->wfd, ours, nupd, theirs, nupd, &h) == -1)
 			return -1;
 		if(cs.report && readphase(c) == -1)
 			return -1;

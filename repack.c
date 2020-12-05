@@ -47,9 +47,8 @@ void
 main(int argc, char **argv)
 {
 	char path[128], **names;
-	int fd, nobj, nrefs;
+	int fd, nrefs;
 	Hash *refs, h;
-	Object **obj;
 	Dir rn;
 
 	ARGBEGIN{
@@ -64,13 +63,10 @@ main(int argc, char **argv)
 	refs = nil;
 	if((nrefs = listrefs(&refs, &names)) == -1)
 		sysfatal("load refs: %r");
-	if(findtwixt(refs, nrefs, nil, 0, &obj, &nobj) == -1)
-		sysfatal("load twixt: %r");
 	if((fd = create(TMPPATH("pack.tmp"), OWRITE, 0644)) == -1)
 		sysfatal("open %s: %r", TMPPATH("pack.tmp"));
-	if(writepack(fd, obj, nobj, &h) == -1)
+	if(writepack(fd, refs, nrefs, nil, 0, &h) == -1)
 		sysfatal("writepack: %r");
-	free(obj);
 	if(indexpack(TMPPATH("pack.tmp"), TMPPATH("idx.tmp"), h) == -1)
 		sysfatal("indexpack: %r");
 	close(fd);
