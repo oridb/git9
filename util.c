@@ -8,7 +8,7 @@ Reprog *authorpat;
 Hash Zhash;
 
 int chattygit;
-int hidepct;
+int interactive = 1;
 
 Object*
 emptydir(void)
@@ -308,4 +308,16 @@ findrepo(char *buf, int nbuf)
 	}
 	werrstr("not a git repository");
 	return -1;
+}
+
+int
+showprogress(int x, int pct)
+{
+	if(!interactive)
+		return 0;
+	if(x > pct){
+		pct = x;
+		fprint(1, "\b\b\b\b%3d%%", pct);
+	}
+	return pct;
 }

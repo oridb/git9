@@ -1004,7 +1004,7 @@ indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
 	int nobj, npct, nvalid, nbig;
-	int i, n, r, x, pcnt;
+	int i, n, r, pct;
 	Object *o, **objects;
 	DigestState *st;
 	char *valid;
@@ -1023,26 +1023,22 @@ indexpack(char *pack, char *idx, Hash ph)
 		return -1;
 	}
 
+	pct = 0;
 	npct = 0;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
-	fprint(2, "indexing %d objects:   0%%", nobj);
+	if(interactive)
+		fprint(2, "indexing %d objects:   0%%", nobj);
 	while(nvalid != nobj){
 		n = 0;
-		pcnt = 0;
 		for(i = 0; i < nobj; i++){
-			x = (npct*100) / nobj;
 			if(valid[i]){
 				n++;
 				continue;
 			}
-			if(x > pcnt){
-				pcnt = x;
-				if(pcnt%10 == 0)
-					fprint(2, "\b\b\b\b%3d%%", pcnt);
-			}
+			pct = showprogress((npct*100)/nobj, pct);
 			if(objects[i] == nil){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
@@ -1289,21 +1285,15 @@ pickdeltas(Objmeta **meta, int nmeta)
 	Objmeta *m, *p;
 	Object *a, *b;
 	Delta *d;
-	int i, j, x, nd, sz, pcnt, best;
+	int i, j, nd, sz, pct, best;
 
-	pcnt = 0;
+	pct = 0;
 	dprint(1, "picking deltas\n");
-	if(interactive)
-		fprint(2, "deltifying %d objects:   0%%", nmeta);
+	fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Objmeta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
-		x = (i*100) / nmeta;
-		if(interactive && x > pcnt){
-			pcnt = x;
-			if(pcnt%10 == 0)
-				fprint(2, "\b\b\b\b%3d%%", pcnt);
-		}
+		pct = showprogress((i*100) / nmeta, pct);
 		if((a = readobject(m->obj->hash)) == nil)
 			sysfatal("readobject %H: %r", m->obj->hash);
 		best = a->size;
@@ -1503,7 +1493,7 @@ packoff(char *hdr, vlong off)
 static int
 genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 {
-	int i, nh, nd, x, res, pcnt, ret;
+	int i, nh, nd, res, pct, ret;
 	DigestState *st;
 	Biobuf *bfd;
 	Objmeta *m;
@@ -1512,7 +1502,8 @@ genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 
 	st = nil;
 	ret = -1;
-	pcnt = 0;
+	pct = 0;
+	dprint(1, "generating pack\n");
 	if((fd = dup(fd, -1)) == -1)
 		return -1;
 	if((bfd = Bfdopen(fd, OWRITE)) == nil)
@@ -1526,15 +1517,11 @@ genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 	if(hwrite(bfd, buf, 4, &st) == -1)
 		return -1;
 	qsort(meta, nmeta, sizeof(Objmeta*), writeordercmp);
-	fprint(2, "writing %d objects:   0%%", nmeta);
+	if(interactive)
+		fprint(2, "writing %d objects:   0%%", nmeta);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
-		x = (i*100) / nmeta;
-		if(x > pcnt){
-			pcnt = x;
-			if(pcnt%10 == 0)
-				fprint(2, "\b\b\b\b%3d%%", pcnt);
-		}
+		pct = showprogress((i*100)/nmeta, pct);
 		if((o = readobject(m->obj->hash)) == nil)
 			return -1;
 		if(m->delta == nil){
@@ -1584,7 +1571,6 @@ writepack(int fd, Hash *theirs, int ntheirs, Hash *ours, int nours, Hash *h)
 	if(nmeta == 0)
 		return 0;
 	pickdeltas(meta, nmeta);
-	dprint(1, "generating pack\n");
 	r = genpack(fd, meta, nmeta, h, 0);
 	for(i = 0; i < nmeta; i++)
 		freemeta(meta[i]);

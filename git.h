@@ -226,6 +226,7 @@ extern Objset	objcache;
 extern Hash	Zhash;
 extern int	chattygit;
 extern int	cachemax;
+extern int	interactive;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" int
@@ -280,6 +281,7 @@ int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 int	findrepo(char *, int);
+int	showprogress(int, int);
 
 /* packing */
 void	dtinit(Dtab *, void *, int);

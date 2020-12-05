@@ -479,6 +479,7 @@ main(int argc, char **argv)
 
 	gitinit();
 	user = "none";
+	interactive = 0;
 	if(allowwrite)
 		user = getuser();
 	if(newns(user, namespace) == -1)
