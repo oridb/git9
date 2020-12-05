@@ -116,6 +116,14 @@ git/pull, git/rm, git/serve
 .B git/merge
 .I theirs
 .PP
+.B git/rebase
+[
+.B -ar
+]
+[
+.B onto
+]
+.PP
 .B git/pull
 [
 .B -f
@@ -402,6 +410,19 @@ date information.
 takes two branches and merges them filewise using
 .I ape/diff3.
 The next commit made will be a merge commmit.
+
+.PP
+.B Git/rebase
+takes one branch and moves it onto another.
+On error, the remaining commits to rebase are
+saved, and can be resumed once the conflict is
+resolved using the
+.I -r
+option.
+If the rebase is to be aborted, the
+.I -a
+option will clean up the in progress rebase
+and reset the state of the branch.
 
 .PP
 .B Git/conf

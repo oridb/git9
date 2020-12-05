@@ -1,0 +1,52 @@
+#!/bin/rc
+
+. /sys/lib/git/common.rc
+gitup
+
+flagfmt='a:abort, r:resume'; args='onto'
+eval `''{aux/getflags $*} || exec aux/usage
+
+tmp=_rebase.working
+if(! git/walk -q)
+	die dirty working tree
+if(~ $#abort 1){
+	if(! test -f .git/rebase.todo)
+		die no rebase to abort
+	src=`{cat .git/rebase.src}
+	rm -f .git/rebase.^(src dst todo)
+	git/branch $src
+	git/branch -d $tmp
+	exit
+}
+if(test -f .git/rebase.todo){
+	if(~ $#resume 0)
+		die rebase in progress
+	if(! ~ $#* 0)
+		exec aux/usage
+	src=`{cat .git/rebase.src}
+	dst=`{cat .git/rebase.dst}
+	commits=`{cat .git/rebase.todo}
+}
+if not{
+	if(! ~ $#* 1)
+		exec aux/usage
+	src=`{git/branch}
+	dst=`{git/query $1}
+	commits=`{git/query $onto $src @ .. $src}
+	## TODO: edit $commits here for -i
+}
+
+git/branch -nb $dst $tmp
+while(! ~ $#commmits 0){
+	c=$commits(1)
+	commits=$commits(2-)
+	if(! git/export $c | git/import){
+		echo $src > .git/rebase.src
+		echo $dst > .git/rebase.dst
+		echo $commits > .git/rebase.todo
+		die $c: fix and git/rebase -r
+	}
+}
+
+git/branch -nb $tmp $src
+git/branch -d $tmp

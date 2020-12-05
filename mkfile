@@ -26,6 +26,7 @@ RC=\
 	merge\
 	pull\
 	push\
+	rebase\
 	revert\
 	rm
 
