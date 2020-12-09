@@ -51,10 +51,12 @@ if(~ $delete 1){
 	exit
 }
 if(~ $#newbr 0){
-	if(! test -e .git/$new)
-		die could not find branch $branch
 	if(! ~ $#baseref 0)
 		die update would clobber $branch with $baseref
+	baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
+	if(! test -e .git/$new)
+		if(! base=`{git/query $baseref})
+			die could not find branch $branch
 }
 commit=`{git/query $base} || die 'branch does not exist:' $base
 echo updating $new to $commit
