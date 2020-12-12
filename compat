@@ -108,7 +108,7 @@ fn cmd_show-ref{
 		filter=cat
 	if not
 		filter='-e(^|/)'^$*^'$'
-	for(b in `{cd $gitroot/.git/refs/ && walk -f})
+	for(b in `$nl{cd $gitroot/.git/refs/ && walk -f})
 		echo `{cat $gitroot/.git/refs/$b} refs/$b 
 }
 

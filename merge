@@ -7,7 +7,7 @@ fn merge{
 	basebr=$2/tree
 	theirbr=$3/tree
 
-	all=`{walk -f $ourbr $basebr $theirbr | \
+	all=`$nl{walk -f $ourbr $basebr $theirbr | \
 		subst -g '^('$ourbr'|'$basebr'|'$theirbr')/*' | sort | uniq}
 	for(f in $all){
 		ours=$ourbr/$f
