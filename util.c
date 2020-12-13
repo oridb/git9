@@ -317,7 +317,7 @@ showprogress(int x, int pct)
 		return 0;
 	if(x > pct){
 		pct = x;
-		fprint(1, "\b\b\b\b%3d%%", pct);
+		fprint(2, "\b\b\b\b%3d%%", pct);
 	}
 	return pct;
 }

@@ -162,7 +162,7 @@ struct Dblock {
 	uchar	*buf;
 	int	len;
 	int	off;
-	u64int	rhash;
+	u64int	hash;
 };
 
 struct Delta {

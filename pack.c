@@ -7,6 +7,7 @@
 typedef struct Buf	Buf;
 typedef struct Objmeta	Objmeta;
 typedef struct Compout	Compout;
+typedef struct Packf	Packf;
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -42,6 +43,13 @@ struct Buf {
 	char *data;
 };
 
+struct Packf {
+	char	*path;
+	int	refs;
+	int	idxfd;
+	int	packfd;
+};
+
 static int	readpacked(Biobuf *, Object *, int);
 static Object	*readidxobject(Biobuf *, Hash, int);
 
@@ -50,6 +58,8 @@ Object *lruhead;
 Object *lrutail;
 int	ncache;
 int	cachemax = 1024;
+Packf	*packf;
+int	npackf;
 
 static void
 clear(Object *o)
@@ -150,6 +160,80 @@ cache(Object *o)
 	}		
 }
 
+static Packf*
+findpackf(char *path)
+{
+	int np, pfd, ifd;
+	char buf[192];
+	Packf *pf;
+
+	np = strlen(path);
+	if(np > 4 && strcmp(path + np - 4, ".idx") == 0)
+		np -= 4;
+	else if(np > 5 && strcmp(path + np - 5, ".pack") == 0)
+		np -= 5;
+	else{
+		sysfatal("invalid pack path %s", path);
+		return nil;
+	}
+		
+	for(pf = &packf[0]; pf != &packf[npackf]; pf++)
+		if(strncmp(pf->path, path, np) == 0 && strlen(pf->path) == np)
+			return pf;
+	snprint(buf, sizeof(buf), ".git/objects/pack/%.*s.idx", np, path);
+	ifd = open(buf, OREAD);
+	snprint(buf, sizeof(buf), ".git/objects/pack/%.*s.pack", np, path);
+	pfd = open(buf, OREAD);
+	if(ifd == -1 || pfd == -1)
+		goto error;
+	packf = earealloc(packf, ++npackf, sizeof(Packf));
+	pf = &packf[npackf-1];
+	pf->path = smprint("%.*s", np, path);
+	pf->idxfd = ifd;
+	pf->packfd = pfd;
+	return pf;
+
+error:
+	print("pack open error for %s: %r\n", path);
+	if(ifd != -1) close(ifd);
+	if(pfd != -1) close(pfd);
+	return nil;
+}
+
+static Biobuf*
+packopen(char *path)
+{
+	Biobuf *bfd;
+	Packf *pf;
+
+	if((pf = findpackf(path)) == nil)
+		return nil;
+	bfd = emalloc(sizeof(Biobuf));
+	Binit(bfd, pf->packfd, OREAD);
+	return bfd;
+
+	
+}
+
+static Biobuf*
+idxopen(char *path)
+{
+	Biobuf *bfd;
+	Packf *pf;
+
+	if((pf = findpackf(path)) == nil)
+		return nil;
+	bfd = emalloc(sizeof(Biobuf));
+	Binit(bfd, pf->idxfd, OREAD);
+	return bfd;
+}
+
+static void
+pfclose(Biobuf *f)
+{
+	Bterm(f);
+	free(f);
+}
 
 static u32int
 crc32(u32int crc, char *b, int nb)
@@ -888,29 +972,23 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		l = strlen(d[i].name);
 		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
 			continue;
-		snprint(path, sizeof(path), ".git/objects/pack/%s", d[i].name);
-		if((f = Bopen(path, OREAD)) == nil)
+		if((f = idxopen(d[i].name)) == nil)
 			continue;
 		o = searchindex(f, h);
-		Bterm(f);
-		if(o == -1)
-			continue;
-		break;
+		pfclose(f);
+		if(o != -1)
+			break;
 	}
-
 	if (o == -1)
 		goto error;
 
-	if((n = snprint(path, sizeof(path), "%s", path)) >= sizeof(path) - 4)
-		goto error;
-	memcpy(path + n - 4, ".pack", 6);
-	if((f = Bopen(path, OREAD)) == nil)
+	if((f = packopen(d[i].name)) == nil)
 		goto error;
 	if(Bseek(f, o, 0) == -1)
 		goto errorf;
 	if(readpacked(f, obj, flag) == -1)
 		goto errorf;
-	Bterm(f);
+	pfclose(f);
 	parseobject(obj);
 	free(d);
 	cache(obj);
@@ -1069,7 +1147,8 @@ indexpack(char *pack, char *idx, Hash ph)
 		}
 		nvalid = n;
 	}
-	fprint(2, "\b\b\b\b100%%\n");
+	if(interactive)
+		fprint(2, "\b\b\b\b100%%\n");
 	Bterm(f);
 
 	st = nil;
@@ -1294,19 +1373,21 @@ pickdeltas(Objmeta **meta, int nmeta)
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
 		pct = showprogress((i*100) / nmeta, pct);
-		if((a = readobject(m->obj->hash)) == nil)
-			sysfatal("readobject %H: %r", m->obj->hash);
-		best = a->size;
 		m->base = nil;
 		m->delta = nil;
 		m->ndelta = 0;
+		if(m->obj->type == GCommit || m->obj->type == GTag)
+			continue;
+		if((a = readobject(m->obj->hash)) == nil)
+			sysfatal("readobject %H: %r", m->obj->hash);
+		best = a->size;
 		dtinit(&m->dtab, a->data, a->size);
 		if(i >= 11)
 			dtclear(&meta[i-11]->dtab);
 		for(j = max(0, i - 10); j < i; j++){
 			p = meta[j];
-			/* lets not make the chains too long */
-			if(p->nchain >= 4095)
+			/* long chains make unpacking slow */
+			if(p->nchain >= 128 || p->obj->type != a->type)
 				continue;
 			if((b = readobject(p->obj->hash)) == nil)
 				sysfatal("readobject %H: %r", p->obj->hash);
