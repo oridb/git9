@@ -277,12 +277,10 @@ strip(char *s)
 }
 
 void
-dprint(int v, char *fmt, ...)
+_dprint(char *fmt, ...)
 {
 	va_list ap;
 
-	if(chattygit < v)
-		return;
 	va_start(ap, fmt);
 	vfprint(2, fmt, ap);
 	va_end(ap);

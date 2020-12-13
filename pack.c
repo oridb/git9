@@ -5,20 +5,27 @@
 #include "git.h"
 
 typedef struct Buf	Buf;
-typedef struct Objmeta	Objmeta;
+typedef struct Metavec	Metavec;
+typedef struct Meta	Meta;
 typedef struct Compout	Compout;
 typedef struct Packf	Packf;
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-struct Objmeta {
+struct Metavec {
+	Meta	**meta;
+	int	nmeta;
+	int	metasz;
+};
+
+struct Meta {
 	Object	*obj;
 	char	*path;
 	vlong	mtime;
 
 	/* The best delta we picked */
-	Objmeta	*head;
-	Objmeta *prev;
+	Meta	*head;
+	Meta *prev;
 	Object	*base;
 	Delta	*delta;
 	int	ndelta;
@@ -46,8 +53,9 @@ struct Buf {
 struct Packf {
 	char	*path;
 	int	refs;
-	int	idxfd;
-	int	packfd;
+	int	pack;
+	char	*idx;
+	vlong	nidx;
 };
 
 static int	readpacked(Biobuf *, Object *, int);
@@ -57,7 +65,9 @@ Objset objcache;
 Object *lruhead;
 Object *lrutail;
 int	ncache;
-int	cachemax = 1024;
+int	cachemiss;
+int	cacherefresh;
+int	cachemax = 4096;
 Packf	*packf;
 int	npackf;
 
@@ -161,11 +171,44 @@ cache(Object *o)
 }
 
 static Packf*
+loadpackf(Packf *pf, char *name, int nname, char *pack, char *idx)
+{
+	int ifd, pfd;
+	Dir *d;
+
+	memset(pf, 0, sizeof(Packf));
+	if((pf->path = smprint("%.*s", nname, name)) == nil)
+		return nil;
+	pfd = open(pack, OREAD);
+	ifd = open(idx, OREAD);
+	if(pfd == -1 || ifd == -1)
+		goto errorf;
+	pf->pack = pfd;
+	if((d = dirfstat(ifd)) == nil)
+		goto errorf;
+	pf->nidx = d->length;
+	pf->idx = emalloc(pf->nidx);
+	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx)
+		goto errori;
+	free(d);
+	return pf;
+
+errori:
+	free(d);
+	free(pf->idx);
+errorf:
+	if(pfd != -1) close(pfd);
+	if(ifd != -1) close(ifd);
+	return nil;		
+}
+
+static Packf*
 findpackf(char *path)
 {
-	int np, pfd, ifd;
-	char buf[192];
+	static int warned;
+	char pack[128], idx[128];
 	Packf *pf;
+	int i, np;
 
 	np = strlen(path);
 	if(np > 4 && strcmp(path + np - 4, ".idx") == 0)
@@ -176,28 +219,32 @@ findpackf(char *path)
 		sysfatal("invalid pack path %s", path);
 		return nil;
 	}
-		
-	for(pf = &packf[0]; pf != &packf[npackf]; pf++)
-		if(strncmp(pf->path, path, np) == 0 && strlen(pf->path) == np)
-			return pf;
-	snprint(buf, sizeof(buf), ".git/objects/pack/%.*s.idx", np, path);
-	ifd = open(buf, OREAD);
-	snprint(buf, sizeof(buf), ".git/objects/pack/%.*s.pack", np, path);
-	pfd = open(buf, OREAD);
-	if(ifd == -1 || pfd == -1)
-		goto error;
-	packf = earealloc(packf, ++npackf, sizeof(Packf));
-	pf = &packf[npackf-1];
-	pf->path = smprint("%.*s", np, path);
-	pf->idxfd = ifd;
-	pf->packfd = pfd;
-	return pf;
 
-error:
-	print("pack open error for %s: %r\n", path);
-	if(ifd != -1) close(ifd);
-	if(pfd != -1) close(pfd);
-	return nil;
+	i = 0;
+	while(i < npackf){
+		pf = &packf[i];
+		if(strncmp(pf->path, path, np) == 0 && strlen(pf->path) == np){
+			pf->refs++;
+			return pf;
+		}
+		if(pf->refs != 0 || npackf < Npackcache){
+			i++;
+			continue;
+		}
+		if(!warned){
+			fprint(2, "warning: repacking may be a good idea\n");
+			warned++;
+		}
+		free(pf->path);
+		free(pf->idx);
+		close(pf->pack);
+		memmove(&pf[i], &pf[i+1], npackf-(i+1));
+		npackf--;
+	}
+	packf = earealloc(packf, ++npackf, sizeof(Packf));
+	snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", np, path);
+	snprint(idx, sizeof(idx), ".git/objects/pack/%.*s.idx", np, path);
+	return loadpackf(&packf[npackf-1], path, np, pack, idx);
 }
 
 static Biobuf*
@@ -209,30 +256,44 @@ packopen(char *path)
 	if((pf = findpackf(path)) == nil)
 		return nil;
 	bfd = emalloc(sizeof(Biobuf));
-	Binit(bfd, pf->packfd, OREAD);
+	Binit(bfd, pf->pack, OREAD);
 	return bfd;
 
 	
 }
 
-static Biobuf*
-idxopen(char *path)
+static char*
+idxopen(char *path, int *len)
 {
-	Biobuf *bfd;
 	Packf *pf;
 
 	if((pf = findpackf(path)) == nil)
 		return nil;
-	bfd = emalloc(sizeof(Biobuf));
-	Binit(bfd, pf->idxfd, OREAD);
-	return bfd;
+	*len = pf->nidx;
+	return pf->idx;
 }
 
 static void
-pfclose(Biobuf *f)
+packclose(Biobuf *f)
 {
+	int fd, i;
+
+	fd = Bfildes(f);
+	for(i = 0; i < npackf; i++)
+		if(packf[i].pack == fd)
+			packf[i].refs--;
 	Bterm(f);
 	free(f);
+}
+
+static void
+idxclose(char *idx)
+{
+	int i;
+
+	for(i = 0; i < npackf; i++)
+		if(packf[i].idx == idx)
+			packf[i].refs--;
 }
 
 static u32int
@@ -335,32 +396,6 @@ decompress(void **p, Biobuf *b, vlong *csz)
 	}
 	*p = d.data;
 	return d.len;
-}
-
-static int
-preadbe32(Biobuf *b, int *v, vlong off)
-{
-	char buf[4];
-	
-	if(Bseek(b, off, 0) == -1)
-		return -1;
-	if(Bread(b, buf, sizeof(buf)) == -1)
-		return -1;
-	*v = GETBE32(buf);
-
-	return 0;
-}
-static int
-preadbe64(Biobuf *b, vlong *v, vlong off)
-{
-	char buf[8];
-	
-	if(Bseek(b, off, 0) == -1)
-		return -1;
-	if(Bread(b, buf, sizeof(buf)) == -1)
-		return -1;
-	*v = GETBE64(buf);
-	return 0;
 }
 
 static vlong
@@ -640,13 +675,14 @@ error:
 }
 
 vlong
-searchindex(Biobuf *f, Hash h)
+searchindex(char *idx, int nidx, Hash h)
 {
-	int lo, hi, idx, i, nent;
+	int lo, hi, hidx, i, nent;
 	vlong o, oo;
-	Hash hh;
 
 	o = 8;
+	if(nidx < 8 + 256*4)
+		return -1;
 	/*
 	 * Read the fanout table. The fanout table
 	 * contains 256 entries, corresponsding to
@@ -658,36 +694,34 @@ searchindex(Biobuf *f, Hash h)
 	 */
 	if (h.h[0] == 0){
 		lo = 0;
-		if(preadbe32(f, &hi, o) == -1)
-			goto err;
+		hi = GETBE32(idx + o);
 	} else {
 		o += h.h[0]*4 - 4;
-		if(preadbe32(f, &lo, o + 0) == -1)
-			goto err;
-		if(preadbe32(f, &hi, o + 4) == -1)
-			goto err;
+		lo = GETBE32(idx + o);
+		hi = GETBE32(idx + o + 4);
 	}
 	if(hi == lo)
 		goto notfound;
-	if(preadbe32(f, &nent, 8 + 255*4) == -1)
-		goto err;
+	nent=GETBE32(idx + 8 + 255*4);
 
 	/*
 	 * Now that we know the range of hashes that the
 	 * entry may exist in, read them in so we can do
 	 * a bsearch.
 	 */
-	idx = -1;
-	Bseek(f, Hashsz*lo + 8 + 256*4, 0);
+	hidx = -1;
+	o = Hashsz*lo + 8 + 256*4;
 	for(i = 0; i < hi - lo; i++){
-		if(Bread(f, hh.h, sizeof(hh.h)) == -1)
+		if(o < 0 || o + sizeof(h.h) > nidx)
 			goto err;
-		if(hasheq(&hh, &h))
-			idx = lo + i;
+		if(memcmp(h.h, idx+o, sizeof(h.h)) == 0){
+			hidx = lo + i;
+			break;
+		}
+		o += sizeof(h.h);
 	}
-	if(idx == -1)
+	if(hidx == -1)
 		goto notfound;
-
 
 	/*
 	 * We found the entry. If it's 32 bits, then we
@@ -699,22 +733,25 @@ searchindex(Biobuf *f, Hash h)
 	oo += 256*4;		/* Fanout table */
 	oo += Hashsz*nent;	/* Hashes */
 	oo += 4*nent;		/* Checksums */
-	oo += 4*idx;		/* Offset offset */
-	if(preadbe32(f, &i, oo) == -1)
+	oo += 4*hidx;		/* Offset offset */
+	if(oo < 0 || oo + 4 > nidx)
 		goto err;
-	o = i & 0xffffffff;
+	i = GETBE32(idx + oo);
+	o = i & 0xffffffffULL;
 	if(o & (1ull << 31)){
 		o &= 0x7fffffff;
-		if(preadbe64(f, &o, o) == -1)
+		if(o < 0 || o + 8 >= nidx)
 			goto err;
+		o = GETBE64(idx + o);
 	}
 	return o;
 
 err:
-	fprint(2, "unable to read packfile: %r\n");
+	werrstr("out of bounds read");
 	return -1;
 notfound:
 	werrstr("not present: %H", h);
+	sysfatal("notfound\n");
 	return -1;		
 }
 
@@ -850,17 +887,25 @@ static void
 parsetree(Object *o)
 {
 	char *p, buf[256];
-	int np, nn, m;
-	Dirent *t;
+	int np, nn, m, entsz, nent;
+	Dirent *t, *ent;
 
 	p = o->data;
 	np = o->size;
+
+	nent = 0;
+	entsz = 16;
+	ent = eamalloc(entsz, sizeof(Dirent));	
 	o->tree = emalloc(sizeof(Tinfo));
 	while(np > 0){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
-		o->tree->ent = erealloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
-		t = &o->tree->ent[o->tree->nent - 1];
+		if(nent == entsz){
+			entsz *= 2;
+			ent = earealloc(ent, entsz, sizeof(Dirent));	
+		}
+		t = &ent[nent++];
+
 		memset(t, 0, sizeof(Dirent));
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
@@ -884,6 +929,8 @@ parsetree(Object *o)
 		p += sizeof(t->h.h);
 		np -= sizeof(t->h.h);
 	}
+	o->tree->ent = ent;
+	o->tree->nent = nent;
 }
 
 static void
@@ -908,11 +955,10 @@ parseobject(Object *o)
 static Object*
 readidxobject(Biobuf *idx, Hash h, int flag)
 {
-	char path[Pathmax];
-	char hbuf[41];
+	char *idxbuf, path[Pathmax], hbuf[41];
 	Biobuf *f;
 	Object *obj, *new;
-	int l, i, n;
+	int l, i, n, nidx;
 	vlong o;
 	Dir *d;
 
@@ -921,8 +967,8 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			/*
 			 * If we're indexing, we need to be careful
 			 * to only return objects within this pack,
-			 * so we don't load objects from outside the
-			 * current pack.
+			 * so if the objects exist outside the pack,
+			 * we don't index the wrong copy.
 			 */
 			if(!(obj->flag & Cidx))
 				return nil;
@@ -940,7 +986,9 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		}
 		if(obj->flag & Cloaded)
 			return obj;
+		cacherefresh++;
 	}
+	cachemiss++;
 	if(flag & Cthin)
 		flag &= ~Cidx;
 	if(flag & Cidx)
@@ -972,10 +1020,10 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		l = strlen(d[i].name);
 		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
 			continue;
-		if((f = idxopen(d[i].name)) == nil)
+		if((idxbuf = idxopen(d[i].name, &nidx)) == nil)
 			continue;
-		o = searchindex(f, h);
-		pfclose(f);
+		o = searchindex(idxbuf, nidx, h);
+		idxclose(idxbuf);
 		if(o != -1)
 			break;
 	}
@@ -988,7 +1036,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		goto errorf;
 	if(readpacked(f, obj, flag) == -1)
 		goto errorf;
-	pfclose(f);
+	packclose(f);
 	parseobject(obj);
 	free(d);
 	cache(obj);
@@ -1208,11 +1256,11 @@ error:
 static int
 deltaordercmp(void *pa, void *pb)
 {
-	Objmeta *a, *b;
+	Meta *a, *b;
 	int cmp;
 
-	a = *(Objmeta**)pa;
-	b = *(Objmeta**)pb;
+	a = *(Meta**)pa;
+	b = *(Meta**)pb;
 	if(a->obj->type != b->obj->type)
 		return a->obj->type - b->obj->type;
 	cmp = strcmp(a->path, b->path);
@@ -1226,10 +1274,10 @@ deltaordercmp(void *pa, void *pb)
 static int
 writeordercmp(void *pa, void *pb)
 {
-	Objmeta *a, *b, *ahd, *bhd;
+	Meta *a, *b, *ahd, *bhd;
 
-	a = *(Objmeta**)pa;
-	b = *(Objmeta**)pb;
+	a = *(Meta**)pa;
+	b = *(Meta**)pb;
 	ahd = (a->head == nil) ? a : a->head;
 	bhd = (b->head == nil) ? b : b->head;
 	if(ahd->mtime != bhd->mtime)
@@ -1242,27 +1290,29 @@ writeordercmp(void *pa, void *pb)
 }
 
 static void
-addmeta(Objmeta ***meta, int *nmeta, Objset *has, Object *o, char *path, vlong mtime)
+addmeta(Metavec *v, Objset *has, Object *o, char *path, vlong mtime)
 {
-	Objmeta *m;
+	Meta *m;
 
 	if(oshas(has, o->hash))
 		return;
 	osadd(has, o);
-	if(meta == nil)
+	if(v == nil)
 		return;
-	m = emalloc(sizeof(Objmeta));
+	m = emalloc(sizeof(Meta));
 	m->obj = o;
 	m->path = estrdup(path);
 	m->mtime = mtime;
 
-	*meta = erealloc(*meta, (*nmeta + 1)*sizeof(Objmeta));
-	(*meta)[*nmeta] = m;
-	*nmeta += 1;
+	if(v->nmeta == v->metasz){
+		v->metasz = 2*v->metasz;
+		v->meta = earealloc(v->meta, v->metasz, sizeof(Meta*));
+	}
+	v->meta[v->nmeta++] = m;
 }
 
 static void
-freemeta(Objmeta *m)
+freemeta(Meta *m)
 {
 	free(m->delta);
 	free(m->path);
@@ -1270,7 +1320,7 @@ freemeta(Objmeta *m)
 }
 
 static int
-loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime)
+loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 {
 	Object *t, *o;
 	Dirent *e;
@@ -1281,7 +1331,7 @@ loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime
 		return 0;
 	if((t = readobject(tree)) == nil)
 		return -1;
-	addmeta(m, nm, has, t, dpath, mtime);
+	addmeta(v, has, t, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
 		if(oshas(has, e->h))
@@ -1292,8 +1342,8 @@ loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime
 		o = clearedobject(e->h, k);
 		p = smprint("%s/%s", dpath, e->name);
 		if(k == GBlob)
-			addmeta(m, nm, has, o, p, mtime);
-		else if(loadtree(m, nm, has, e->h, p, mtime) == -1){
+			addmeta(v, has, o, p, mtime);
+		else if(loadtree(v, has, e->h, p, mtime) == -1){
 			free(p);
 			return -1;
 		}
@@ -1304,7 +1354,7 @@ loadtree(Objmeta ***m, int *nm, Objset *has, Hash tree, char *dpath, vlong mtime
 }
 
 static int
-loadcommit(Objmeta ***m, int *nm, Objset *has, Hash h)
+loadcommit(Metavec *v, Objset *has, Hash h)
 {
 	Object *c;
 	int r;
@@ -1313,35 +1363,41 @@ loadcommit(Objmeta ***m, int *nm, Objset *has, Hash h)
 		return 0;
 	if((c = readobject(h)) == nil)
 		return -1;
-	addmeta(m, nm, has, c, "", c->commit->ctime);
-	r = loadtree(m, nm, has, c->commit->tree, "", c->commit->ctime);
+	addmeta(v, has, c, "", c->commit->ctime);
+	r = loadtree(v, has, c->commit->tree, "", c->commit->ctime);
 	unref(c);
 	return r;
 }
 
 static int
-readmeta(Hash *theirs, int ntheirs, Hash *ours, int nours, Objmeta ***m)
+readmeta(Hash *theirs, int ntheirs, Hash *ours, int nours, Meta ***m)
 {
 	Object **obj;
 	Objset has;
-	int i, nm, nobj;
+	int i, nobj;
+	Metavec v;
 
 	*m = nil;
-	nm = 0;
 	osinit(&has);
+	v.nmeta = 0;
+	v.metasz = 64;
+	v.meta = eamalloc(v.metasz, sizeof(Meta*));
 	if(findtwixt(theirs, ntheirs, ours, nours, &obj, &nobj) == -1)
 		sysfatal("load twixt: %r");
+
 	if(nobj == 0)
 		return 0;
 	for(i = 0; i < nours; i++)
 		if(!hasheq(&ours[i], &Zhash))
-			if(loadcommit(nil, nil, &has, ours[i]) == -1)
+			if(loadcommit(nil, &has, ours[i]) == -1)
 				goto out;
+	
 	for(i = 0; i < nobj; i++)
-		if(loadcommit(m, &nm, &has, obj[i]->hash) == -1)
+		if(loadcommit(&v, &has, obj[i]->hash) == -1)
 			goto out;
 	osclear(&has);
-	return nm;
+	*m = v.meta;
+	return v.nmeta;
 out:
 	osclear(&has);
 	free(*m);
@@ -1359,9 +1415,9 @@ deltasz(Delta *d, int nd)
 }
 
 static void
-pickdeltas(Objmeta **meta, int nmeta)
+pickdeltas(Meta **meta, int nmeta)
 {
-	Objmeta *m, *p;
+	Meta *m, *p;
 	Object *a, *b;
 	Delta *d;
 	int i, j, nd, sz, pct, best;
@@ -1369,7 +1425,7 @@ pickdeltas(Objmeta **meta, int nmeta)
 	pct = 0;
 	dprint(1, "picking deltas\n");
 	fprint(2, "deltifying %d objects:   0%%", nmeta);
-	qsort(meta, nmeta, sizeof(Objmeta*), deltaordercmp);
+	qsort(meta, nmeta, sizeof(Meta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
 		pct = showprogress((i*100) / nmeta, pct);
@@ -1471,7 +1527,7 @@ append(char **p, int *len, int *sz, void *seg, int nseg)
 }
 
 static int
-encodedelta(Objmeta *m, Object *o, Object *b, void **pp)
+encodedelta(Meta *m, Object *o, Object *b, void **pp)
 {
 	char *p, *bp, buf[16];
 	int len, sz, n, i, j;
@@ -1572,12 +1628,12 @@ packoff(char *hdr, vlong off)
 }
 
 static int
-genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
+genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 {
 	int i, nh, nd, res, pct, ret;
 	DigestState *st;
 	Biobuf *bfd;
-	Objmeta *m;
+	Meta *m;
 	Object *o;
 	char *p, buf[32];
 
@@ -1597,10 +1653,11 @@ genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 	PUTBE32(buf, nmeta);
 	if(hwrite(bfd, buf, 4, &st) == -1)
 		return -1;
-	qsort(meta, nmeta, sizeof(Objmeta*), writeordercmp);
+	qsort(meta, nmeta, sizeof(Meta*), writeordercmp);
 	if(interactive)
 		fprint(2, "writing %d objects:   0%%", nmeta);
 	for(i = 0; i < nmeta; i++){
+
 		m = meta[i];
 		pct = showprogress((i*100)/nmeta, pct);
 		if((o = readobject(m->obj->hash)) == nil)
@@ -1630,7 +1687,8 @@ genpack(int fd, Objmeta **meta, int nmeta, Hash *h, int odelta)
 		}
 		unref(o);
 	}
-	fprint(2, "\b\b\b\b100%%\n");
+	if(interactive)
+		fprint(2, "\b\b\b\b100%%\n");
 	sha1(nil, 0, h->h, st);
 	if(Bwrite(bfd, h->h, sizeof(h->h)) == -1)
 		goto error;
@@ -1644,7 +1702,7 @@ error:
 int
 writepack(int fd, Hash *theirs, int ntheirs, Hash *ours, int nours, Hash *h)
 {
-	Objmeta **meta;
+	Meta **meta;
 	int i, r, nmeta;
 
 	if((nmeta = readmeta(theirs, ntheirs, ours, nours, &meta)) == -1)

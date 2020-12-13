@@ -21,6 +21,7 @@ typedef struct Dblock	Dblock;
 
 enum {
 	Pathmax		= 512,
+	Npackcache	= 32,
 	Hashsz		= 20,
 	Pktmax		= 65536,
 };
@@ -269,7 +270,9 @@ int	olsnext(Objlist *, Hash *);
 void	olsfree(Objlist *);
 
 /* util functions */
-void	dprint(int, char *, ...);
+#define dprint(lvl, ...) \
+	if(chattygit >= lvl) _dprint(__VA_ARGS__)
+void	_dprint(char *, ...);
 void	*eamalloc(ulong, ulong);
 void	*emalloc(ulong);
 void	*earealloc(void *, ulong, ulong);
