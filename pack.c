@@ -51,9 +51,8 @@ struct Buf {
 };
 
 struct Packf {
-	char	*path;
 	int	refs;
-	int	pack;
+	Biobuf	*pack;
 	char	*idx;
 	vlong	nidx;
 };
@@ -65,8 +64,6 @@ Objset objcache;
 Object *lruhead;
 Object *lrutail;
 int	ncache;
-int	cachemiss;
-int	cacherefresh;
 int	cachemax = 4096;
 Packf	*packf;
 int	npackf;
@@ -170,20 +167,20 @@ cache(Object *o)
 	}		
 }
 
-static Packf*
-loadpackf(Packf *pf, char *name, int nname, char *pack, char *idx)
+static int
+openpack(Packf *pf, char *name)
 {
-	int ifd, pfd;
+	char buf[128];
+	int ifd;
 	Dir *d;
 
 	memset(pf, 0, sizeof(Packf));
-	if((pf->path = smprint("%.*s", nname, name)) == nil)
-		return nil;
-	pfd = open(pack, OREAD);
-	ifd = open(idx, OREAD);
-	if(pfd == -1 || ifd == -1)
+	snprint(buf, sizeof(buf), ".git/objects/pack/%s.pack", name);
+	pf->pack = Bopen(buf, OREAD);
+	snprint(buf, sizeof(buf), ".git/objects/pack/%s.idx", name);
+	ifd = open(buf, OREAD);
+	if(pf->pack == nil || ifd == -1)
 		goto errorf;
-	pf->pack = pfd;
 	if((d = dirfstat(ifd)) == nil)
 		goto errorf;
 	pf->nidx = d->length;
@@ -191,109 +188,43 @@ loadpackf(Packf *pf, char *name, int nname, char *pack, char *idx)
 	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx)
 		goto errori;
 	free(d);
-	return pf;
+	return 0;
 
 errori:
 	free(d);
 	free(pf->idx);
 errorf:
-	if(pfd != -1) close(pfd);
+	if(pf->pack == nil) Bterm(pf->pack);
 	if(ifd != -1) close(ifd);
-	return nil;		
+	return -1;		
 }
 
-static Packf*
-findpackf(char *path)
+static void
+refreshpacks(void)
 {
-	static int warned;
-	char pack[128], idx[128];
 	Packf *pf;
-	int i, np;
+	int i, n, l;
+	Dir *d;
 
-	np = strlen(path);
-	if(np > 4 && strcmp(path + np - 4, ".idx") == 0)
-		np -= 4;
-	else if(np > 5 && strcmp(path + np - 5, ".pack") == 0)
-		np -= 5;
-	else{
-		sysfatal("invalid pack path %s", path);
-		return nil;
-	}
-
-	i = 0;
-	while(i < npackf){
+	for(i = 0; i < npackf; i++){
 		pf = &packf[i];
-		if(strncmp(pf->path, path, np) == 0 && strlen(pf->path) == np){
-			pf->refs++;
-			return pf;
-		}
-		if(pf->refs != 0 || npackf < Npackcache){
-			i++;
-			continue;
-		}
-		if(!warned){
-			fprint(2, "warning: repacking may be a good idea\n");
-			warned++;
-		}
-		free(pf->path);
 		free(pf->idx);
-		close(pf->pack);
-		memmove(&pf[i], &pf[i+1], npackf-(i+1));
-		npackf--;
+		Bterm(pf->pack);
 	}
-	packf = earealloc(packf, ++npackf, sizeof(Packf));
-	snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", np, path);
-	snprint(idx, sizeof(idx), ".git/objects/pack/%.*s.idx", np, path);
-	return loadpackf(&packf[npackf-1], path, np, pack, idx);
-}
+	free(packf);
+	if((n = slurpdir(".git/objects/pack", &d)) == -1)
+		return;
 
-static Biobuf*
-packopen(char *path)
-{
-	Biobuf *bfd;
-	Packf *pf;
-
-	if((pf = findpackf(path)) == nil)
-		return nil;
-	bfd = emalloc(sizeof(Biobuf));
-	Binit(bfd, pf->pack, OREAD);
-	return bfd;
-
-	
-}
-
-static char*
-idxopen(char *path, int *len)
-{
-	Packf *pf;
-
-	if((pf = findpackf(path)) == nil)
-		return nil;
-	*len = pf->nidx;
-	return pf->idx;
-}
-
-static void
-packclose(Biobuf *f)
-{
-	int fd, i;
-
-	fd = Bfildes(f);
-	for(i = 0; i < npackf; i++)
-		if(packf[i].pack == fd)
-			packf[i].refs--;
-	Bterm(f);
-	free(f);
-}
-
-static void
-idxclose(char *idx)
-{
-	int i;
-
-	for(i = 0; i < npackf; i++)
-		if(packf[i].idx == idx)
-			packf[i].refs--;
+	npackf = 0;
+	packf = eamalloc(n, sizeof(Packf));
+	for(i = 0; i < n; i++){
+		l = strlen(d[i].name);
+		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
+			continue;
+		d[i].name[l - 4] = 0;
+		if(openpack(&packf[npackf], d[i].name) != -1)
+			npackf++;
+	}
 }
 
 static u32int
@@ -751,7 +682,6 @@ err:
 	return -1;
 notfound:
 	werrstr("not present: %H", h);
-	sysfatal("notfound\n");
 	return -1;		
 }
 
@@ -886,29 +816,30 @@ parsecommit(Object *o)
 static void
 parsetree(Object *o)
 {
-	char *p, buf[256];
-	int np, nn, m, entsz, nent;
+	int m, entsz, nent;
 	Dirent *t, *ent;
+	char *p, *ep;
 
 	p = o->data;
-	np = o->size;
+	ep = p + o->size;
 
 	nent = 0;
 	entsz = 16;
 	ent = eamalloc(entsz, sizeof(Dirent));	
 	o->tree = emalloc(sizeof(Tinfo));
-	while(np > 0){
-		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
-			break;
+	while(p != ep){
 		if(nent == entsz){
 			entsz *= 2;
 			ent = earealloc(ent, entsz, sizeof(Dirent));	
 		}
 		t = &ent[nent++];
-
-		memset(t, 0, sizeof(Dirent));
-		m = strtol(buf, nil, 8);
-		/* FIXME: symlinks and other BS */
+		m = strtol(p, &p, 8);
+		if(*p != ' ')
+			sysfatal("malformed tree %H: *p=(%d) %c\n", o->hash, *p, *p);
+		p++;
+		t->mode = m & 0777;	
+		t->ismod = 0;
+		t->islink = 0;
 		if(m == 0160000){
 			t->mode |= DMDIR;
 			t->ismod = 1;
@@ -916,18 +847,14 @@ parsetree(Object *o)
 			t->mode = 0;
 			t->islink = 1;
 		}
-		t->mode = m & 0777;
 		if(m & 0040000)
 			t->mode |= DMDIR;
 		t->name = p;
-		nn = strlen(p) + 1;
-		p += nn;
-		np -= nn;
-		if(np < sizeof(t->h.h))
-			sysfatal("malformed tree %H, remaining %d (%s)", o->hash, np, p);
+		p = memchr(p, 0, ep - p);
+		if(*p++ != 0 ||  ep - p < sizeof(t->h.h))
+			sysfatal("malformed tree %H, remaining %d (%s)", o->hash, (int)(ep - p), p);
 		memcpy(t->h.h, p, sizeof(t->h.h));
 		p += sizeof(t->h.h);
-		np -= sizeof(t->h.h);
 	}
 	o->tree->ent = ent;
 	o->tree->nent = nent;
@@ -955,12 +882,11 @@ parseobject(Object *o)
 static Object*
 readidxobject(Biobuf *idx, Hash h, int flag)
 {
-	char *idxbuf, path[Pathmax], hbuf[41];
-	Biobuf *f;
+	char path[Pathmax], hbuf[41];
 	Object *obj, *new;
-	int l, i, n, nidx;
+	int i, retried;
+	Biobuf *f;
 	vlong o;
-	Dir *d;
 
 	if((obj = osfind(&objcache, h)) != nil){
 		if(flag & Cidx){
@@ -986,9 +912,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		}
 		if(obj->flag & Cloaded)
 			return obj;
-		cacherefresh++;
 	}
-	cachemiss++;
 	if(flag & Cthin)
 		flag &= ~Cidx;
 	if(flag & Cidx)
@@ -1001,7 +925,23 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		obj = new;
 	}
 
-	d = nil;
+	o = -1;
+	retried = 0;
+retry:
+	for(i = 0; i < npackf; i++){
+		if((o = searchindex(packf[i].idx, packf[i].nidx, h)) != -1){
+			f = packf[i].pack;
+			if(Bseek(f, o, 0) == -1)
+				goto errorf;
+			if(readpacked(f, obj, flag) == -1)
+				goto errorf;
+			parseobject(obj);
+			cache(obj);
+			return obj;
+		}
+	}
+			
+
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
@@ -1013,38 +953,17 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		return obj;
 	}
 
-	if ((n = slurpdir(".git/objects/pack", &d)) == -1)
-		goto error;
-	o = -1;
-	for(i = 0; i < n; i++){
-		l = strlen(d[i].name);
-		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
-			continue;
-		if((idxbuf = idxopen(d[i].name, &nidx)) == nil)
-			continue;
-		o = searchindex(idxbuf, nidx, h);
-		idxclose(idxbuf);
-		if(o != -1)
-			break;
+	if(o == -1){
+		if(retried)
+			goto error;
+		retried = 1;
+		refreshpacks();
+		goto retry;
 	}
-	if (o == -1)
-		goto error;
 
-	if((f = packopen(d[i].name)) == nil)
-		goto error;
-	if(Bseek(f, o, 0) == -1)
-		goto errorf;
-	if(readpacked(f, obj, flag) == -1)
-		goto errorf;
-	packclose(f);
-	parseobject(obj);
-	free(d);
-	cache(obj);
-	return obj;
 errorf:
 	Bterm(f);
 error:
-	free(d);
 	free(new);
 	return nil;
 }
@@ -1359,7 +1278,7 @@ loadcommit(Metavec *v, Objset *has, Hash h)
 	Object *c;
 	int r;
 
-	if(oshas(has, h))
+	if(osfind(has, h))
 		return 0;
 	if((c = readobject(h)) == nil)
 		return -1;
@@ -1391,7 +1310,6 @@ readmeta(Hash *theirs, int ntheirs, Hash *ours, int nours, Meta ***m)
 		if(!hasheq(&ours[i], &Zhash))
 			if(loadcommit(nil, &has, ours[i]) == -1)
 				goto out;
-	
 	for(i = 0; i < nobj; i++)
 		if(loadcommit(&v, &has, obj[i]->hash) == -1)
 			goto out;
