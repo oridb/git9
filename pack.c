@@ -225,6 +225,7 @@ refreshpacks(void)
 		if(openpack(&packf[npackf], d[i].name) != -1)
 			npackf++;
 	}
+	free(d);
 }
 
 static u32int
