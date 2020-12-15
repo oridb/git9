@@ -32,10 +32,11 @@ showrefs(Conn *c)
 
 	ret = -1;
 	nrefs = 0;
-	if(resolveref(&head, "HEAD") != -1) {
+	refs = nil;
+	names = nil;
+	if(resolveref(&head, "HEAD") != -1)
 		if(fmtpkt(c, "%H HEAD", head) == -1)
 			goto error;
-	}
 
 	if((nrefs = listrefs(&refs, &names)) == -1)
 		sysfatal("listrefs: %r");
