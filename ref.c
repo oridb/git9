@@ -415,11 +415,14 @@ range(Eval *ev)
 	osinit(&keep);
 	osinit(&skip);
 	while(1){
-		all = erealloc(all, (nall + 1)*sizeof(Object*));
-		idx = erealloc(idx, (nall + 1)*sizeof(int));
+		all = earealloc(all, (nall + 1), sizeof(Object*));
+		idx = earealloc(idx, (nall + 1), sizeof(int));
 		all[nall] = p;
 		idx[nall] = 0;
-		if(p->commit->nparent == 0)
+		if(p == a || p->commit->nparent == 0 && a == &zcommit)
+			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
+				break;
+		else if(p->commit->nparent == 0)
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
 		else if(oshas(&keep, p->hash))
@@ -428,17 +431,13 @@ range(Eval *ev)
 		else if(oshas(&skip, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-
 		if(p->commit->nparent == 0)
 			break;
 		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
 			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
 		if(p->type != GCommit)
 			sysfatal("not commit: %H", p->hash);
-		if(p == a || p->commit->nparent == 0 && a == &zcommit)
-			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
-				break;
- 		nall++;
+		nall++;
 	}
 	free(all);
 	qsort(ev->stk + mark, ev->nstk - mark, sizeof(Object*), objdatecmp);

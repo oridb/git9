@@ -7,7 +7,6 @@
 
 int fullpath;
 int changes;
-int reverse;
 char *path[128];
 int npath;
 
@@ -128,7 +127,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int i, j, n, idx;
+	int i, j, n;
 	Hash *h;
 	char *p, *e, *s;
 	char query[2048], repo[512];
@@ -136,7 +135,6 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'p':	fullpath++;	break;
 	case 'c':	changes++;	break;
-	case 'r':	reverse++;	break;
 	default:	usage();	break;
 	}ARGEND;
 
@@ -164,10 +162,8 @@ main(int argc, char **argv)
 		difftrees(h[0], h[1]);
 	}else{
 		p = (fullpath ? "/mnt/git/object/" : "");
-		for(j = 0; j < n; j++){
-			idx = reverse ? j : n - j - 1;
-			print("%s%H\n", p, h[idx]);
-		}
+		for(j = 0; j < n; j++)
+			print("%s%H\n", p, h[j]);
 	}
 	exits(nil);
 }
