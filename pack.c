@@ -609,8 +609,9 @@ error:
 vlong
 searchindex(char *idx, int nidx, Hash h)
 {
-	int lo, hi, hidx, i, nent;
+	int lo, hi, hidx, i, r, nent;
 	vlong o, oo;
+	void *s;
 
 	o = 8;
 	if(nidx < 8 + 256*4)
@@ -638,21 +639,23 @@ searchindex(char *idx, int nidx, Hash h)
 
 	/*
 	 * Now that we know the range of hashes that the
-	 * entry may exist in, read them in so we can do
-	 * a bsearch.
+	 * entry may exist in, search them
 	 */
+	r = -1;
 	hidx = -1;
-	o = Hashsz*lo + 8 + 256*4;
-	for(i = 0; i < hi - lo; i++){
-		if(o < 0 || o + sizeof(h.h) > nidx)
-			goto err;
-		if(memcmp(h.h, idx+o, sizeof(h.h)) == 0){
-			hidx = lo + i;
+	o = 8 + 256*4;
+	while(lo < hi){
+		hidx = (hi + lo)/2;
+		s = idx + o + hidx*sizeof(h.h);
+		r = memcmp(h.h, s, sizeof(h.h));
+		if(r < 0)
+			hi = hidx;
+		else if(r > 0)
+			lo = hidx + 1;
+		else
 			break;
-		}
-		o += sizeof(h.h);
 	}
-	if(hidx == -1)
+	if(r != 0)
 		goto notfound;
 
 	/*
