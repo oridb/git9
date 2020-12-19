@@ -159,7 +159,7 @@ emitdelta(Delta **pd, int *nd, int cpy, int off, int len)
 	Delta *d;
 
 	*nd += 1;
-	*pd = erealloc(*pd, *nd * sizeof(Delta));
+	*pd = earealloc(*pd, *nd, sizeof(Delta));
 	d = &(*pd)[*nd - 1];
 	d->cpy = cpy;
 	d->off = off;
@@ -213,6 +213,5 @@ deltify(void *targ, int ntarg, Dtab *dt, int *pnd)
 		s += n;
 		o += n;
 	}
-	assert(o == ntarg);
 	return d;
 }

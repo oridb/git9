@@ -682,7 +682,7 @@ err:
 	werrstr("out of bounds read");
 	return -1;
 notfound:
-	werrstr("not present: %H", h);
+	werrstr("not present");
 	return -1;		
 }
 
@@ -1050,8 +1050,8 @@ indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
 	int nobj, npct, nvalid, nbig;
-	int i, n, r, pct;
-	Object *o, **objects;
+	int i, n, pct;
+	Object *o, **obj;
 	DigestState *st;
 	char *valid;
 	Biobuf *f;
@@ -1073,8 +1073,8 @@ indexpack(char *pack, char *idx, Hash ph)
 	npct = 0;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
-	objects = calloc(nobj, sizeof(Object*));
-	valid = calloc(nobj, sizeof(char));
+	obj = eamalloc(nobj, sizeof(Object*));
+	valid = eamalloc(nobj, sizeof(char));
 	if(interactive)
 		fprint(2, "indexing %d objects:   0%%", nobj);
 	while(nvalid != nobj){
@@ -1085,21 +1085,19 @@ indexpack(char *pack, char *idx, Hash ph)
 				continue;
 			}
 			pct = showprogress((npct*100)/nobj, pct);
-			if(objects[i] == nil){
+			if(obj[i] == nil){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
-				objects[i] = o;
+				obj[i] = o;
 			}
-			o = objects[i];
+			o = obj[i];
 			/*
 			 * We can seek around when packing delta chains.
 			 * Be extra careful while we don't know where all
 			 * the objects start.
 			 */
 			Bseek(f, o->off, 0);
-			r = readpacked(f, o, Cidx);
-			Bseek(f, o->off + o->len, 0);
-			if (r == -1)
+			if(readpacked(f, o, Cidx) == -1)
 				continue;
 			sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 			valid[i] = 1;
@@ -1120,7 +1118,7 @@ indexpack(char *pack, char *idx, Hash ph)
 	Bterm(f);
 
 	st = nil;
-	qsort(objects, nobj, sizeof(Object*), objcmp);
+	qsort(obj, nobj, sizeof(Object*), objcmp);
 	if((f = Bopen(idx, OWRITE)) == nil)
 		return -1;
 	if(hwrite(f, "\xfftOc\x00\x00\x00\x02", 8, &st) != 8)
@@ -1128,32 +1126,32 @@ indexpack(char *pack, char *idx, Hash ph)
 	/* fanout table */
 	c = 0;
 	for(i = 0; i < 256; i++){
-		while(c < nobj && (objects[c]->hash.h[0] & 0xff) <= i)
+		while(c < nobj && (obj[c]->hash.h[0] & 0xff) <= i)
 			c++;
 		PUTBE32(buf, c);
 		hwrite(f, buf, 4, &st);
 	}
 	for(i = 0; i < nobj; i++){
-		o = objects[i];
+		o = obj[i];
 		hwrite(f, o->hash.h, sizeof(o->hash.h), &st);
 	}
 
 	for(i = 0; i < nobj; i++){
-		PUTBE32(buf, objects[i]->crc);
+		PUTBE32(buf, obj[i]->crc);
 		hwrite(f, buf, 4, &st);
 	}
 
 	nbig = 0;
 	for(i = 0; i < nobj; i++){
-		if(objects[i]->off <= (1ull<<31))
-			PUTBE32(buf, objects[i]->off);
+		if(obj[i]->off <= (1ull<<31))
+			PUTBE32(buf, obj[i]->off);
 		else
 			PUTBE32(buf, (1ull << 31) | nbig++);
 		hwrite(f, buf, 4, &st);
 	}
 	for(i = 0; i < nobj; i++){
-		if(objects[i]->off > (1ull<<31)){
-			PUTBE64(buf, objects[i]->off);
+		if(obj[i]->off > (1ull<<31)){
+			PUTBE64(buf, obj[i]->off);
 			hwrite(f, buf, 8, &st);
 		}
 	}
@@ -1161,13 +1159,13 @@ indexpack(char *pack, char *idx, Hash ph)
 	sha1(nil, 0, h.h, st);
 	Bwrite(f, h.h, sizeof(h.h));
 
-	free(objects);
+	free(obj);
 	free(valid);
 	Bterm(f);
 	return 0;
 
 error:
-	free(objects);
+	free(obj);
 	free(valid);
 	Bterm(f);
 	return -1;
@@ -1337,7 +1335,7 @@ static void
 pickdeltas(Meta **meta, int nmeta)
 {
 	Meta *m, *p;
-	Object *a, *b;
+	Object *o;
 	Delta *d;
 	int i, j, nd, sz, pct, best;
 
@@ -1353,20 +1351,18 @@ pickdeltas(Meta **meta, int nmeta)
 		m->ndelta = 0;
 		if(m->obj->type == GCommit || m->obj->type == GTag)
 			continue;
-		if((a = readobject(m->obj->hash)) == nil)
+		if((o = readobject(m->obj->hash)) == nil)
 			sysfatal("readobject %H: %r", m->obj->hash);
-		best = a->size;
-		dtinit(&m->dtab, a->data, a->size);
+		best = o->size;
+		dtinit(&m->dtab, o->data, o->size);
 		if(i >= 11)
 			dtclear(&meta[i-11]->dtab);
 		for(j = max(0, i - 10); j < i; j++){
 			p = meta[j];
 			/* long chains make unpacking slow */
-			if(p->nchain >= 128 || p->obj->type != a->type)
+			if(p->nchain >= 128 || p->obj->type != o->type)
 				continue;
-			if((b = readobject(p->obj->hash)) == nil)
-				sysfatal("readobject %H: %r", p->obj->hash);
-			d = deltify(a->data, a->size, &p->dtab, &nd);
+			d = deltify(o->data, o->size, &p->dtab, &nd);
 			sz = deltasz(d, nd);
 			if(sz + 32 < best){
 				/*
@@ -1375,7 +1371,6 @@ pickdeltas(Meta **meta, int nmeta)
 				 */
 				free(m->delta);
 				best = sz;
-				m->base = b;
 				m->delta = d;
 				m->ndelta = nd;
 				m->nchain = p->nchain + 1;
@@ -1383,12 +1378,13 @@ pickdeltas(Meta **meta, int nmeta)
 				m->head = p->head;
 				if(m->head == nil)
 					m->head = p;
-					
+				if((m->base = readobject(p->obj->hash)) == nil)
+					sysfatal("readobject %H: %r", p->obj->hash);
+				unref(m->base);
 			}else
 				free(d);
-			unref(b);
 		}
-		unref(a);
+		unref(o);
 	}
 	for(i = max(0, nmeta - 10); i < nmeta; i++)
 		dtclear(&meta[i]->dtab);
@@ -1576,7 +1572,6 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	if(interactive)
 		fprint(2, "writing %d objects:   0%%", nmeta);
 	for(i = 0; i < nmeta; i++){
-
 		m = meta[i];
 		pct = showprogress((i*100)/nmeta, pct);
 		if((o = readobject(m->obj->hash)) == nil)
