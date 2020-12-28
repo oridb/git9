@@ -135,7 +135,7 @@ hnode(XObject *ht[], Object *o)
 		if(hasheq(&o->hash, &h->obj->hash))
 			return h;
 
-	h = malloc(sizeof(*h));
+	h = emalloc(sizeof(*h));
 	h->obj = o;
 	h->mark = nil;
 	h->queue = nil;
