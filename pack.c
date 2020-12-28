@@ -1636,8 +1636,6 @@ writepack(int fd, Hash *theirs, int ntheirs, Hash *ours, int nours, Hash *h)
 
 	if((nmeta = readmeta(theirs, ntheirs, ours, nours, &meta)) == -1)
 		return -1;
-	if(nmeta == 0)
-		return 0;
 	pickdeltas(meta, nmeta);
 	r = genpack(fd, meta, nmeta, h, 0);
 	for(i = 0; i < nmeta; i++)

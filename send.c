@@ -99,7 +99,7 @@ parsecaps(char *caps, Capset *cs)
 int
 sendpack(Conn *c)
 {
-	int i, n, r, idx, nupd, nsp, send, first;
+	int i, n, idx, nupd, nsp, send, first;
 	char buf[Pktmax], *sp[3];
 	Hash h, *theirs, *ours;
 	Object *a, *b, *p;
@@ -131,8 +131,9 @@ sendpack(Conn *c)
 
 	if(writephase(c) == -1)
 		return -1;
-	r = 0;
 	send = 0;
+	if(force)
+		send=1;
 	for(i = 0; i < nupd; i++){
 		a = readobject(theirs[i]);
 		b = readobject(ours[i]);
@@ -142,9 +143,8 @@ sendpack(Conn *c)
 		if(!force && !hasheq(&theirs[i], &Zhash) && (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
-			send=0;
-			r = -1;
-			break;
+			flushpkt(c);
+			return -1;
 		}
 		unref(a);
 		unref(b);
@@ -184,37 +184,41 @@ sendpack(Conn *c)
 			send = 1;
 	}
 	flushpkt(c);
-	if(!send)
-		print("nothing to send\n");
-	if(send){
-		if(writepack(c->wfd, ours, nupd, theirs, nupd, &h) == -1)
-			return -1;
-		if(cs.report && readphase(c) == -1)
-			return -1;
-		/* We asked for a status report, may as well use it. */
-		while(cs.report && (n = readpkt(c, buf, sizeof(buf))) > 0){
- 			buf[n] = 0;
-			if(chattygit)
-				fprint(2, "done sending pack, status %s\n", buf);
-			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
-			if(nsp < 2) 
-				continue;
-			if(nsp < 3)
-				sp[2] = "";
-			/*
-			 * Only report errors; successes will be reported by
-			 * surrounding scripts.
-			 */
-			if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
-				fprint(2, "unpack %s\n", sp[1]);
-			else if(strcmp(sp[0], "ng") == 0)
-				fprint(2, "failed update: %s\n", sp[1]);
-			else
-				continue;
-			r = -1;
-		}
+	if(!send){
+		fprint(2, "nothing to send\n");
+		return 0;
 	}
-	return r;
+
+	if(writepack(c->wfd, ours, nupd, theirs, nupd, &h) == -1)
+		return -1;
+	if(!cs.report)
+		return 0;
+
+	if(readphase(c) == -1)
+		return -1;
+	/* We asked for a status report, may as well use it. */
+	while((n = readpkt(c, buf, sizeof(buf))) > 0){
+ 		buf[n] = 0;
+		if(chattygit)
+			fprint(2, "done sending pack, status %s\n", buf);
+		nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+		if(nsp < 2) 
+			continue;
+		if(nsp < 3)
+			sp[2] = "";
+		/*
+		 * Only report errors; successes will be reported by
+		 * surrounding scripts.
+		 */
+		if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
+			fprint(2, "unpack %s\n", sp[1]);
+		else if(strcmp(sp[0], "ng") == 0)
+			fprint(2, "failed update: %s\n", sp[1]);
+		else
+			continue;
+		return -1;
+	}
+	return 0;
 }
 
 void
