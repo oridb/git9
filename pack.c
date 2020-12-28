@@ -673,11 +673,21 @@ searchindex(char *idx, int nidx, Hash h)
 		goto err;
 	i = GETBE32(idx + oo);
 	o = i & 0xffffffffULL;
+	/*
+	 * Large offsets (i.e. 64-bit) are encoded as an index
+	 * into the next table with the MSB bit set.
+	 */
 	if(o & (1ull << 31)){
-		o &= 0x7fffffff;
-		if(o < 0 || o + 8 >= nidx)
+		o &= 0x7fffffffULL;
+		oo = 8;				/* Header */
+		oo += 256*4;			/* Fanout table */
+		oo += Hashsz*nent;		/* Hashes */
+		oo += 4*nent;			/* Checksums */
+		oo += 4*nent;			/* 32-bit Offsets */
+		oo += 8*o;			/* 64-bit Offset offset */
+		if(oo < 0 || oo + 8 >= nidx)
 			goto err;
-		o = GETBE64(idx + o);
+		o = GETBE64(idx + oo);
 	}
 	return o;
 
@@ -1146,14 +1156,16 @@ indexpack(char *pack, char *idx, Hash ph)
 
 	nbig = 0;
 	for(i = 0; i < nobj; i++){
-		if(obj[i]->off <= (1ull<<31))
+		if(obj[i]->off < (1ull<<31))
 			PUTBE32(buf, obj[i]->off);
-		else
-			PUTBE32(buf, (1ull << 31) | nbig++);
+		else{
+			PUTBE32(buf, (1ull << 31) | nbig);
+			nbig++;
+		}
 		hwrite(f, buf, 4, &st);
 	}
 	for(i = 0; i < nobj; i++){
-		if(obj[i]->off > (1ull<<31)){
+		if(obj[i]->off >= (1ull<<31)){
 			PUTBE64(buf, obj[i]->off);
 			hwrite(f, buf, 8, &st);
 		}

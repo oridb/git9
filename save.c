@@ -254,6 +254,8 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 		e = dirent(&ent, &nent, elt);
 		if(e->islink)
 			sysfatal("symlinks may not be modified: %s", *path);
+		if(e->ismod)
+			sysfatal("submodules may not be modified: %s", *path);
 		if(isdir){
 			e->mode = DMDIR | 0755;
 			sub[nsub] = readobject(e->h);
