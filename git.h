@@ -152,6 +152,7 @@ struct Objset {
 };
 
 struct Dtab {
+	Object	*o;
 	uchar	*base;
 	int	nbase;
 	Dblock	*b;
@@ -287,9 +288,9 @@ int	findrepo(char *, int);
 int	showprogress(int, int);
 
 /* packing */
-void	dtinit(Dtab *, void *, int);
+void	dtinit(Dtab *, Object*);
 void	dtclear(Dtab*);
-Delta*	deltify(void*, int, Dtab*, int*);
+Delta*	deltify(Object*, Dtab*, int*);
 
 /* proto handling */
 int	readpkt(Conn*, char*, int);

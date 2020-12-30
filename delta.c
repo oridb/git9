@@ -124,20 +124,21 @@ nextblk(uchar *s, uchar *e)
 }
 
 void
-dtinit(Dtab *dt, void *base, int nbase)
+dtinit(Dtab *dt, Object *obj)
 {
 	uchar *s, *e;
 	u64int h;
 	vlong n, o;
 	
 	o = 0;
-	s = base;
-	e = s + nbase;
+	s = (uchar*)obj->data;
+	e = s + obj->size;
+	dt->o = ref(obj);
 	dt->nb = 0;
 	dt->sz = 128;
 	dt->b = eamalloc(dt->sz, sizeof(Dblock));
-	dt->base = base;
-	dt->nbase = nbase;
+	dt->base = (uchar*)obj->data;
+	dt->nbase = obj->size;
 	while(s != e){
 		n = nextblk(s, e);
 		h = hash(s, n);
@@ -150,6 +151,7 @@ dtinit(Dtab *dt, void *base, int nbase)
 void
 dtclear(Dtab *dt)
 {
+	unref(dt->o);
 	free(dt->b);
 }
 
@@ -190,7 +192,7 @@ stretch(Dtab *dt, Dblock *b, uchar *s, uchar *e, int n)
 }
 
 Delta*
-deltify(void *targ, int ntarg, Dtab *dt, int *pnd)
+deltify(Object *obj, Dtab *dt, int *pnd)
 {
 	Delta *d;
 	Dblock *b;
@@ -199,8 +201,8 @@ deltify(void *targ, int ntarg, Dtab *dt, int *pnd)
 	
 	o = 0;
 	d = nil;
-	s = targ;
-	e = s + ntarg;
+	s = (uchar*)obj->data;
+	e = s + obj->size;
 	*pnd = 0;
 	while(s != e){
 		n = nextblk(s, e);

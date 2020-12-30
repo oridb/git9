@@ -25,8 +25,7 @@ struct Meta {
 
 	/* The best delta we picked */
 	Meta	*head;
-	Meta *prev;
-	Object	*base;
+	Meta	*prev;
 	Delta	*delta;
 	int	ndelta;
 	int	nchain;
@@ -516,7 +515,6 @@ readpacked(Biobuf *f, Object *o, int flag)
 		werrstr("object too big");
 		return -1;
 	}
-
 	switch(t){
 	default:
 		werrstr("invalid object at %lld", Boffset(f));
@@ -1361,23 +1359,22 @@ pickdeltas(Meta **meta, int nmeta)
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
 		pct = showprogress((i*100) / nmeta, pct);
-		m->base = nil;
 		m->delta = nil;
 		m->ndelta = 0;
 		if(m->obj->type == GCommit || m->obj->type == GTag)
 			continue;
 		if((o = readobject(m->obj->hash)) == nil)
 			sysfatal("readobject %H: %r", m->obj->hash);
-		best = o->size;
-		dtinit(&m->dtab, o->data, o->size);
+		dtinit(&m->dtab, o);
 		if(i >= 11)
 			dtclear(&meta[i-11]->dtab);
+		best = o->size;
 		for(j = max(0, i - 10); j < i; j++){
 			p = meta[j];
 			/* long chains make unpacking slow */
 			if(p->nchain >= 128 || p->obj->type != o->type)
 				continue;
-			d = deltify(o->data, o->size, &p->dtab, &nd);
+			d = deltify(o, &p->dtab, &nd);
 			sz = deltasz(d, nd);
 			if(sz + 32 < best){
 				/*
@@ -1393,9 +1390,6 @@ pickdeltas(Meta **meta, int nmeta)
 				m->head = p->head;
 				if(m->head == nil)
 					m->head = p;
-				if((m->base = readobject(p->obj->hash)) == nil)
-					sysfatal("readobject %H: %r", p->obj->hash);
-				unref(m->base);
 			}else
 				free(d);
 		}
@@ -1564,7 +1558,7 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	DigestState *st;
 	Biobuf *bfd;
 	Meta *m;
-	Object *o;
+	Object *o, *b;
 	char *p, buf[32];
 
 	st = nil;
@@ -1587,8 +1581,9 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	if(interactive)
 		fprint(2, "writing %d objects:   0%%", nmeta);
 	for(i = 0; i < nmeta; i++){
-		m = meta[i];
 		pct = showprogress((i*100)/nmeta, pct);
+		m = meta[i];
+		m->off = Boffset(bfd);
 		if((o = readobject(m->obj->hash)) == nil)
 			return -1;
 		if(m->delta == nil){
@@ -1597,8 +1592,9 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 			if(hcompress(bfd, o->data, o->size, &st) == -1)
 				goto error;
 		}else{
-			m->off = Boffset(bfd);
-			nd = encodedelta(m, o, m->base, &p);
+			b = readobject(m->prev->obj->hash);
+			nd = encodedelta(m, o, b, &p);
+			unref(b);
 			if(odelta && m->prev->off != 0){
 				nh = 0;
 				nh += packhdr(buf, GOdelta, nd);
@@ -1607,7 +1603,7 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 			}else{
 				nh = packhdr(buf, GRdelta, nd);
 				hwrite(bfd, buf, nh, &st);
-				hwrite(bfd, m->base->hash.h, sizeof(m->base->hash.h), &st);
+				hwrite(bfd, m->prev->obj->hash.h, sizeof(m->prev->obj->hash.h), &st);
 			}
 			res = hcompress(bfd, p, nd, &st);
 			free(p);
