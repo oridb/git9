@@ -36,7 +36,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/commit
 [
-.B -a
+.B -r
 ]
 [
 .B -m msg
@@ -329,8 +329,8 @@ The
 .I -m
 supplies the commit message directly.
 The
-.I -a
-flag amends the contents of the previous commit, reusing the message.
+.I -r
+flag revises the contents of the previous commit, reusing the message.
 To a commit message,
 .I -a
 can be used in conjuction with

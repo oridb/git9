@@ -75,7 +75,7 @@ fn editmsg{
 }
 
 fn parents{
-	if(! ~ $#amend 0)
+	if(! ~ $#revise 0)
 		parents=`{cat /mnt/git/HEAD/parent}
 	if not if(test -f .git/index9/merge-parents)
 		parents=`{cat .git/index9/merge-parents | sort | uniq}
@@ -118,7 +118,7 @@ fn sigexit{
 
 gitup
 
-flagfmt='m:msg message, a:amend'; args='file ...'
+flagfmt='m:msg message, r:revise'; args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 if(~ $#* 0)
 	exec aux/usage
@@ -126,8 +126,9 @@ if(~ $#* 0)
 msgfile=/tmp/git-msg.$pid
 if(~ $#msg 1)
 	echo $msg >$msgfile.tmp
-if not if(~ $#amend 1){
+if not if(~ $#revise 1){
 	msg=1
+	echo revising commit `{cat /mnt/git/HEAD/hash}
 	cat /mnt/git/HEAD/msg >$msgfile.tmp
 }
 
