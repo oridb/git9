@@ -278,7 +278,7 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-b br] remote\n", argv0);
+	fprint(2, "usage: %s [-dl] [-b br] [-u upstream] remote\n", argv0);
 	fprint(2, "\t-b br:	only fetch matching branch 'br'\n");
 	fprint(2, "remote:	fetch from this repository\n");
 	exits("usage");
