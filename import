@@ -82,7 +82,7 @@ fn apply @{
 			hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
 			echo $hash > $refpath
 		}
-		status=''
+		status=''''
 	'
 }
 
