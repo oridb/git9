@@ -134,14 +134,14 @@ cache(Object *o)
 		o->id = objcache.nobj;
 		o->flag |= Cexist;
 	}
-	if(o->prev)
+	if(o->prev != nil)
 		o->prev->next = o->next;
-	if(o->next)
+	if(o->next != nil)
 		o->next->prev = o->prev;
 	if(lrutail == o){
 		lrutail = o->prev;
 		lrutail->next = nil;
-	}else if(!lrutail)
+	}else if(lrutail != nil)
 		lrutail = o;
 	if(lruhead)
 		lruhead->prev = o;
@@ -154,7 +154,7 @@ cache(Object *o)
 		ref(o);
 		ncache++;
 	}
-	while(ncache > cachemax){
+	while(ncache > cachemax && lrutail->prev != nil){
 		p = lrutail;
 		lrutail = p->prev;
 		lrutail->next = nil;
@@ -1543,7 +1543,7 @@ packoff(char *hdr, vlong off)
 
 	rbuf[0] = off & 0x7f;
 	for(i = 1; (off >>= 7) != 0; i++)
-		rbuf[i] |= (--off & 0x7f)|0x80;
+		rbuf[i] = (--off & 0x7f)|0x80;
 
 	j = 0;
 	while(i > 0)
