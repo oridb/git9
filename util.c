@@ -299,7 +299,7 @@ findrepo(char *buf, int nbuf)
 	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
 		strcpy(p, suff);
 		if(access(buf, AEXIST) == 0){
-			*p = 0;
+			p[p == buf] = '\0';
 			return 0;
 		}
 		*p = '\0';
