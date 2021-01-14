@@ -154,7 +154,7 @@ cache(Object *o)
 		ref(o);
 		ncache++;
 	}
-	while(ncache > cachemax && lrutail->prev != nil){
+	while(ncache > cachemax){
 		p = lrutail;
 		lrutail = p->prev;
 		lrutail->next = nil;
