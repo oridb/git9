@@ -419,18 +419,19 @@ range(Eval *ev)
 		idx = earealloc(idx, (nall + 1), sizeof(int));
 		all[nall] = p;
 		idx[nall] = 0;
-		if(p == a || p->commit->nparent == 0 && a == &zcommit)
+		if(p == a || p->commit->nparent == 0 && a == &zcommit){
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		else if(p->commit->nparent == 0)
+		}else if(p->commit->nparent == 0){
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		else if(oshas(&keep, p->hash))
+		}else if(oshas(&keep, p->hash)){
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		else if(oshas(&skip, p->hash))
+		}else if(oshas(&skip, p->hash)){
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
+		}
 		if(p->commit->nparent == 0)
 			break;
 		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
