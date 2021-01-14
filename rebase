@@ -32,12 +32,12 @@ if not{
 		exec aux/usage
 	src=`{git/branch}
 	dst=`{git/query $1}
-	commits=`{git/query $onto $src @ .. $src}
+	commits=`{git/query $dst $src @ .. $src}
 	## TODO: edit $commits here for -i
 }
 
 git/branch -nb $dst $tmp
-while(! ~ $#commmits 0){
+while(! ~ $#commits 0){
 	c=$commits(1)
 	commits=$commits(2-)
 	if(! git/export $c | git/import){
