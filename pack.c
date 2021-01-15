@@ -141,7 +141,7 @@ cache(Object *o)
 	if(lrutail == o){
 		lrutail = o->prev;
 		lrutail->next = nil;
-	}else if(lrutail != nil)
+	}else if(lrutail == nil)
 		lrutail = o;
 	if(lruhead)
 		lruhead->prev = o;
