@@ -118,7 +118,7 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	}
 }
 
-void
+int
 writetree(Dirent *ent, int nent, Hash *h)
 {
 	char *t, *txt, *etxt, hdr[128];
@@ -148,6 +148,7 @@ writetree(Dirent *ent, int nent, Hash *h)
 	nhdr = snprint(hdr, sizeof(hdr), "%T %lld", GTree, (vlong)(t - txt)) + 1;
 	writeobj(h, hdr, nhdr, txt, t - txt);
 	free(txt);
+	return nent;
 }
 
 void
@@ -230,7 +231,7 @@ dirent(Dirent **ent, int *nent, char *name)
 int
 treeify(Object *t, char **path, char **epath, int off, Hash *h)
 {
-	int r, ne, nsub, nent, isdir;
+	int r, n, ne, nsub, nent, isdir;
 	char **p, **ep;
 	char elt[256];
 	Object **sub;
@@ -261,7 +262,18 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 			sub[nsub] = readobject(e->h);
 			if(sub[nsub] == nil || sub[nsub]->type != GTree)
 				sub[nsub] = emptydir();
-			if(treeify(sub[nsub], p, ep, off + ne + 1, &e->h) == -1)
+			/*
+			 * if after processing deletions, a tree is empty,
+			 * mark it for removal from the parent.
+			 *
+			 * Note, it is still written to the object store,
+			 * but this is fine -- and ensures that an empty
+			 * repository will continue to work.
+			 */
+			n = treeify(sub[nsub], p, ep, off + ne + 1, &e->h);
+			if(n == 0)
+				e->name = nil;
+			else if(n == -1)
 				goto err;
 		}else{
 			d = dirstat(*p);
@@ -277,8 +289,7 @@ treeify(Object *t, char **path, char **epath, int off, Hash *h)
 		goto err;
 	}
 
-	writetree(ent, nent, h);
-	r = 0;
+	r = writetree(ent, nent, h);
 err:
 	free(sub);
 	return r;		
