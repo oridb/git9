@@ -2,15 +2,16 @@
 rfork ne
 . /sys/lib/git/common.rc
 
-flagfmt='b:bare, u:upstream upstream'; args='name'
+flagfmt='u:upstream upstream,b:branch branch'; args='name'
 eval `''{aux/getflags $*} || exec aux/usage
 
 dir=$1
 if(~ $#dir 0)
-	exec aux/usage
-dotgit=$dir/.git
-if(~ $#bare 1)
-	dotgit=$dir
+	dir=.
+if(~ $#branch 0)
+	branch=front
+if(test -e $dir/.git)
+	die $dir/.git already exists
 name=`{basename `{cleanname -d `{pwd} $dir}}
 if(~ $#upstream 0){
 	upstream=`{git/conf 'defaults "origin".baseurl'}
@@ -18,18 +19,20 @@ if(~ $#upstream 0){
 		upstream=$upstream/$name
 }
 
-if(test -e $dotgit)
-	die $dotgit already exists
-
-mkdir -p $dotgit/refs/^(heads remotes)
-dircp /sys/lib/git/template $dotgit
->>$dotgit/config {
+mkdir -p $dir/.git/refs/^(heads remotes)
+>$dir/.git/config {
+	echo '[core]'
+	echo '	repositoryformatversion = p9.0'
 	if(! ~ $#upstream 0){
 		echo '[remote "origin"]'
 		echo '	url = '$upstream
 	}
-	echo '[branch "master"]'
+	echo '[branch "'$branch'"]'
 	echo '	remote = origin'
-	echo '	merge = refs/heads/master' 
 }
+
+>$dir/.git/HEAD {
+	echo ref: refs/heads/$branch
+}
+
 exit ''

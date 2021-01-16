@@ -54,7 +54,6 @@ install:V:
 	cp git.1.man /sys/man/1/git
 	cp gitfs.4.man /sys/man/4/gitfs
 	cp common.rc /sys/lib/git/common.rc
-	mk $MKFLAGS /sys/lib/git/template
 
 uninstall:V:
 	rm -rf $BIN /sys/lib/git /sys/man/1/git /sys/man/4/gitfs
@@ -62,7 +61,3 @@ uninstall:V:
 %.rcinstall:V:
 	cp $stem $BIN/$stem
 	chmod +x $BIN/$stem
-
-/sys/lib/git/template: template
-	mkdir -p /sys/lib/git/template
-	dircp template /sys/lib/git/template
