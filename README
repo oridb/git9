@@ -23,7 +23,7 @@ Get a bootstrap copy:
 
 	% cd /tmp
 	% hget https://orib.dev/git/git9/HEAD/snap.tar.gz | tar xvz
-	% cd git9-master
+	% cd git9
 	% mk all
 	% mk install
 
