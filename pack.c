@@ -140,7 +140,8 @@ cache(Object *o)
 		o->next->prev = o->prev;
 	if(lrutail == o){
 		lrutail = o->prev;
-		lrutail->next = nil;
+		if(lrutail != nil)
+			lrutail->next = nil;
 	}else if(lrutail == nil)
 		lrutail = o;
 	if(lruhead)
@@ -154,10 +155,11 @@ cache(Object *o)
 		ref(o);
 		ncache++;
 	}
-	while(ncache > cachemax){
+	while(ncache > cachemax && lrutail != nil){
 		p = lrutail;
 		lrutail = p->prev;
-		lrutail->next = nil;
+		if(lrutail != nil)
+			lrutail->next = nil;
 		p->flag &= ~Ccache;
 		p->prev = nil;
 		p->next = nil;
