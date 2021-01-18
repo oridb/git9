@@ -82,7 +82,6 @@ parsecaps(char *caps, Capset *cs)
 {
 	char *p, *n;
 
-	memset(cs, 0, sizeof(Capset));
 	for(p = caps; p != nil; p = n){
 		n = strchr(p, ' ');
 		if(n != nil)
@@ -107,6 +106,7 @@ sendpack(Conn *c)
 	Capset cs;
 
 	first = 1;
+	memset(&cs, 0, sizeof(Capset));
 	nupd = readours(&ours, &refs);
 	theirs = eamalloc(nupd, sizeof(Hash));
 	while(1){
