@@ -332,7 +332,7 @@ The
 .I -r
 flag revises the contents of the previous commit, reusing the message.
 To a commit message,
-.I -a
+.I -r
 can be used in conjuction with
 .IR -m .
 
