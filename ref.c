@@ -396,7 +396,7 @@ unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int 
 static int
 range(Eval *ev)
 {
-	Object *a, *b, *p, **all;
+	Object *a, *b, *p, *q, **all;
 	int nall, *idx, mark;
 	Objset keep, skip;
 
@@ -419,30 +419,38 @@ range(Eval *ev)
 		idx = earealloc(idx, (nall + 1), sizeof(int));
 		all[nall] = p;
 		idx[nall] = 0;
-		if(p == a || p->commit->nparent == 0 && a == &zcommit){
+		if(p == a || p->commit->nparent == 0 && a == &zcommit)
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		}else if(p->commit->nparent == 0){
+		else if(p->commit->nparent == 0)
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		}else if(oshas(&keep, p->hash)){
+		else if(oshas(&keep, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		}else if(oshas(&skip, p->hash)){
+		else if(oshas(&skip, p->hash))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		}
 		if(p->commit->nparent == 0)
 			break;
-		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
-			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
-		if(p->type != GCommit)
-			sysfatal("not commit: %H", p->hash);
+		if((q = readobject(p->commit->parent[idx[nall]])) == nil){
+			werrstr("bad commit %H", p->commit->parent[idx[nall]]);
+			goto error;
+		}
+		if(q->type != GCommit){
+			werrstr("not commit: %H", q->hash);
+			goto error;
+		}
+		unref(p);
+		p = q;
 		nall++;
 	}
 	free(all);
 	qsort(ev->stk + mark, ev->nstk - mark, sizeof(Object*), objdatecmp);
 	return 0;
+error:
+	free(all);
+	return -1;
 }
 
 int
