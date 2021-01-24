@@ -179,7 +179,7 @@ stretch(Dtab *dt, Dblock *b, uchar *s, uchar *e, int n)
 	p = s + n;
 	q = dt->base + b->off + n;
 	eb = dt->base + dt->nbase;
-	while(n < (1<<24)){
+	while(n < (1<<24)-1){
 		if(p == e || q == eb)
 			break;
 		if(*p != *q)
