@@ -161,6 +161,18 @@ sameqid(Dir *d, char *qf)
 	return 0;
 }
 
+void
+writeqid(Dir *d, char *qf)
+{
+	int fd;
+
+	if((fd = create(qf, OWRITE, 0666)) == -1)
+		return;
+	fprint(fd, "%ullx.%uld.%.2uhhx\n",
+		d->qid.path, d->qid.vers, d->qid.type);
+	close(fd);
+}
+
 int
 samedata(char *pa, char *pb)
 {
@@ -296,6 +308,7 @@ nextarg:
 			}else if(samedata(p, bpath)){
 				if(!quiet && (printflg & Tflg))
 					print("%s%s\n", tstr, p);
+				writeqid(d, tpath);
 			}else{
 				dirty |= Mflg;
 				if(!quiet && (printflg & Mflg))
