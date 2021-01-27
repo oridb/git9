@@ -364,29 +364,45 @@ int
 updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 {
 	char refpath[512];
-	int i, fd, ret, lockfd;
+	int i, newidx, hadref, fd, ret, lockfd;
+	vlong newtm;
 	Object *o;
 	Hash h;
 
 	ret = -1;
+	hadref = 0;
+	newidx = -1;
+	/*
+	 * Date of Magna Carta.
+	 * Wrong because it  was computed using
+	 * the proleptic gregorian calendar.
+	 */
+	newtm = -23811206400;	
 	if((lockfd = lockrepo()) == -1){
 		werrstr("repo locked\n");
 		return -1;
 	}
 	for(i = 0; i < nupd; i++){
-		if(resolveref(&h, ref[i]) == 0 && !hasheq(&h, &cur[i])){
-			werrstr("old ref changed: %s", ref[i]);
-			goto error;
+		if(resolveref(&h, ref[i]) == 0){
+			hadref = 1;
+			if(!hasheq(&h, &cur[i])){
+				werrstr("old ref changed: %s", ref[i]);
+				goto error;
+			}
 		}
 		if((o = readobject(upd[i])) == nil){
 			werrstr("update to nonexistent hash %H", upd[i]);
 			goto error;
 		}
-		unref(o);
 		if(o->type != GCommit){
 			werrstr("not commit: %H", upd[i]);
 			goto error;
 		}
+		if(o->commit->mtime > newtm){
+			newtm = o->commit->mtime;
+			newidx = i;
+		}
+		unref(o);
 		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
 			werrstr("ref path too long: %s", ref[i]);
 			goto error;
@@ -402,7 +418,30 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 		}
 		close(fd);
 	}
-		
+	/*
+	 * Heuristic:
+	 * If there are no valid refs, and HEAD is invalid, then
+	 * pick the ref with the newest commits as the default
+	 * branch.
+	 *
+	 * Several people have been caught out by pushing to
+	 * a repo where HEAD named differently from what got
+	 * pushed, and this is going to be more of a footgun
+	 * when 'master', 'main', and 'front' are all in active
+	 * use. This should make us pick a useful default in
+	 * those cases, instead of silently failing.
+	 */
+	if(resolveref(&h, "HEAD") == -1 && hadref == 0 && newidx != -1){
+		if((fd = create(".git/HEAD", OWRITE|OTRUNC, 0644)) == -1){
+			werrstr("open HEAD: %r");
+			goto error;
+		}
+		if(fprint(fd, "ref: %s", ref[0]) == -1){
+			werrstr("write HEAD ref: %r");
+			goto error;
+		}
+		close(fd);
+	}
 	ret = 0;
 error:
 	fmtpkt(c, "ERR %r");

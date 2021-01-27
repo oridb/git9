@@ -990,9 +990,10 @@ readobject(Hash h)
 {
 	Object *o;
 
-	o = readidxobject(nil, h, 0);
-	if(o)
-		ref(o);
+	if((o = readidxobject(nil, h, 0)) == nil)
+		return nil;
+	parseobject(o);
+	ref(o);
 	return o;
 }
 
