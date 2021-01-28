@@ -5,6 +5,7 @@ TARG=\
 	conf\
 	fetch\
 	fs\
+	log\
 	query\
 	repack\
 	save\
