@@ -23,7 +23,6 @@ RC=\
 	export\
 	import\
 	init\
-	log\
 	merge\
 	pull\
 	push\
