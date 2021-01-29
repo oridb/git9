@@ -4,7 +4,7 @@ rfork en
 
 gitup
 
-flagfmt='a:listall, b:baseref ref, d:delete, n:newbr, s:stay'
+flagfmt='a:listall, b:baseref ref, d:delete, n:newbr, s:stay, m:merge'
 args='[branch]'
 eval `''{aux/getflags $*} || exec aux/usage
 
@@ -39,8 +39,8 @@ if not
 modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
-if(! ~ $#modified 0 || ! ~ $#deleted 0){
-	git/walk -fRMA $modified $deleted || \
+if(! ~ $#modified 0 || ! ~ $#deleted 0 && ~ $#merge 0){
+	git/walk -fRMA $modified $deleted || 
 		die 'uncommited changes would be clobbered'
 }
 if(~ $delete 1){
@@ -68,28 +68,55 @@ echo $commit > .git/$new
 if(! ~ $#stay 0)
 	exit
 
-if(! ~ $#modified 0){
-	basedir=`{git/query -p $base}
-	for(m in $modified){
-		d=`{basename -d $m}
-		mkdir -p $d
-		mkdir -p .git/index9/tracked/$d
-		# Modifications can turn a file into
-		# a directory, or vice versa, so we
-		# need to delete and copy the files
-		# over. If we're checking out a
-		a=`{test -f $m && echo file || echo dir}
-		b=`{test -f $basedir/tree/$m && echo file || echo dir}
-		if(! ~ $a $b){
-			rm -rf $m
-			rm -rf .git/index9/tracked/$m
-		}
-		if(test -f $basedir/tree/$m){
-			cp  $basedir/tree/$m $m
-			walk -eq $m > .git/index9/tracked/$m
-		}
+basedir=`{git/query -p $base}
+cleanpaths=()
+dirtypaths=()
+if(! ~ $#modified 0 || ! ~ $#deleted 0){
+	cleanpaths=`$nl{git/walk -cfT $modified $deleted}
+	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
+}
+for(m in $cleanpaths){
+	d=`{basename -d $m}
+	mkdir -p $d
+	mkdir -p .git/index9/tracked/$d
+	# Modifications can turn a file into
+	# a directory, or vice versa, so we
+	# need to delete and copy the files
+	# over.
+	a=`{test -f $m && echo file || echo dir}
+	b=`{test -f $basedir/tree/$m && echo file || echo dir}
+	if(! ~ $a $b){
+		rm -rf $m
+		rm -rf .git/index9/tracked/$m
+	}
+	if(test -f $basedir/tree/$m){
+		cp  $basedir/tree/$m $m
+		walk -eq $m > .git/index9/tracked/$m
 	}
 }
+for(ours in $dirtypaths){
+	common=/mnt/git/HEAD/tree/$ours
+	theirs=/mnt/git/object/$base/tree/$ours
+	n=$pid
+	tmp=$ours.tmp
+	while(test -f $tmp){
+		tmp=$tmp.$n
+		n=`{echo $n + 1 | hoc}
+	}
+	if(! test -f $ours)
+		ours=/dev/null
+	if(! test -f $theirs)
+		theirs=/dev/null
+	if(! test -f $common)
+		common=/dev/null
+	echo M $ours
+	if(! ape/diff3 -m $ours $common $theirs > $tmp)
+		echo '	'merge needed: $ours
+	echo > .git/index9/tracked/$ours
+	mv $tmp $ours
+}
+for(m in $localmods)
+	echo > .git/index9/tracked/$m
 if(! ~ $#deleted 0){
 	rm -f $deleted
 	rm -f .git/index9/tracked/$deleted
