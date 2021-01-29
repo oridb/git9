@@ -27,8 +27,8 @@ findref(char **r, int nr, char *ref)
 
 	for(i = 0; i < nr; i++)
 		if(strcmp(r[i], ref) == 0)
-			break;
-	return i;
+			return i;
+	return -1;
 }
 
 int
@@ -57,11 +57,9 @@ readours(Hash **tailp, char ***refp)
 			pfx = "";
 		if((r = smprint("%s%s", pfx, removed[i])) == nil)
 			sysfatal("smprint: %r");
-		if((idx = findref(ref, nu, r)) == nu)
-			nu = idx;
-		else
-			free(r);
-		memcpy(&tail[idx], &Zhash, sizeof(Hash));
+		if((idx = findref(ref, nu, r)) != -1)
+			memcpy(&tail[idx], &Zhash, sizeof(Hash));
+		free(r);
 	}
 	*tailp = tail;
 	*refp = ref;
