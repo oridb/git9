@@ -390,6 +390,14 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 				goto error;
 			}
 		}
+		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
+			werrstr("ref path too long: %s", ref[i]);
+			goto error;
+		}
+		if(hasheq(&upd[i], &Zhash)){
+			remove(refpath);
+			continue;
+		}
 		if((o = readobject(upd[i])) == nil){
 			werrstr("update to nonexistent hash %H", upd[i]);
 			goto error;
@@ -403,10 +411,6 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 			newidx = i;
 		}
 		unref(o);
-		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
-			werrstr("ref path too long: %s", ref[i]);
-			goto error;
-		}
 		if((fd = create(refpath, OWRITE|OTRUNC, 0644)) == -1){
 			werrstr("open ref: %r");
 			goto error;

@@ -57,10 +57,15 @@ readours(Hash **tailp, char ***refp)
 			pfx = "";
 		if((r = smprint("%s%s", pfx, removed[i])) == nil)
 			sysfatal("smprint: %r");
-		if((idx = findref(ref, nu, r)) != -1)
-			memcpy(&tail[idx], &Zhash, sizeof(Hash));
+		if((idx = findref(ref, nu, r)) == -1)
+			idx = nu++;
+		assert(idx < nbranch);
+		memcpy(&tail[idx], &Zhash, sizeof(Hash));
 		free(r);
 	}
+	dprint(1, "nu: %d\n", nu);
+	for(i = 0; i < nu; i++)
+		dprint(1, "update: %H %s\n", tail[i], ref[i]);
 	*tailp = tail;
 	*refp = ref;
 	return nu;	
@@ -134,7 +139,7 @@ sendpack(Conn *c)
 		send=1;
 	for(i = 0; i < nupd; i++){
 		a = readobject(theirs[i]);
-		b = readobject(ours[i]);
+		b = hasheq(&ours[i], &Zhash) ? nil : readobject(ours[i]);
 		p = nil;
 		if(a != nil && b != nil)
 			p = ancestor(a, b);
@@ -147,10 +152,6 @@ sendpack(Conn *c)
 		unref(a);
 		unref(b);
 		unref(p);
-		if(hasheq(&ours[i], &Zhash)){
-			print("removed %s\n", refs[i]);
-			continue;
-		}
 		if(hasheq(&theirs[i], &ours[i])){
 			print("uptodate %s\n", refs[i]);
 			continue;
@@ -174,12 +175,7 @@ sendpack(Conn *c)
 		}
 		if(writepkt(c, buf, n) == -1)
 			sysfatal("unable to send update pkt");
-		/*
-		 * If we're rolling back with a force push, the other side already
-		 * has our changes. There's no need to send a pack if that's the case.
-		 */
-		if(a == nil || b == nil || ancestor(b, a) != b)
-			send = 1;
+		send = 1;
 	}
 	flushpkt(c);
 	if(!send){
