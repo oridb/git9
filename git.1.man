@@ -391,7 +391,7 @@ instead of
 .I HEAD.
 When passed the
 .I -s
-option, only a the file statuses are
+option, only the file statuses are
 printed.
 
 .PP
