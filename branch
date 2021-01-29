@@ -29,6 +29,7 @@ if not if(~ $branch heads/*)
 if not
 	new=refs/heads/$branch
 
+orig=`{git/query HEAD}
 if (~ $#baseref 1)
 	base=`{git/query $baseref} || exit 'bad base'
 if not if(test -e .git/$new)
@@ -57,14 +58,9 @@ if(~ $#newbr 0){
 			die could not find branch $branch
 }
 commit=`{git/query $base} || die 'branch does not exist:' $base
-echo updating $new to $commit
-
 if(~ $new */*)
 	mkdir -p .git/`{basename -d $new}
-
 echo $commit > .git/$new
-
-
 if(! ~ $#stay 0)
 	exit
 
@@ -95,7 +91,7 @@ for(m in $cleanpaths){
 	}
 }
 for(ours in $dirtypaths){
-	common=/mnt/git/HEAD/tree/$ours
+	common=/mnt/git/object/$orig/tree/$ours
 	theirs=/mnt/git/object/$base/tree/$ours
 	n=$pid
 	tmp=$ours.tmp
@@ -109,8 +105,8 @@ for(ours in $dirtypaths){
 		theirs=/dev/null
 	if(! test -f $common)
 		common=/dev/null
-	echo M $ours
-	if(! ape/diff3 -m $ours $common $theirs > $tmp)
+	echo merging $ours...
+	if(! ape/diff3 -3 -m $ours $common $theirs > $tmp)
 		echo '	'merge needed: $ours
 	echo > .git/index9/tracked/$ours
 	mv $tmp $ours

@@ -19,7 +19,7 @@ fn merge{
 			base=/dev/null
 		if(! test -f $theirbr/$f)
 			theirs=/dev/null
-		if(! ape/diff3 -m $ours $base $theirs > $f)
+		if(! ape/diff3 -3 -m $ours $base $theirs > $f)
 			echo merge needed: $f
 
 		if(test -f $f)
