@@ -65,12 +65,17 @@ if(! ~ $#stay 0)
 	exit
 
 basedir=`{git/query -p $base}
-cleanpaths=()
 dirtypaths=()
-if(! ~ $#modified 0 || ! ~ $#deleted 0){
-	cleanpaths=`$nl{git/walk -cfT $modified $deleted}
+cleanpaths=($modified $deleted)
+if(! ~ $#modified 0 || ! ~ $#deleted 0)
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
+if(! ~ $#dirtypaths 0){
+	x=$nl^$cleanpaths
+	y=$nl^$dirtypaths
+	cleanpaths=`$nl{echo $x$nl$y | sort | uniq -u}
 }
+echo clean: $cleanpaths
+echo dirty: $dirtypaths
 for(m in $cleanpaths){
 	d=`{basename -d $m}
 	mkdir -p $d
