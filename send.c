@@ -59,7 +59,7 @@ readours(Hash **tailp, char ***refp)
 			sysfatal("smprint: %r");
 		if((idx = findref(ref, nu, r)) == -1)
 			idx = nu++;
-		assert(idx < nbranch);
+		assert(idx < nremoved + nbranch);
 		memcpy(&tail[idx], &Zhash, sizeof(Hash));
 		free(r);
 	}
