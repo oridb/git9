@@ -415,6 +415,7 @@ range(Eval *ev)
 	mark = ev->nstk;
 	osinit(&keep);
 	osinit(&skip);
+	osadd(&keep, a);
 	while(1){
 		all = earealloc(all, (nall + 1), sizeof(Object*));
 		idx = earealloc(idx, (nall + 1), sizeof(int));

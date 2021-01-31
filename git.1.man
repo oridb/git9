@@ -514,9 +514,9 @@ operator finds all commits between
 .B a
 and
 .B b.
-Between is defined as the set of all commits which are ancestors of
+Between is defined as the set of all commits which are reachable from
 .B b
-and descendants of
+but not reachable from
 .B a.
 
 .SH PROTOCOLS
