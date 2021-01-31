@@ -42,9 +42,11 @@ if(~ $allbranch 1)
 
 if(~ $#upstream 0)
 	upstream=origin
-remote=`{git/conf 'remote "'$upstream'".url'}
-if(~ $#remote 0)
-	die 'no remote to pull from'
+remote=`$nl{git/conf 'remote "'$upstream'".url'}
+if(~ $#remote 0){
+	remote=$upstream
+	upstream=THEM
+}
 
 update $branch $upstream $remote
 if (~ $fetchonly 1)
