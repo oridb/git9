@@ -389,6 +389,7 @@ unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int 
 			*p = obj[i];
 			return i;
 		}
+		unref(obj[i]);
 	}
 	return -1;
 }
@@ -441,7 +442,6 @@ range(Eval *ev)
 			werrstr("not commit: %H", q->hash);
 			goto error;
 		}
-		unref(p);
 		p = q;
 		nall++;
 	}
