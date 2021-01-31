@@ -74,8 +74,6 @@ if(! ~ $#dirtypaths 0){
 	y=$nl^$dirtypaths
 	cleanpaths=`$nl{echo $x$nl$y | sort | uniq -u}
 }
-echo clean: $cleanpaths
-echo dirty: $dirtypaths
 for(m in $cleanpaths){
 	d=`{basename -d $m}
 	mkdir -p $d
@@ -116,8 +114,6 @@ for(ours in $dirtypaths){
 	echo > .git/index9/tracked/$ours
 	mv $tmp $ours
 }
-for(m in $localmods)
-	echo > .git/index9/tracked/$m
 if(! ~ $#deleted 0){
 	rm -f $deleted
 	rm -f .git/index9/tracked/$deleted
