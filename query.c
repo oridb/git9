@@ -7,6 +7,7 @@
 
 int fullpath;
 int changes;
+int reverse;
 char *path[128];
 int npath;
 
@@ -120,7 +121,7 @@ next:
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-pc] query\n", argv0);
+	fprint(2, "usage: %s [-pcr] query\n", argv0);
 	exits("usage");
 }
 
@@ -135,6 +136,7 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'p':	fullpath++;	break;
 	case 'c':	changes++;	break;
+	case 'r':	reverse ^= 1;	break;
 	default:	usage();	break;
 	}ARGEND;
 
@@ -163,7 +165,7 @@ main(int argc, char **argv)
 	}else{
 		p = (fullpath ? "/mnt/git/object/" : "");
 		for(j = 0; j < n; j++)
-			print("%s%H\n", p, h[j]);
+			print("%s%H\n", p, h[reverse ? n - 1 - j : j]);
 	}
 	exits(nil);
 }

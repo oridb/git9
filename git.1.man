@@ -169,7 +169,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/query
 [
-.B -pc
+.B -pcr
 ]
 .I query
 .PP
@@ -444,7 +444,11 @@ option, the root of the current repository is printed.
 
 .B Git/query
 takes an expression describing a commit, or set of commits,
-and resolves it to a list of commits. With the
+and resolves it to a list of commits.
+The
+.I -r
+option reverses the order of the commit list.
+With the
 .I -p
 option, instead of printing the commit hashes, the full
 path to their
