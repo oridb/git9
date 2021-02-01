@@ -121,10 +121,8 @@ fn sigexit{
 
 gitup
 
-flagfmt='m:msg message, r:revise, e:edit'; args='file ...'
+flagfmt='m:msg message, r:revise, e:edit'; args='[file ...]'
 eval `''{aux/getflags $*} || exec aux/usage
-if(~ $#* 0)
-	exec aux/usage
 
 msgfile=/tmp/git-msg.$pid
 if(~ $#msg 1)
@@ -135,8 +133,10 @@ if not if(~ $#revise 1){
 	cat /mnt/git/HEAD/msg >$msgfile.tmp
 }
 
-files=`$nl{git/walk -c `$nl{cleanname $gitrel/$*}}
-if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents)
+files=()
+if(! ~ $#* 0)
+	files=`$nl{git/walk -c `$nl{cleanname $gitrel/$*}}
+if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents && ~ $#revise 0)
 	die 'nothing to commit' $status
 @{
 	flag e +

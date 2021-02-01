@@ -337,7 +337,7 @@ findroot(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s -n name -e email -m message -d date files...\n", argv0);
+	fprint(2, "usage: %s -n name -e email -m message -d date [files...]\n", argv0);
 	exits("usage");
 }
 
@@ -383,7 +383,7 @@ main(int argc, char **argv)
 		if(strlen(dstr) != 0)
 			sysfatal("could not parse date %s", dstr);
 	}
-	if(argc == 0 || msg == nil || name == nil)
+	if(msg == nil || name == nil)
 		usage();
 	for(i = 0; i < argc; i++)
 		cleanname(argv[i]);

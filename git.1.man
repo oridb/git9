@@ -41,7 +41,9 @@ git/pull, git/rm, git/serve
 [
 .B -m msg
 ]
+[
 .I file...
+]
 .PP
 .B git/compat
 .PP
