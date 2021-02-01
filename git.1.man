@@ -36,7 +36,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/commit
 [
-.B -r
+.B -re
 ]
 [
 .B -m msg
@@ -327,14 +327,20 @@ creates a new commit consisting of all changes to the specified files.
 By default, an editor is opened to prepare the commit message.
 The
 .I -m
-supplies the commit message directly.
+flag supplies the commit message directly.
 The
 .I -r
 flag revises the contents of the previous commit, reusing the message.
-To a commit message,
+The
+.I -e
+flag opens an editor to finalize the commit message, regardless of
+whether or not it was specified explicitly or reused.
+To amend a commit message,
 .I -r
 can be used in conjuction with
-.IR -m .
+.I -m
+or
+.IR -e .
 
 .PP
 .B Git/branch

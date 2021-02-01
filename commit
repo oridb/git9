@@ -62,6 +62,9 @@ fn editmsg{
 			echo '#'
 			echo '# Commit message:'
 		}
+		edit=1
+	}
+	if(! ~ $#edit 0){
 		giteditor=`{git/conf core.editor}
 		if(~ $#editor 0)
 			editor=$giteditor
@@ -118,7 +121,7 @@ fn sigexit{
 
 gitup
 
-flagfmt='m:msg message, r:revise'; args='file ...'
+flagfmt='m:msg message, r:revise, e:edit'; args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 if(~ $#* 0)
 	exec aux/usage
