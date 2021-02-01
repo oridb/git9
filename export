@@ -77,8 +77,11 @@ for(c in $commits){
 		cat $patchfile
 		! ~ $n $m && echo
 	}
-	if not
-		mv $patchfile $patchdir/`{cat $patchname}
+	if not{
+		f=$patchdir/`{cat $patchname}
+		mv $patchfile $f
+		echo $f
+	}
 	n=`{echo $n + 1 | bc}
 }
 exit ''
