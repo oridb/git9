@@ -13,7 +13,7 @@ if(~ $#abort 1){
 	if(! test -f .git/rebase.todo)
 		die no rebase to abort
 	src=`{cat .git/rebase.src}
-	rm -f .git/rebase.^(src dst todo)
+	rm -f .git/rebase.^(src todo)
 	git/branch $src
 	git/branch -d $tmp
 	exit
@@ -24,7 +24,6 @@ if(test -f .git/rebase.todo){
 	if(! ~ $#* 0)
 		exec aux/usage
 	src=`{cat .git/rebase.src}
-	dst=`{cat .git/rebase.dst}
 	commits=`{cat .git/rebase.todo}
 }
 if not{
@@ -34,15 +33,14 @@ if not{
 	dst=`{git/query $1}
 	commits=`{git/query -r $dst $src @ .. $src}
 	## TODO: edit $commits here for -i
+	git/branch -nb $dst $tmp
 }
 
-git/branch -nb $dst $tmp
 while(! ~ $#commits 0){
 	c=$commits(1)
 	commits=$commits(2-)
 	if(! git/export $c | git/import){
 		echo $src > .git/rebase.src
-		echo $dst > .git/rebase.dst
 		echo $commits > .git/rebase.todo
 		die $c: fix and git/rebase -r
 	}
