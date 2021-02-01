@@ -305,10 +305,9 @@ The
 flag serves repositories relative to
 .BR path .
 
-
-
 .PP
-Git/fs serves a file system on /mnt/git.
+.B Git/fs 
+serves a file system on /mnt/git.
 For full documentation, see
 .IR gitfs (4)
 
