@@ -32,7 +32,7 @@ if not{
 		exec aux/usage
 	src=`{git/branch}
 	dst=`{git/query $1}
-	commits=`{git/query $dst $src @ .. $src}
+	commits=`{git/query -r $dst $src @ .. $src}
 	## TODO: edit $commits here for -i
 }
 
