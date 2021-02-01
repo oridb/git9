@@ -198,13 +198,13 @@ qput(Object *o)
 		heap = earealloc(heap, heapsz, sizeof(Object*));
 	}
 	heap[nheap++] = o;
-	for(i = nheap - 1; i > 0; i /= 2){
+	for(i = nheap - 1; i > 0; i = (i-1)/2){
 		o = heap[i];
 		p = heap[(i-1)/2];
 		if(o->commit->mtime < p->commit->mtime)
 			break;
 		heap[i] = p;
-		heap[i/2] = o;
+		heap[(i-1)/2] = o;
 	}
 }
 
