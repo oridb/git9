@@ -72,7 +72,7 @@ if(! ~ $#modified 0 || ! ~ $#deleted 0)
 if(! ~ $#dirtypaths 0){
 	x=$nl^$cleanpaths
 	y=$nl^$dirtypaths
-	cleanpaths=`$nl{echo $x$nl$y | sort | uniq -u}
+	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
 }
 for(m in $cleanpaths){
 	d=`{basename -d $m}
