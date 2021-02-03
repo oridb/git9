@@ -295,9 +295,9 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
+	if(findrepo(repo, sizeof(repo)) == -1)
+		sysfatal("find root: %r");
 	if(argc != 0){
-		if(findrepo(repo, sizeof(repo)) == -1)
-			sysfatal("find root: %r");
 		if(getwd(path, sizeof(path)) == nil)
 			sysfatal("getwd: %r");
 		if(strlen(path) < strlen(repo))
@@ -311,6 +311,8 @@ main(int argc, char **argv)
 			free(r);
 		}
 	}
+	if(chdir(repo) == -1)
+		sysfatal("chdir: %r");
 
 	gitinit();
 	tmfmtinstall();
