@@ -54,7 +54,7 @@ for(c in $commits){
 			printf "Subject: %s %s\n\n", patch, msg
 			
 			gsub("^[ 	]|[ 	]$", "", msg)
-			gsub("[/ 	]", "-", msg)
+			gsub("[^a-zA-Z0-9_]+", "-", msg)
 			printf "%.4d-%s.patch", n, msg >ENVIRON["patchname"]
 			next
 		}
