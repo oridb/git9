@@ -93,7 +93,8 @@ for(m in $cleanpaths){
 		walk -eq $m > .git/index9/tracked/$m
 	}
 }
-for(ours in $dirtypaths){
+for(f in $dirtypaths){
+	ours=$f
 	common=/mnt/git/object/$orig/tree/$ours
 	theirs=/mnt/git/object/$base/tree/$ours
 	n=$pid
@@ -108,11 +109,17 @@ for(ours in $dirtypaths){
 		theirs=/dev/null
 	if(! test -f $common)
 		common=/dev/null
-	echo merging $ours...
+	echo merging $f...
 	if(! ape/diff3 -3 -m $ours $common $theirs > $tmp)
 		echo '	'merge needed: $ours
-	echo > .git/index9/tracked/$ours
-	mv $tmp $ours
+	if(test -f $f){
+		git/add $ours
+		mv $tmp $ours
+	}
+	if not {
+		git/rm $ours
+		rm $tmp
+	}
 }
 if(! ~ $#deleted 0){
 	rm -f $deleted
