@@ -19,7 +19,7 @@ if(~ $#patchdir 1 && ! test -d $patchdir)
 q=$*
 if(~ $#q 0)
 	q=HEAD
-commits=`{git/query -r $q || die $status}
+commits=`{git/query $q || die $status}
 n=1
 m=$#commits
 

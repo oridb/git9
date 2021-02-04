@@ -56,7 +56,7 @@ objdatecmp(void *pa, void *pb)
 	assert(a->type == GCommit && b->type == GCommit);
 	if(a->commit->mtime == b->commit->mtime)
 		return 0;
-	else if(a->commit->mtime > b->commit->mtime)
+	else if(a->commit->mtime < b->commit->mtime)
 		return -1;
 	else
 		return 1;
