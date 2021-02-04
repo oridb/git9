@@ -120,7 +120,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/rebase
 [
-.B -ar
+.B -ari
 ]
 [
 .B onto
@@ -430,6 +430,33 @@ If the rebase is to be aborted, the
 .I -a
 option will clean up the in progress rebase
 and reset the state of the branch.
+The
+.I -i
+option will open an editor to modify the todo-list before the rebase
+begins.
+
+.PP
+The following rebase commands are supported:
+.TP 10
+.B pick
+Apply the commit.
+.TP
+.B reword
+Apply the commit, then edit its commit message.
+.TP
+.B edit
+Apply the commit, then exit to allow further changes.
+.TP
+.B squash
+Fold the commit into the previous commit, then edit the combined
+commit message.
+.TP
+.B fixup
+Fold the commit into the previous commit, discarding its commit
+message.
+.TP
+.B break
+Exit to allow for manual edits or inspection before continuing.
 
 .PP
 .B Git/conf
