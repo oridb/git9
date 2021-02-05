@@ -50,16 +50,20 @@ int
 objdatecmp(void *pa, void *pb)
 {
 	Object *a, *b;
+	int r;
 
-	a = *(Object**)pa;
-	b = *(Object**)pb;
+	a = readobject((*(Object**)pa)->hash);
+	b = readobject((*(Object**)pb)->hash);
 	assert(a->type == GCommit && b->type == GCommit);
 	if(a->commit->mtime == b->commit->mtime)
-		return 0;
+		r = 0;
 	else if(a->commit->mtime < b->commit->mtime)
-		return -1;
+		r = -1;
 	else
-		return 1;
+		r = 1;
+	unref(a);
+	unref(b);
+	return r;
 }
 
 void
