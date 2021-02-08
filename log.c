@@ -146,7 +146,9 @@ show(Object *o)
 		p = o->commit->msg;
 		e = p + o->commit->nmsg;
 		q = nextline(p, e);
-		Bprint(out, "%H %.*s\n", o->hash, (int)(q - p), p);
+		Bprint(out, "%H ", o->hash);
+		Bwrite(out, p, q - p);
+		Bputc(out, '\n');
 	}else{
 		tmtime(&tm, o->commit->mtime, tzload("local"));
 		Bprint(out, "Hash:\t%H\n", o->hash);
@@ -157,7 +159,9 @@ show(Object *o)
 		e = p + o->commit->nmsg;
 		for(; p != e; p = q){
 			q = nextline(p, e);
-			Bprint(out, "\t%.*s\n", (int)(q - p), p);
+			Bputc(out, '\t');
+			Bwrite(out, p, q - p);
+			Bputc(out, '\n');
 			if(q != e)
 				q++;
 		}
