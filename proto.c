@@ -163,8 +163,9 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 	}
 	
 	snprint(path, Npath, "%s", p);
-	p = strrchr(p, '/') + 1;
-	if(!p || strlen(p) == 0){
+	if((q = strrchr(p, '/')) != nil)
+		p = q + 1;
+	if(strlen(p) == 0){
 		werrstr("missing repository in uri");
 		return -1;
 	}
