@@ -30,6 +30,47 @@ fn subst{
 	}' $*
 }
 
+fn present {
+	if(~ $1 /dev/null && cmp $2 $3>/dev/null)
+		status=gone
+	if not if (~ $3 /dev/null && cmp $1 $2>/dev/null)
+		status=gone
+	if not
+		status=()
+}
+
+# merge1 out theirs base ours
+fn merge1 {
+	n=$pid
+	out=$1
+	theirs=$2
+	base=$3
+	ours=$4
+	tmp=$out.tmp
+	while(test -f $tmp){
+		tmp=$tmp.$n
+		n=`{echo $n + 1 | hoc}
+	}
+
+	if(! test -f $ours)
+		ours=/dev/null
+	if(! test -f $base)
+		base=/dev/null
+	if(! test -f $theirs)
+		theirs=/dev/null
+	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
+		echo merge needed: $out
+
+	if(present $ours $base $theirs){
+		mv $tmp $out
+		git/add $out
+	}
+	if not {
+		rm -f $tmp $out
+		git/rm $out
+	}
+}
+
 fn gitup{
 	gitroot=`{git/conf -r >[2]/dev/null}
 	if(~ $#gitroot 0)

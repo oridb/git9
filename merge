@@ -3,29 +3,17 @@ rfork ne
 . /sys/lib/git/common.rc
 
 fn merge{
-	ourbr=$1/tree
-	basebr=$2/tree
-	theirbr=$3/tree
+	ourbr=/mnt/git/object/$1/tree
+	basebr=/mnt/git/object/$2/tree
+	theirbr=/mnt/git/object/$3/tree
 
-	all=`$nl{walk -f $ourbr $basebr $theirbr | \
+	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | \
 		subst -g '^('$ourbr'|'$basebr'|'$theirbr')/*' | sort | uniq}
 	for(f in $all){
 		ours=$ourbr/$f
 		base=$basebr/$f
 		theirs=$theirbr/$f
-		if(! test -f $ourbr/$f)
-			ours=/dev/null
-		if(! test -f $basebr/$f)
-			base=/dev/null
-		if(! test -f $theirbr/$f)
-			theirs=/dev/null
-		if(! ape/diff3 -3 -m $ours $base $theirs > $f)
-			echo merge needed: $f
-
-		if(test -f $f)
-			git/add $f
-		if not
-			git/rm $f
+		merge1 $f $theirs $base $ours
 	}
 }
 
@@ -54,6 +42,6 @@ if(~ $base $ours){
 echo $ours >> .git/index9/merge-parents
 echo $theirs >> .git/index9/merge-parents
 
-merge /mnt/git/object/$ours /mnt/git/object/$base /mnt/git/object/$theirs
+merge $ours $base $theirs
 >[1=2] echo 'merge complete: remember to commit'
 exit ''
