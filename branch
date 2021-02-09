@@ -95,9 +95,9 @@ for(m in $cleanpaths){
 }
 
 for(ours in $dirtypaths){
-	common=/mnt/git/object/$orig/tree/$ours
+	base=/mnt/git/object/$orig/tree/$ours
 	theirs=/mnt/git/object/$base/tree/$ours
-	merge1 $ours $ours $commmon $theirs
+	merge1 $ours $ours $base $theirs
 }
 
 if(! ~ $#deleted 0){
