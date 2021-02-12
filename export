@@ -30,14 +30,16 @@ m=$#commits
 mntgen /mnt/scratch >[2]/dev/null || status=''
 for(c in $commits){
 	cp=`{git/query -p $c}
-	pp=`{git/query -p $c'^'}
+	pp=`{git/query -p $c'~'}
 	fc=`$nl{git/query -c $c~ $c | sed 's/^..//'}
 
 	@{
 		rfork n
 		cd /mnt/scratch
-		bind $pp/tree a
-		bind $cp/tree b
+		if(test -d $pp/tree)
+			bind $pp/tree a
+		if(test -d $cp/tree)
+			bind $cp/tree b
 		
 		echo From $c
 		echo From: `{cat $cp/author}
