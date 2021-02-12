@@ -57,66 +57,90 @@ show(Dirent *e, char m)
 }
 
 void
-difftrees(Hash ah, Hash bh)
+difftrees(Object *a, Object *b)
 {
 	Dirent *ap, *bp, *ae, *be;
-	Object *a, *b;
 	int c;
 
-
-	if((a = readobject(ah)) == nil)
-		sysfatal("bad hash %H", ah);
-	if((b = readobject(bh)) == nil)
-		sysfatal("bad hash %H", bh);
-	if(a->type != b->type)
-		return;
-	switch(a->type){
-	case GCommit:
-		difftrees(a->commit->tree, b->commit->tree);
-		break;
-	case GTree:
+	ap = ae = nil;
+	bp = be = nil;
+	if(a != nil){
+		if(a->type != GTree)
+			return;
 		ap = a->tree->ent;
 		ae = ap + a->tree->nent;
+	}
+	if(b != nil){
+		if(b->type != GTree)
+			return;
 		bp = b->tree->ent;
 		be = bp + b->tree->nent;
-		while(ap != ae && bp != be){
-			c = strcmp(ap->name, bp->name);
-			if(c == 0){
-				if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
-					goto next;
-
-				if(ap->mode != bp->mode)
-					print("! %P%s\n", ap->name);
-				else if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
-					print("@ %P%s\n", ap->name);
-				if((ap->mode & DMDIR) && (bp->mode & DMDIR)){
-					if(npath >= nelem(path))
-						sysfatal("path too deep");
-					path[npath++] = ap->name;
-					difftrees(ap->h, bp->h);
-					npath--;
-				}
-next:
-				ap++;
-				bp++;
-			}else if(c < 0) {
-				show(ap, '-');
-				ap++;
-			}else if(c > 0){
-				show(bp, '+');
-				bp++;
-			}
-		}
-		for(; ap != ae; ap++)
-			show(ap, '-');
-		for(; bp != be; bp++)
-			show(bp, '+');
-		break;
 	}
-	unref(a);
-	unref(b);
+	while(ap != ae && bp != be){
+		c = strcmp(ap->name, bp->name);
+		if(c == 0){
+			if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
+				goto next;
+
+			if(ap->mode != bp->mode)
+				print("! %P%s\n", ap->name);
+			else if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
+				print("@ %P%s\n", ap->name);
+			if((ap->mode & DMDIR) && (bp->mode & DMDIR)){
+				if(npath >= nelem(path))
+					sysfatal("path too deep");
+				path[npath++] = ap->name;
+				if((a = readobject(ap->h)) == nil)
+					sysfatal("bad hash %H", ap->h);
+				if((b = readobject(bp->h)) == nil)
+					sysfatal("bad hash %H", bp->h);
+				difftrees(a, b);
+				unref(a);
+				unref(b);
+				npath--;
+			}
+next:
+			ap++;
+			bp++;
+		}else if(c < 0) {
+			show(ap, '-');
+			ap++;
+		}else if(c > 0){
+			show(bp, '+');
+			bp++;
+		}
+	}
+	for(; ap != ae; ap++)
+		show(ap, '-');
+	for(; bp != be; bp++)
+		show(bp, '+');
 }
 
+void
+diffcommits(Hash ah, Hash bh)
+{
+	Object *a, *b, *at, *bt;
+
+	at = nil;
+	bt = nil;
+	if(!hasheq(&ah, &Zhash) && (a = readobject(ah)) != nil){
+		if(a->type != GCommit)
+			sysfatal("not commit: %H", ah);
+		if((at = readobject(a->commit->tree)) == nil)
+			sysfatal("bad hash %H", a->commit->tree);
+		unref(a);
+	}
+	if(!hasheq(&bh, &Zhash) && (b = readobject(bh)) != nil){
+		if(b->type != GCommit)
+			sysfatal("not commit: %H", ah);
+		if((bt = readobject(b->commit->tree)) == nil)
+			sysfatal("bad hash %H", b->commit->tree);
+		unref(b);
+	}
+	difftrees(at, bt);
+	unref(at);
+	unref(bt);
+}
 
 void
 usage(void)
@@ -161,7 +185,7 @@ main(int argc, char **argv)
 	if(changes){
 		if(n != 2)
 			sysfatal("diff: need 2 commits, got %d", n);
-		difftrees(h[0], h[1]);
+		diffcommits(h[0], h[1]);
 	}else{
 		p = (fullpath ? "/mnt/git/object/" : "");
 		for(j = 0; j < n; j++)
