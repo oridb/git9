@@ -407,6 +407,10 @@ range(Eval *ev)
 
 	b = pop(ev);
 	a = pop(ev);
+	if(hasheq(&b->hash, &Zhash))
+		b = &zcommit;
+	if(hasheq(&a->hash, &Zhash))
+		a = &zcommit;
 	if(a->type != GCommit || b->type != GCommit){
 		werrstr("non-commit object in range");
 		return -1;
