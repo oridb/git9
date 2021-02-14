@@ -50,10 +50,13 @@ struct Buf {
 };
 
 struct Packf {
-	int	refs;
-	Biobuf	*pack;
+	char	path[128];
 	char	*idx;
 	vlong	nidx;
+
+	int	refs;
+	Biobuf	*pack;
+	vlong	opentm;
 };
 
 static int	readpacked(Biobuf *, Object *, int);
@@ -66,6 +69,7 @@ int	ncache;
 int	cachemax = 4096;
 Packf	*packf;
 int	npackf;
+int	openpacks;
 
 static void
 clear(Object *o)
@@ -169,64 +173,117 @@ cache(Object *o)
 }
 
 static int
-openpack(Packf *pf, char *name)
+loadpack(Packf *pf, char *name)
 {
 	char buf[128];
-	int ifd;
+	int i, ifd;
 	Dir *d;
 
 	memset(pf, 0, sizeof(Packf));
-	snprint(buf, sizeof(buf), ".git/objects/pack/%s.pack", name);
-	pf->pack = Bopen(buf, OREAD);
 	snprint(buf, sizeof(buf), ".git/objects/pack/%s.idx", name);
-	ifd = open(buf, OREAD);
-	if(pf->pack == nil || ifd == -1)
-		goto errorf;
+	snprint(pf->path, sizeof(pf->path), ".git/objects/pack/%s.pack", name);
+	/*
+	 * if we already have the pack open, just
+	 * steal the loaded info
+	 */
+	for(i = 0; i < npackf; i++){
+		if(strcmp(pf->path, packf[i].path) == 0){
+			pf->pack = packf[i].pack;
+			pf->idx = packf[i].idx;
+			pf->nidx = packf[i].nidx;
+			packf[i].idx = nil;
+			packf[i].pack = nil;
+		}
+	}
+	if((ifd = open(buf, OREAD)) == -1)
+		goto error;
 	if((d = dirfstat(ifd)) == nil)
-		goto errorf;
+		goto error;
 	pf->nidx = d->length;
 	pf->idx = emalloc(pf->nidx);
-	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx)
-		goto errori;
+	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx){
+		free(pf->idx);
+		free(d);
+		goto error;
+	}
 	free(d);
 	return 0;
 
-errori:
-	free(d);
-	free(pf->idx);
-errorf:
-	if(pf->pack == nil) Bterm(pf->pack);
-	if(ifd != -1) close(ifd);
-	return -1;		
+error:
+	if(ifd != -1)
+		close(ifd);
+	return -1;	
 }
 
 static void
 refreshpacks(void)
 {
-	Packf *pf;
-	int i, n, l;
+	Packf *pf, *new;
+	int i, n, l, nnew;
 	Dir *d;
 
-	for(i = 0; i < npackf; i++){
-		pf = &packf[i];
-		free(pf->idx);
-		Bterm(pf->pack);
-	}
-	free(packf);
 	if((n = slurpdir(".git/objects/pack", &d)) == -1)
 		return;
-
-	npackf = 0;
-	packf = eamalloc(n, sizeof(Packf));
+	nnew = 0;
+	new = eamalloc(n, sizeof(Packf));
 	for(i = 0; i < n; i++){
 		l = strlen(d[i].name);
 		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
 			continue;
 		d[i].name[l - 4] = 0;
-		if(openpack(&packf[npackf], d[i].name) != -1)
-			npackf++;
+		if(loadpack(&new[nnew], d[i].name) != -1)
+			nnew++;
 	}
+	for(i = 0; i < npackf; i++){
+		pf = &packf[i];
+		free(pf->idx);
+		if(pf->pack != nil)
+			Bterm(pf->pack);
+	}
+	free(packf);
+	packf = new;
+	npackf = nnew;
 	free(d);
+}
+
+static Biobuf*
+openpack(Packf *pf)
+{
+	vlong t;
+	int i, best;
+
+	if(pf->pack == nil){
+		if((pf->pack = Bopen(pf->path, OREAD)) == nil)
+			return nil;
+		pf->opentm = nsec();
+		openpacks++;
+	}
+	if(openpacks == Npackcache){
+		t = pf->opentm;
+		best = -1;
+		for(i = 0; i < npackf; i++){
+			if(packf[i].opentm >= t && packf[i].refs > 0){
+				t = packf[i].opentm;
+				best = i;
+			}
+		}
+		if(best != -1){
+			Bterm(packf[best].pack);
+			packf[best].pack = nil;
+			openpacks--;
+		}
+	}
+	pf->refs++;
+	return pf->pack;
+}
+
+static void
+closepack(Packf *pf)
+{
+	if(--pf->refs == 0){
+		Bterm(pf->pack);
+		pf->pack = nil;
+	}
 }
 
 static u32int
@@ -898,7 +955,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 {
 	char path[Pathmax], hbuf[41];
 	Object *obj, *new;
-	int i, retried;
+	int i, r, retried;
 	Biobuf *f;
 	vlong o;
 
@@ -944,11 +1001,13 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 retry:
 	for(i = 0; i < npackf; i++){
 		if((o = searchindex(packf[i].idx, packf[i].nidx, h)) != -1){
-			f = packf[i].pack;
-			if(Bseek(f, o, 0) == -1)
-				goto errorf;
-			if(readpacked(f, obj, flag) == -1)
-				goto errorf;
+			if((f = openpack(&packf[i])) == nil)
+				goto error;
+			if((r = Bseek(f, o, 0)) != -1)
+				r = readpacked(f, obj, flag);
+			closepack(&packf[i]);
+			if(r == -1)
+				goto error;
 			parseobject(obj);
 			cache(obj);
 			return obj;
@@ -974,7 +1033,6 @@ retry:
 		refreshpacks();
 		goto retry;
 	}
-
 errorf:
 	Bterm(f);
 error:
