@@ -46,10 +46,10 @@ todo=`$nl{cat .git/rebase.todo}
 
 fn sigexit {
 	s=$status
-	if(!){
-		echo $todo > .git/rebase.todo
+	if(!)
 		echo 'fix and git/rebase -r'
-	}
+	>.git/rebase.todo for(i in $todo)
+		echo $i
 	status=$s
 }
 
@@ -86,6 +86,7 @@ while(! ~ $#todo 0){
 	}
 }
 
+fn sigexit
 git/branch -nb $tmp $src
 git/branch -d $tmp
 rm .git/rebase.todo .git/rebase.src
