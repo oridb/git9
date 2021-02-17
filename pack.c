@@ -255,14 +255,13 @@ openpack(Packf *pf)
 	if(pf->pack == nil){
 		if((pf->pack = Bopen(pf->path, OREAD)) == nil)
 			return nil;
-		pf->opentm = nsec();
 		openpacks++;
 	}
 	if(openpacks == Npackcache){
 		t = pf->opentm;
 		best = -1;
 		for(i = 0; i < npackf; i++){
-			if(packf[i].opentm >= t && packf[i].refs > 0){
+			if(packf[i].opentm < t && packf[i].refs > 0){
 				t = packf[i].opentm;
 				best = i;
 			}
@@ -273,6 +272,7 @@ openpack(Packf *pf)
 			openpacks--;
 		}
 	}
+	pf->opentm = nsec();
 	pf->refs++;
 	return pf->pack;
 }
