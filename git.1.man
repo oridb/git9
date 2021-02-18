@@ -63,9 +63,6 @@ git/pull, git/rm, git/serve
 .I branch
 ]
 [
-.B -a
-]
-[
 .B -s
 ]
 [
