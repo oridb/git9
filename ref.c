@@ -273,8 +273,14 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 		if(hasheq(&head[i], &Zhash))
 			continue;
 		if((o = readobject(head[i])) == nil){
+			fprint(2, "warning: %H does not point at commit\n", o->hash);
 			werrstr("read head %H: %r", head[i]);
 			return -1;
+		}
+		if(o->type != GCommit){
+			fprint(2, "warning: %H does not point at commit\n", o->hash);
+			unref(o);
+			continue;
 		}
 		dprint(1, "twixt init: keep %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
@@ -287,9 +293,14 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	for(i = 0; i < ntail; i++){
 		if(hasheq(&tail[i], &Zhash))
 			continue;
-		if((o = readobject(tail[i])) == nil){
+		if((o = readobject(head[i])) == nil){
+			fprint(2, "warning: %H does not point at commit\n", o->hash);
 			werrstr("read tail %H: %r", tail[i]);
 			return -1;
+		}
+		if(o->type != GCommit){
+			unref(o);
+			continue;
 		}
 		dprint(1, "init: drop %H\n", o->hash);
 		e = emalloc(sizeof(Objq));
@@ -322,6 +333,11 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 			for(i = 0; i < q->o->commit->nparent; i++){
 				if((c = readobject(q->o->commit->parent[i])) == nil)
 					goto error;
+				if(c->type != GCommit){
+					fprint(2, "warning: %H does not point at commit\n", c->hash);
+					unref(c);
+					continue;
+				}
 				dprint(2, "enqueue: %s %H\n", q->color == Keep ? "keep" : "drop", c->hash);
 				n = emalloc(sizeof(Objq));
 				n->color = q->color;
