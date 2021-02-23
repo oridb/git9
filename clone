@@ -34,7 +34,9 @@ fn clone{
 	}
 	{git/fetch  $debug $branchflag $remote >[2=3] | awk '
 		BEGIN{
-			headref="refs/remotes/origin/"ENVIRON["branch"]
+			headref=""
+			if(ENVIRON["branch"] != "")
+				headref="refs/remotes/origin/"ENVIRON["branch"]
 			headhash=""
 		}
 		/^symref / && headref == "" {
