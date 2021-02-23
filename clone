@@ -2,7 +2,7 @@
 rfork en
 . /sys/lib/git/common.rc
 
-flagfmt='d:debug'; args='remote [local]'
+flagfmt='d:debug, b:branch branch'; args='remote [local]'
 eval `''{aux/getflags $*} || exec aux/usage
 if(~ $debug 1)
 	debug=(-d)
@@ -14,6 +14,8 @@ if(~ $#remote 0)
 	exec aux/usage
 if(~ $#local 0)
 	local=`{basename $remote .git}
+if(~ $#branch 1)
+	branchflag=(-b $branch)
 
 if(test -e $local)
 	die 'repository already exists:' $local
@@ -29,18 +31,16 @@ fn clone{
 	>>.git/config {
 		echo '[remote "origin"]'
 		echo '	url='$remote
-		echo '	fetch=+refs/heads/*:refs/remotes/origin/*'
 	}
-	{git/fetch $debug $remote >[2=3] | awk '
+	{git/fetch  $debug $branchflag $remote >[2=3] | awk '
 		BEGIN{
-			headref=""
+			headref="refs/remotes/origin/"ENVIRON["branch"]
 			headhash=""
 		}
-		/^symref /{
+		/^symref / && headref == "" {
 			if($2 == "HEAD"){
 				gsub("^refs/heads", "refs/remotes/origin", $3)
 				gsub("^refs/tags", "refs/remotes/origin/tags", $3)
-				headref=$3
 			}
 		}
 		/^remote /{
@@ -92,7 +92,7 @@ fn clone{
 		}
 	}
 	if not{
-		echo no master branch >[1=2]
+		echo no default branch >[1=2]
 		echo check out your code with git/branch >[1=2]
 	}
 }
