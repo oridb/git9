@@ -1323,6 +1323,11 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 		return 0;
 	if((t = readobject(tree)) == nil)
 		return -1;
+	if(c->type != GTree){
+		fprint(2, "load: %H: not tree\n", c->hash);
+		unref(c);
+		return -1;
+	}
 	addmeta(v, has, t, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
@@ -1355,6 +1360,11 @@ loadcommit(Metavec *v, Objset *has, Hash h)
 		return 0;
 	if((c = readobject(h)) == nil)
 		return -1;
+	if(c->type != GCommit){
+		fprint(2, "load: %H: not commit\n", c->hash);
+		unref(c);
+		return -1;
+	}
 	addmeta(v, has, c, "", c->commit->ctime);
 	r = loadtree(v, has, c->commit->tree, "", c->commit->ctime);
 	unref(c);
