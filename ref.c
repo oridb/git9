@@ -293,7 +293,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 	for(i = 0; i < ntail; i++){
 		if(hasheq(&tail[i], &Zhash))
 			continue;
-		if((o = readobject(head[i])) == nil){
+		if((o = readobject(tail[i])) == nil){
 			fprint(2, "warning: %H does not point at commit\n", o->hash);
 			werrstr("read tail %H: %r", tail[i]);
 			return -1;
