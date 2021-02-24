@@ -1323,9 +1323,9 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 		return 0;
 	if((t = readobject(tree)) == nil)
 		return -1;
-	if(c->type != GTree){
-		fprint(2, "load: %H: not tree\n", c->hash);
-		unref(c);
+	if(t->type != GTree){
+		fprint(2, "load: %H: not tree\n", t->hash);
+		unref(t);
 		return -1;
 	}
 	addmeta(v, has, t, dpath, mtime);
