@@ -1401,7 +1401,7 @@ readmeta(Hash *theirs, int ntheirs, Hash *ours, int nours, Meta ***m)
 	return v.nmeta;
 out:
 	osclear(&has);
-	free(*m);
+	free(v.meta);
 	return -1;
 }
 
