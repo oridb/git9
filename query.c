@@ -43,6 +43,7 @@ showdir(Hash dh, char *dname, char m)
 		else
 			print("%c %P%s\n", m, p->name);
 	}
+	print("%c %P\n", m);
 	unref(d);
 	npath--;
 }
@@ -81,7 +82,6 @@ difftrees(Object *a, Object *b)
 		if(c == 0){
 			if(ap->mode == bp->mode && hasheq(&ap->h, &bp->h))
 				goto next;
-
 			if(ap->mode != bp->mode)
 				print("! %P%s\n", ap->name);
 			else if(!(ap->mode & DMDIR) || !(bp->mode & DMDIR))
