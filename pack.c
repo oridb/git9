@@ -561,7 +561,7 @@ readpacked(Biobuf *f, Object *o, int flag)
 	s = 4;
 	t = (c >> 4) & 0x7;
 	if(!t){
-		werrstr("unknown type for byte %x", c);
+		werrstr("unknown type for byte %x at %lld", c, p);
 		return -1;
 	}
 	while(c & 0x80){
