@@ -18,7 +18,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/branch
 [
-.B -adns
+.B -admns
 ]
 [
 .B -b
@@ -363,6 +363,13 @@ option, the branch is created but the files are not checked out.
 When passed the
 .I -d
 option, the branch is deleted.
+.PP
+When switching branches, git/branch will refuse to clobber
+modificiations.
+Passing the
+.I -m
+option will cause git9 to attempt to merge the changes between
+the branches.
 
 .PP
 .B Git/log
