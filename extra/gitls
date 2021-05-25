@@ -20,9 +20,9 @@ fn htcat {
 fn resolveref {
 	if(~ $refname HEAD)
 		echo $refname
-	if not if(test -d /mnt/git/branch/$refname/tree)
+	if not if(test -d $gitfs/branch/$refname/tree)
 		echo branch/$refname
-	if not if(test -d /mnt/git/object/$refname/tree)
+	if not if(test -d $gitfs/object/$refname/tree)
 		echo object/$refname
 	if not
 		status='bad ref'
@@ -87,7 +87,7 @@ case 'tar'
 		echo '<b>invalid ref '$refname'</b>'
 		exit
 	}
-	bind /mnt/git/$ref/tree /mnt/$repo
+	bind $gitfs/$ref/tree /mnt/$repo
 	cd /mnt
 	tar cz $repo
 	}
@@ -120,15 +120,15 @@ case 'info'
 		echo '<b>invalid ref '$refname'</b>'
 		exit
 	}
-	cd /mnt/git/$ref/tree
-	hash=`{cat /mnt/git/$ref/hash}
+	cd $gitfs/$ref/tree
+	hash=`{cat $gitfs/$ref/hash}
 
 	prelude $repo $ref $repo
 	echo '	<h1><a href="/git/repos.html">Git</a>: <a
 		href=/git/'$repo'/'$ref'/info.html>'$repo'</a></h1>
 		<p>'$repo' @ <a href='/git/$repo/$hash/f.html'>'$hash'</a>
 		<pre id="desc">'
-	htcat /mnt/git/object/$hash/msg
+	htcat $gitfs/object/$hash/msg
 	echo '	</pre>
 		<h2>Code</h2>
 		<p>
@@ -175,10 +175,10 @@ case 'view'
 		echo '<b>invalid ref '$refname'</b>'
 		exit
 	}
-	cd /mnt/git/$ref/tree
+	cd $gitfs/$ref/tree
 	if(~ $file '')
 		file='.'
-	hash=`{cat /mnt/git/$ref/hash}
+	hash=`{cat $gitfs/$ref/hash}
 
 	prelude
 	echo '	<h1><a href="/git/repos.html">Git</a>: <a

@@ -13,7 +13,7 @@ deleted=()
 
 if(~ $#* 0){
 	if(~ $#listall 0)
-		awk '$1=="branch"{print $2}' < /mnt/git/ctl
+		awk '$1=="branch"{print $2}' < $gitfs/ctl
 	if not
 		cd .git/refs/ && walk -f heads remotes
 	exit
@@ -95,8 +95,8 @@ for(m in $cleanpaths){
 }
 
 for(ours in $dirtypaths){
-	common=/mnt/git/object/$orig/tree/$ours
-	theirs=/mnt/git/object/$base/tree/$ours
+	common=$gitfs/object/$orig/tree/$ours
+	theirs=$gitfs/object/$base/tree/$ours
 	merge1 $ours $ours $common $theirs
 }
 

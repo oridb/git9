@@ -211,7 +211,7 @@ This suite of
 tools provides a file interface to the
 .I .git
 directory mounted on
-.I /mnt/git.
+.I $repo/.git/fs.
 Modifications to the repository are done directly to the
 .I .git
 directory, and are reflected in the file system interface.
@@ -304,7 +304,7 @@ flag serves repositories relative to
 
 .PP
 .B Git/fs 
-serves a file system on /mnt/git.
+serves a file system on $repo/.git/fs.
 For full documentation, see
 .IR gitfs (4)
 

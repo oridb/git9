@@ -14,9 +14,9 @@ fn apply @{
 	msg=''
 	parents='-p'^`{git/query HEAD}
 	branch=`{git/branch}
-	if(test -e /mnt/git/branch/$branch/tree)
+	if(test -e $gitfs/branch/$branch/tree)
 		refpath=.git/refs/$branch
-	if not if(test -e /mnt/git/object/$branch/tree)
+	if not if(test -e $gitfs/object/$branch/tree)
 		refpath=.git/HEAD
 	if not
 		die 'invalid branch:' $branch

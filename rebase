@@ -72,7 +72,7 @@ while(! ~ $#todo 0){
 		exit
 	case s squash
 		git/export $c | git/import -n
-		msg=`''{cat /mnt/git/HEAD/msg; echo; cat /mnt/git/object/$c/msg}
+		msg=`''{cat $gitfs/HEAD/msg; echo; cat $gitfs/object/$c/msg}
 		git/commit -rem $msg .
 	case f fixup
 		git/export $c | git/import -n

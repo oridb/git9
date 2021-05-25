@@ -154,7 +154,7 @@ main(int argc, char **argv)
 {
 	int i, j, n;
 	Hash *h;
-	char *p, *e, *s;
+	char *p, *e, *s, *objpfx;
 	char query[2048], repo[512];
 
 	ARGBEGIN{
@@ -173,6 +173,8 @@ main(int argc, char **argv)
 		sysfatal("find root: %r");
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
+	if((objpfx = smprint("%s/.git/fs/object/", repo)) == nil)
+		sysfatal("smprint: %r");
 	s = "";
 	p = query;
 	e = query + nelem(query);
@@ -187,7 +189,7 @@ main(int argc, char **argv)
 			sysfatal("diff: need 2 commits, got %d", n);
 		diffcommits(h[0], h[1]);
 	}else{
-		p = (fullpath ? "/mnt/git/object/" : "");
+		p = (fullpath ? objpfx : "");
 		for(j = 0; j < n; j++)
 			print("%s%H\n", p, h[reverse ? n - 1 - j : j]);
 	}

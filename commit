@@ -19,15 +19,15 @@ fn whoami{
 
 fn findbranch{
 	branch=`{git/branch}
-	if(test -e /mnt/git/branch/$branch/tree){
+	if(test -e $gitfs/branch/$branch/tree){
 		refpath=.git/refs/$branch
 		initial=false
 	}
-	if not if(test -e /mnt/git/object/$branch/tree){
+	if not if(test -e $gitfs/object/$branch/tree){
 		refpath=.git/HEAD
 		initial=false
 	}
-	if not if(! test -e /mnt/git/HEAD/tree){
+	if not if(! test -e $gitfs/HEAD/tree){
 		refpath=.git/refs/$branch
 		initial=true
 	}
@@ -79,7 +79,7 @@ fn editmsg{
 
 fn parents{
 	if(! ~ $#revise 0)
-		parents=`{cat /mnt/git/HEAD/parent}
+		parents=`{cat $gitfs/HEAD/parent}
 	if not if(test -f .git/index9/merge-parents)
 		parents=`{cat .git/index9/merge-parents | sort | uniq}
 	if not if(~ $initial true)
@@ -129,8 +129,8 @@ if(~ $#msg 1)
 	echo $msg >$msgfile.tmp
 if not if(~ $#revise 1){
 	msg=1
-	echo revising commit `{cat /mnt/git/HEAD/hash}
-	cat /mnt/git/HEAD/msg >$msgfile.tmp
+	echo revising commit `{cat $gitfs/HEAD/hash}
+	cat $gitfs/HEAD/msg >$msgfile.tmp
 }
 
 files=()

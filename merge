@@ -3,9 +3,9 @@ rfork ne
 . /sys/lib/git/common.rc
 
 fn merge{
-	ourbr=/mnt/git/object/$1/tree
-	basebr=/mnt/git/object/$2/tree
-	theirbr=/mnt/git/object/$3/tree
+	ourbr=$gitfs/object/$1/tree
+	basebr=$gitfs/object/$2/tree
+	theirbr=$gitfs/object/$3/tree
 
 	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | \
 		subst -g '^('$ourbr'|'$basebr'|'$theirbr')/*' | sort | uniq}

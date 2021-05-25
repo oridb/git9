@@ -31,7 +31,7 @@ for(f in $files){
 		# git/walk doesn't think this came from
 		# a checkout.
 		if(! test -e $addpath)
-			if(~ $add 'tracked' || test -e /mnt/git/HEAD/tree/$f)
+			if(~ $add 'tracked' || test -e $gitfs/HEAD/tree/$f)
 				touch $addpath
 		rm -f $delpath
 	}

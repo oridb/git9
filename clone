@@ -23,6 +23,7 @@ if(test -e $local)
 fn clone{
 	flag +e
 	mkdir -p $local/.git
+	mkdir -p $local/.git/fs
 	mkdir -p $local/.git/objects/pack/
 	mkdir -p $local/.git/refs/heads/
 	
@@ -76,7 +77,7 @@ fn clone{
 		}
 	'} |[3] tr '\x0d' '\x0a' || die 'could not clone repository'
 
-	tree=/mnt/git/HEAD/tree
+	tree=.git/fs/HEAD/tree
 	lbranch=`{git/branch}
 	rbranch=`{echo $lbranch | subst '^heads' 'remotes/origin'}
 	echo checking out repository...

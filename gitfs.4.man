@@ -20,7 +20,7 @@ Git/fs serves a file system interface to a git repository in the
 current directory.
 This file system provides a read-only view into the repository contents.
 By default, it is mounted on
-.B /mnt/git.
+.B $repo/.git/fs.
 It does not cache mutable data, so any changes to the git repository will immediately be reflected in git/fs.
 
 .PP
@@ -83,7 +83,7 @@ The git repository being expected.
 .B .git/HEAD
 A reference to the current HEAD.
 Used to populate
-.B /mnt/git/HEAD
+.B $repo/.git/fs/HEAD
 .TP
 .git/config
 The per-repository configuation for git tools.

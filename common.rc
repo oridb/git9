@@ -75,14 +75,17 @@ fn gitup{
 	gitroot=`{git/conf -r >[2]/dev/null}
 	if(~ $#gitroot 0)
 		die 'not a git repository'
+	gitfs=$gitroot/.git/fs
 	gitrel=`{pwd | subst '^'$"gitroot'/?'}
 	if(~ $#gitrel 0)
 		gitrel='.'
 	cd $gitroot
 	startfs=()
-	if(! test -e /mnt/git/ctl)
+	if(! test -d $gitfs)
+		mkdir -p $gitfs
+	if(! test -e $gitfs/ctl)
 		startfs=true
-	if(! grep -s '^repo '$gitroot'$' /mnt/git/ctl >[2]/dev/null)
+	if(! grep -s '^repo '$gitroot'$' $gitfs/ctl >[2]/dev/null)
 		startfs=true
 	if(~ $#startfs 1)
 		git/fs

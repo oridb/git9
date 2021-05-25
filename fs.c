@@ -79,7 +79,7 @@ char *qroot[] = {
 
 char	gitdir[512];
 char	*username;
-char	*mtpt = "/mnt/git";
+char	*mntpt = ".git/fs";
 char	**branches = nil;
 Cache	uqidcache[512];
 vlong	nextqid = Qmax;
@@ -839,8 +839,15 @@ main(int argc, char **argv)
 {
 	gitinit();
 	ARGBEGIN{
-	case 'd':	chatty9p++;	break;
-	default:	usage();	break;
+	case 'd':
+		chatty9p++;
+		break;
+	case 'm':
+		mntpt = EARGF(usage());
+		break;
+	default:
+		usage();
+		break;
 	}ARGEND;
 	if(argc != 0)
 		usage();
@@ -848,6 +855,6 @@ main(int argc, char **argv)
 	username = getuser();
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
-	postmountsrv(&gitsrv, nil, "/mnt/git", MCREATE);
+	postmountsrv(&gitsrv, nil, mntpt, MCREATE);
 	exits(nil);
 }

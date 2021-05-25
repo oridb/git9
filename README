@@ -54,22 +54,22 @@ And start committing!
 Structure
 ---------
 
-The git/fs program provides a file system mounted on /mnt/git.  It
-provides a read-only view into the repository contents to allow
+The git/fs program provides a file system mounted on $repo/.git/fs.
+It provides a read-only view into the repository contents to allow
 scripts to inspect the data.  Surrounding scripts and binaries will
 manipulate the repository contents directly.  These changes will be
 immediately mirrored in the file system.
 
 Scripts will generally mount git/fs as needed to do
 their work, but if you want to browse the repository
-manually, run it yourself. You'll get `/mnt/git` mounted,
+manually, run it yourself. You'll get `$repo/.git/fs` mounted,
 with the following contents:
 
-	/mnt/git/object:	The objects in the repo.
-	/mnt/git/branch:	The branches in the repo.
-	/mnt/git/ctl:		A file showing the status of the repo.
+	$repo/.git/fs/object:	The objects in the repo.
+	$repo/.git/fs/branch:	The branches in the repo.
+	$repo/.git/fs/ctl:		A file showing the status of the repo.
 				Currently, it only shows the current branch.
-	/mnt/git/HEAD		An alias for the currently checked out
+	$repo/.git/fs/HEAD		An alias for the currently checked out
 				commit directory.
 
 Visible Differences
@@ -104,7 +104,7 @@ Some usage examples:
 	git/log
 	cd subdir/name
 	git/add foo.c
-	diff bar.c /mnt/git/HEAD/
+	diff bar.c $repo/.git/fs/HEAD/
 	git/commit foo.c
 	git/push
 
@@ -119,30 +119,30 @@ contents:
 
 So, for example:
 
-	% ls /mnt/git/branch/heads/master
-	/mnt/git/branch/heads/master/author
-	/mnt/git/branch/heads/master/hash
-	/mnt/git/branch/heads/master/msg
-	/mnt/git/branch/heads/master/parent
-	/mnt/git/branch/heads/master/tree
-	% cat /mnt/git/branch/heads/master/hash
+	% ls $repo/.git/fs/branch/heads/master
+	$repo/.git/fs/branch/heads/master/author
+	$repo/.git/fs/branch/heads/master/hash
+	$repo/.git/fs/branch/heads/master/msg
+	$repo/.git/fs/branch/heads/master/parent
+	$repo/.git/fs/branch/heads/master/tree
+	% cat $repo/.git/fs/branch/heads/master/hash
 	7d539a7c08aba3f31b3913e0efef11c43ea9
 
 	# This is the same commit, with the same contents.
-	% ls /mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef
-	/mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/author
-	/mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/hash
-	/mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/msg
-	/mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/parent
-	/mnt/git/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/tree
+	% ls $repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef
+	$repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/author
+	$repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/hash
+	$repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/msg
+	$repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/parent
+	$repo/.git/fs/object/7d539a7c08aba3f31b3913e0efef11c43ea9f9ef/tree
 
 	# what git/diff will hopefully do more concisely soon, filtering
 	# out the non-git files.
-	ape/diff -ur /mnt/git/branch/heads/master/tree .
+	ape/diff -ur $repo/.git/fs/branch/heads/master/tree .
 	Only in .: .git
 	Only in .: debug
-	diff -ur /mnt/git/branch/heads/master/tree/fold.myr ./fold.myr
-	--- /mnt/git/branch/heads/master/tree/fold.myr	Wed Dec 31 16:00:00 1969
+	diff -ur $repo/.git/fs/branch/heads/master/tree/fold.myr ./fold.myr
+	--- $repo/.git/fs/branch/heads/master/tree/fold.myr	Wed Dec 31 16:00:00 1969
 	+++ ./fold.myr	Mon Apr  1 21:39:06 2019
 	@@ -6,6 +6,8 @@
 	 	const foldexpr : (e : expr# -> std.option(constval))

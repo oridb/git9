@@ -7,7 +7,7 @@ gitup
 flagfmt='c:query query' args='file ...'
 eval `''{aux/getflags $*} || exec aux/usage
 
-commit=/mnt/git/HEAD
+commit=$gitfs/HEAD
 if(~ $#query 1)
 	commit=`{git/query -p $query}
 

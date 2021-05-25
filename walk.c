@@ -5,7 +5,7 @@
 #define NCACHE 4096
 #define TDIR ".git/index9/tracked"
 #define RDIR ".git/index9/removed"
-#define HDIR "/mnt/git/HEAD/tree"
+#define HDIR ".git/fs/HEAD/tree"
 typedef struct Cache	Cache;
 typedef struct Wres	Wres;
 struct Cache {
@@ -246,16 +246,14 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND
 
-	if(access("/mnt/git/ctl", AEXIST) != 0)
-		sysfatal("no running git/fs");
 	if(findrepo(repo, sizeof(repo)) == -1)
 		sysfatal("find root: %r");
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
+	if(access(".git/fs/ctl", AEXIST) != 0)
+		sysfatal("no running git/fs");
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
-	if(access("/mnt/git/ctl", AEXIST) != 0)
-		sysfatal("git/fs does not seem to be running");
 	if(printflg == 0)
 		printflg = Tflg | Aflg | Mflg | Rflg;
 	if(argc == 0){
