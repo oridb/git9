@@ -63,32 +63,38 @@ if(~ $new */*)
 echo $commit > .git/$new
 if(! ~ $#stay 0)
 	exit
-
 basedir=`{git/query -p $base}
 dirtypaths=()
 cleanpaths=($modified $deleted)
+cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
 if(! ~ $#modified 0 || ! ~ $#deleted 0)
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
 if(! ~ $#dirtypaths 0){
 	x=$nl^$cleanpaths
 	y=$nl^$dirtypaths
 	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
+	cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
+}
+if(! ~ $#cleandirs 0){
+	mkdir -p $cleandirs
+	mkdir -p .git/index9/tracked/$cleandirs
 }
 for(m in $cleanpaths){
-	d=`{basename -d $m}
-	mkdir -p $d
-	mkdir -p .git/index9/tracked/$d
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
 	# need to delete and copy the files
 	# over.
-	a=`{test -f $m && echo file || echo dir}
-	b=`{test -f $basedir/tree/$m && echo file || echo dir}
+	a=dir
+	b=dir
+	if(test -f $m)
+		a=file
+	if(test -f $basedir/tree/$m)
+		a=file
 	if(! ~ $a $b){
 		rm -rf $m
 		rm -rf .git/index9/tracked/$m
 	}
-	if(test -f $basedir/tree/$m){
+	if(~ $b file){
 		cp  $basedir/tree/$m $m
 		walk -eq $m > .git/index9/tracked/$m
 	}
