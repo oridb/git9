@@ -81,8 +81,6 @@ if(! ~ $#cleandirs 0){
 	mkdir -p $cleandirs
 	mkdir -p .git/index9/tracked/$cleandirs
 }
-echo clean: $#clean
-echo dirty: $#dirty
 for(m in $cleanpaths){
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
