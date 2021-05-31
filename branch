@@ -66,10 +66,8 @@ if(! ~ $#stay 0)
 basedir=`{git/query -p $base}
 dirtypaths=()
 cleanpaths=($modified $deleted)
-if(! ~ $#modified 0 || ! ~ $#deleted 0){
-	echo WUT
+if(! ~ $#modified 0 || ! ~ $#deleted 0)
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
-}
 if(! ~ $#dirtypaths 0){
 	x=$nl^$cleanpaths
 	y=$nl^$dirtypaths
