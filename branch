@@ -66,19 +66,23 @@ if(! ~ $#stay 0)
 basedir=`{git/query -p $base}
 dirtypaths=()
 cleanpaths=($modified $deleted)
-cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
-if(! ~ $#modified 0 || ! ~ $#deleted 0)
+if(! ~ $#modified 0 || ! ~ $#deleted 0){
+	echo WUT
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
+}
 if(! ~ $#dirtypaths 0){
 	x=$nl^$cleanpaths
 	y=$nl^$dirtypaths
 	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
-	cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
 }
+if(! ~ $#cleanpaths 0)
+	cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
 if(! ~ $#cleandirs 0){
 	mkdir -p $cleandirs
 	mkdir -p .git/index9/tracked/$cleandirs
 }
+echo clean: $#clean
+echo dirty: $#dirty
 for(m in $cleanpaths){
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
@@ -89,7 +93,7 @@ for(m in $cleanpaths){
 	if(test -f $m)
 		a=file
 	if(test -f $basedir/tree/$m)
-		a=file
+		b=file
 	if(! ~ $a $b){
 		rm -rf $m
 		rm -rf .git/index9/tracked/$m
