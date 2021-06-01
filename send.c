@@ -4,11 +4,18 @@
 #include "git.h"
 
 typedef struct Capset	Capset;
+typedef struct Map	Map;
 
 struct Capset {
 	int	sideband;
 	int	sideband64k;
 	int	report;
+};
+
+struct Map {
+	char	*ref;
+	Hash	ours;
+	Hash	theirs;
 };
 
 int sendall;
@@ -24,9 +31,18 @@ int
 findref(char **r, int nr, char *ref)
 {
 	int i;
-
 	for(i = 0; i < nr; i++)
 		if(strcmp(r[i], ref) == 0)
+			return i;
+	return -1;
+}
+
+int
+findkey(Map *m, int nm, char *ref)
+{
+	int i;
+	for(i = 0; i < nm; i++)
+		if(strcmp(m[i].ref, ref) == 0)
 			return i;
 	return -1;
 }
@@ -101,17 +117,27 @@ parsecaps(char *caps, Capset *cs)
 int
 sendpack(Conn *c)
 {
-	int i, n, idx, nupd, nsp, send, first;
+	int i, n, idx, nsp, send, first;
+	int nours, ntheirs, nmap;
 	char buf[Pktmax], *sp[3];
 	Hash h, *theirs, *ours;
 	Object *a, *b, *p;
 	char **refs;
 	Capset cs;
+	Map *map, *m;
 
 	first = 1;
 	memset(&cs, 0, sizeof(Capset));
-	nupd = readours(&ours, &refs);
-	theirs = eamalloc(nupd, sizeof(Hash));
+	nours = readours(&ours, &refs);
+	theirs = nil;
+	ntheirs = 0;
+	nmap = nours;
+	map = eamalloc(nmap, sizeof(Map));
+	for(i = 0; i < nmap; i++){
+		map[i].ours = ours[i];
+		map[i].theirs = Zhash;
+		map[i].ref = refs[i];
+	}
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
@@ -126,10 +152,12 @@ sendpack(Conn *c)
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\r\n") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
-		if((idx = findref(refs, nupd, sp[1])) == -1)
-			continue;
-		if(hparse(&theirs[idx], sp[0]) == -1)
+		theirs = earealloc(theirs, ntheirs+1, sizeof(Hash));
+		if(hparse(&theirs[ntheirs], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
+		if((idx = findkey(map, nmap, sp[1])) != -1)
+			map[idx].theirs = theirs[ntheirs];
+		ntheirs++;
 	}
 
 	if(writephase(c) == -1)
@@ -137,13 +165,17 @@ sendpack(Conn *c)
 	send = 0;
 	if(force)
 		send=1;
-	for(i = 0; i < nupd; i++){
-		a = readobject(theirs[i]);
-		b = hasheq(&ours[i], &Zhash) ? nil : readobject(ours[i]);
+	for(i = 0; i < nmap; i++){
+		m = &map[i];
+		a = readobject(m->theirs);
+		if(hasheq(&m->ours, &Zhash))
+			b = nil;
+		else
+			b = readobject(m->ours);
 		p = nil;
 		if(a != nil && b != nil)
 			p = ancestor(a, b);
-		if(!force && !hasheq(&theirs[i], &Zhash) && (a == nil || p != a)){
+		if(!force && !hasheq(&m->theirs, &Zhash) && (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("force needed");
 			flushpkt(c);
@@ -152,12 +184,12 @@ sendpack(Conn *c)
 		unref(a);
 		unref(b);
 		unref(p);
-		if(hasheq(&theirs[i], &ours[i])){
-			print("uptodate %s\n", refs[i]);
+		if(hasheq(&m->theirs, &m->ours)){
+			print("uptodate %s\n", m->ref);
 			continue;
 		}
-		print("update %s %H %H\n", refs[i], theirs[i], ours[i]);
-		n = snprint(buf, sizeof(buf), "%H %H %s", theirs[i], ours[i], refs[i]);
+		print("update %s %H %H\n", m->ref, m->theirs, m->ours);
+		n = snprint(buf, sizeof(buf), "%H %H %s", m->theirs, m->ours, m->ref);
 
 		/*
 		 * Workaround for github.
@@ -183,7 +215,7 @@ sendpack(Conn *c)
 		return 0;
 	}
 
-	if(writepack(c->wfd, ours, nupd, theirs, nupd, &h) == -1)
+	if(writepack(c->wfd, ours, nours, theirs, ntheirs, &h) == -1)
 		return -1;
 	if(!cs.report)
 		return 0;

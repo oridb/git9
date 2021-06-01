@@ -1326,7 +1326,7 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 	if(t->type != GTree){
 		fprint(2, "load: %H: not tree\n", t->hash);
 		unref(t);
-		return -1;
+		return 0;
 	}
 	addmeta(v, has, t, dpath, mtime);
 	for(i = 0; i < t->tree->nent; i++){
@@ -1363,7 +1363,7 @@ loadcommit(Metavec *v, Objset *has, Hash h)
 	if(c->type != GCommit){
 		fprint(2, "load: %H: not commit\n", c->hash);
 		unref(c);
-		return -1;
+		return 0;
 	}
 	addmeta(v, has, c, "", c->commit->ctime);
 	r = loadtree(v, has, c->commit->tree, "", c->commit->ctime);
