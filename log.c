@@ -119,7 +119,7 @@ filtermatch(Object *o)
 		if(r)
 			return 1;
 	}
-	return 0;
+	return o->commit->nparent == 0;
 }
 
 
