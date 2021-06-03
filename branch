@@ -74,7 +74,7 @@ if(! ~ $#dirtypaths 0){
 	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
 }
 if(! ~ $#cleanpaths 0)
-	cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
+	cleandirs=`$nl{{for(p in $cleanpaths) basename -d $p} | uniq}
 if(! ~ $#cleandirs 0){
 	mkdir -p $cleandirs
 	mkdir -p .git/index9/tracked/$cleandirs
