@@ -75,16 +75,11 @@ if(! ~ $#dirtypaths 0){
 	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
 }
 
-# creating the dirs with a single
-# batch mkdir was significantly faster.
-if(! ~ $#cleanpaths 0)
-	cleandirs=`$nl{for(p in $cleanpaths) basename -d $p | uniq -u}
-if(! ~ $#cleandirs 0){
-	mkdir -p $cleandirs
-	mkdir -p .git/index9/tracked/$cleandirs
-}
 echo $commit > .git/$new
 for(m in $cleanpaths){
+	d=`$nl{basename -d $m}
+	mkdir -p $d
+	mkdir -p .git/index9/tracked/$d
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
 	# need to delete and copy the files
