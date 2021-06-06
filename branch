@@ -74,8 +74,11 @@ if(! ~ $#dirtypaths 0){
 	y=$nl^$dirtypaths
 	cleanpaths=`$nl{echo $"x$nl$"y | sort | uniq -u}
 }
+
+# creating the dirs with a single
+# batch mkdir was significantly faster.
 if(! ~ $#cleanpaths 0)
-	cleandirs=`$nl{echo $nl^$cleanpaths | sed 's@/[^/]+/?$@@' | uniq}
+	cleandirs=`$nl{for(p in $cleanpaths) basename -d $p | uniq -u}
 if(! ~ $#cleandirs 0){
 	mkdir -p $cleandirs
 	mkdir -p .git/index9/tracked/$cleandirs
