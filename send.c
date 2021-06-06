@@ -121,7 +121,7 @@ sendpack(Conn *c)
 	int nours, ntheirs, nmap;
 	char buf[Pktmax], *sp[3];
 	Hash h, *theirs, *ours;
-	Object *a, *b, *p;
+	Object *a, *b, *p, *o;
 	char **refs;
 	Capset cs;
 	Map *map, *m;
@@ -155,9 +155,12 @@ sendpack(Conn *c)
 		theirs = earealloc(theirs, ntheirs+1, sizeof(Hash));
 		if(hparse(&theirs[ntheirs], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if((idx = findkey(map, nmap, sp[1])) != -1)
-			map[idx].theirs = theirs[ntheirs];
-		ntheirs++;
+		if((o = readobject(theirs[ntheirs])) != nil){
+			if((idx = findkey(map, nmap, sp[1])) != -1)
+				map[idx].theirs = theirs[ntheirs];
+			ntheirs++;
+			unref(o);
+		}
 	}
 
 	if(writephase(c) == -1)
