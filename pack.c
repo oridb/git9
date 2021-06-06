@@ -1000,7 +1000,8 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 	retried = 0;
 retry:
 	for(i = 0; i < npackf; i++){
-		if((o = searchindex(packf[i].idx, packf[i].nidx, h)) != -1){
+		o = searchindex(packf[i].idx, packf[i].nidx, h);
+		if(o != -1){
 			if((f = openpack(&packf[i])) == nil)
 				goto error;
 			if((r = Bseek(f, o, 0)) != -1)

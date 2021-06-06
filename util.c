@@ -67,7 +67,8 @@ eamalloc(ulong n, ulong sz)
 	uvlong na;
 	void *v;
 
-	if((na = (uvlong)n*(uvlong)sz) >= (1ULL<<30))
+	na = (uvlong)n*(uvlong)sz;
+	if(na >= (1ULL<<30))
 		sysfatal("alloc: overflow");
 	v = mallocz(na, 1);
 	if(v == nil)
@@ -94,7 +95,8 @@ earealloc(void *p, ulong n, ulong sz)
 	uvlong na;
 	void *v;
 
-	if((na = (uvlong)n*(uvlong)sz) >= (1ULL<<30))
+	na = (uvlong)n*(uvlong)sz;
+	if(na >= (1ULL<<30))
 		sysfatal("alloc: overflow");
 	v = realloc(p, na);
 	if(v == nil)
