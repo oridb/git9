@@ -12,7 +12,7 @@ if(~ $#commit 0)
 
 files=()
 if(! ~ $#* 0)
-	files=`{cleanname $gitrel/$*}
+	files=`{cleanname -d $gitrel $*}
 
 branch=`{git/query -p $commit}
 if(~ $summarize 1){

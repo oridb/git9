@@ -135,7 +135,7 @@ if not if(~ $#revise 1){
 
 files=()
 if(! ~ $#* 0)
-	files=`$nl{git/walk -c `$nl{cleanname $gitrel/$*}}
+	files=`$nl{git/walk -c `$nl{cleanname -d $gitrel $*}}
 if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents && ~ $#revise 0)
 	die 'nothing to commit' $status
 @{

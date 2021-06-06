@@ -51,12 +51,6 @@ install:V:
 		mk $MKFLAGS $i.install
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
-	cp git.1.man /sys/man/1/git
-	cp gitfs.4.man /sys/man/4/gitfs
-	cp common.rc /sys/lib/git/common.rc
-
-uninstall:V:
-	rm -rf $BIN /sys/lib/git /sys/man/1/git /sys/man/4/gitfs
 
 %.rcinstall:V:
 	cp $stem $BIN/$stem

@@ -285,11 +285,29 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
 		dprint(1, "exec ssh '%s' '%s' %s\n", host, cmd, path);
 		execl("/bin/ssh", "ssh", host, cmd, path, nil);
-	}else{
-		close(pfd[0]);
-		c->type = ConnSsh;
-		c->rfd = pfd[1];
-		c->wfd = dup(pfd[1], -1);
+		sysfatal("exec: %r");
+	}
+	close(pfd[0]);
+	c->type = ConnSsh;
+	c->rfd = pfd[1];
+	c->wfd = dup(pfd[1], -1);
+	return 0;
+}
+
+static int
+githandshake(Conn *c, char *host, char *path, char *direction)
+{
+	char *p, *e, cmd[512];
+
+	p = cmd;
+	e = cmd + sizeof(cmd);
+	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
+	if(host != nil)
+		p = seprint(p + 1, e, "host=%s", host);
+	if(writepkt(c, cmd, p - cmd + 1) == -1){
+		fprint(2, "failed to write message\n");
+		closeconn(c);
+		return -1;
 	}
 	return 0;
 }
@@ -297,7 +315,7 @@ dialssh(Conn *c, char *host, char *, char *path, char *direction)
 static int
 dialhjgit(Conn *c, char *host, char *port, char *path, char *direction, int auth)
 {
-	char *ds, *p, *e, cmd[512];
+	char *ds;
 	int pid, pfd[2];
 
 	if((ds = netmkaddr(host, "tcp", port)) == nil)
@@ -317,51 +335,12 @@ dialhjgit(Conn *c, char *host, char *port, char *path, char *direction, int auth
 		else
 			execl("/bin/tlsclient", "tlsclient", ds, nil);
 		sysfatal("exec: %r");
-	}else{
-		close(pfd[0]);
-		p = cmd;
-		e = cmd + sizeof(cmd);
-		p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
-		p = seprint(p + 1, e, "host=%s", host);
-		c->type = ConnGit9;
-		c->rfd = pfd[1];
-		c->wfd = dup(pfd[1], -1);
-		if(writepkt(c, cmd, p - cmd + 1) == -1){
-			fprint(2, "failed to write message\n");
-			close(c->rfd);
-			close(c->wfd);
-			return -1;
-		}
 	}
-	return 0;
-}
-
-
-static int
-dialgit(Conn *c, char *host, char *port, char *path, char *direction)
-{
-	char *ds, *p, *e, cmd[512];
-	int fd;
-
-	if((ds = netmkaddr(host, "tcp", port)) == nil)
-		return -1;
-	dprint(1, "dial %s git-%s-pack %s\n", ds, direction, path);
-	fd = dial(ds, nil, nil, nil);
-	if(fd == -1)
-		return -1;
-	p = cmd;
-	e = cmd + sizeof(cmd);
-	p = seprint(p, e - 1, "git-%s-pack %s", direction, path);
-	p = seprint(p + 1, e, "host=%s", host);
-	c->type = ConnGit;
-	c->rfd = fd;
-	c->wfd = dup(fd, -1);
-	if(writepkt(c, cmd, p - cmd + 1) == -1){
-		fprint(2, "failed to write message\n");
-		close(fd);
-		return -1;
-	}
-	return 0;
+	close(pfd[0]);
+	c->type = ConnGit9;
+	c->rfd = pfd[1];
+	c->wfd = dup(pfd[1], -1);
+	return githandshake(c, host, path, direction);
 }
 
 void
@@ -372,18 +351,81 @@ initconn(Conn *c, int rd, int wr)
 	c->wfd = wr;
 }
 
+static int
+dialgit(Conn *c, char *host, char *port, char *path, char *direction)
+{
+	char *ds;
+	int fd;
+
+	if((ds = netmkaddr(host, "tcp", port)) == nil)
+		return -1;
+	dprint(1, "dial %s git-%s-pack %s\n", ds, direction, path);
+	fd = dial(ds, nil, nil, nil);
+	if(fd == -1)
+		return -1;
+	c->type = ConnGit;
+	c->rfd = fd;
+	c->wfd = dup(fd, -1);
+	return githandshake(c, host, path, direction);
+}
+
+static int
+servelocal(Conn *c, char *path, char *direction)
+{
+	int pid, pfd[2];
+
+	if(pipe(pfd) == -1)
+		sysfatal("unable to open pipe: %r");
+	pid = fork();
+	if(pid == -1)
+		sysfatal("unable to fork");
+	if(pid == 0){
+		close(pfd[1]);
+		dup(pfd[0], 0);
+		dup(pfd[0], 1);
+		execl("/bin/git/serve", "serve", "-w", nil);
+		sysfatal("exec: %r");
+	}
+	close(pfd[0]);
+	c->type = ConnGit;
+	c->rfd = pfd[1];
+	c->wfd = dup(pfd[1], -1);
+	return githandshake(c, nil, path, direction);
+}
+
+static int
+localrepo(char *uri, char *path, int npath)
+{
+	int fd;
+
+	snprint(path, npath, "%s/.git/../", uri);
+	fd = open(path, OREAD);
+	if(fd < 0)
+		return -1;
+	if(fd2path(fd, path, npath) != 0){
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 int
 gitconnect(Conn *c, char *uri, char *direction)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
 
+	memset(c, 0, sizeof(Conn));
+	c->rfd = c->wfd = c->cfd = -1;
+
+	if(localrepo(uri, path, sizeof(path)) == 0)
+		return servelocal(c, path, direction);
+
 	if(parseuri(uri, proto, host, port, path, repo) == -1){
 		werrstr("bad uri %s", uri);
 		return -1;
 	}
-
-	memset(c, 0, sizeof(Conn));
 	if(strcmp(proto, "ssh") == 0)
 		return dialssh(c, host, port, path, direction);
 	else if(strcmp(proto, "git") == 0)

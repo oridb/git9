@@ -5,8 +5,7 @@
 
 #include "git.h"
 
-char	*pathpfx = "/usr/git";
-char	*namespace = nil;
+char	*pathpfx = nil;
 int	allowwrite;
 
 int
@@ -498,7 +497,6 @@ void
 main(int argc, char **argv)
 {
 	char *repo, cmd[32], buf[512];
-	char *user;
 	Conn c;
 
 	ARGBEGIN{
@@ -510,9 +508,6 @@ main(int argc, char **argv)
 		if(*pathpfx != '/')
 			sysfatal("path prefix must begin with '/'");
 		break;
-	case 'n':
-		namespace=EARGF(usage());
-		break;
 	case 'w':
 		allowwrite++;
 		break;
@@ -522,14 +517,13 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	gitinit();
-	user = "none";
 	interactive = 0;
-	if(allowwrite)
-		user = getuser();
-	if(newns(user, namespace) == -1)
-		sysfatal("addns: %r");
-	if(bind(pathpfx, "/", MREPL) == -1)
-		sysfatal("bind: %r");
+	if(rfork(RFNAMEG) == -1)
+		sysfatal("rfork: %r");
+	if(pathpfx != nil){
+		if(bind(pathpfx, "/", MREPL) == -1)
+			sysfatal("bind: %r");
+	}
 	if(rfork(RFNOMNT) == -1)
 		sysfatal("rfork: %r");
 

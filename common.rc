@@ -40,12 +40,13 @@ fn present {
 }
 
 # merge1 out theirs base ours
-fn merge1 {
+fn merge1 {@{
+	rfork e
 	n=$pid
 	out=$1
-	theirs=$2
+	ours=$2
 	base=$3
-	ours=$4
+	theirs=$4
 	tmp=$out.tmp
 	while(test -f $tmp){
 		tmp=$tmp.$n
@@ -59,7 +60,7 @@ fn merge1 {
 	if(! test -f $theirs)
 		theirs=/dev/null
 	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
-		echo merge needed: $out
+		echo merge needed: $out >[1=2]
 
 	if(present $ours $base $theirs){
 		mv $tmp $out
@@ -69,7 +70,7 @@ fn merge1 {
 		rm -f $tmp $out
 		git/rm $out
 	}
-}
+}}
 
 fn gitup{
 	gitroot=`{git/conf -r >[2]/dev/null}

@@ -345,18 +345,25 @@ void
 main(int argc, char **argv)
 {
 	Hash th, ch, parents[Maxparents];
-	char *msg, *name, *email, *dstr;
-	int i, r, nparents;
+	char *msg, *name, *email, *dstr, cwd[1024];
+	int i, r, ncwd, nparents;
 	vlong date;
 	Object *t;
 
+	gitinit();
+	gitinit();
+	if(access(".git", AEXIST) != 0)
+		sysfatal("could not find git repo: %r");
+	if(getwd(cwd, sizeof(cwd)) == nil)
+		sysfatal("getcwd: %r");
 	msg = nil;
 	name = nil;
 	email = nil;
 	dstr = nil;
 	date = time(nil);
 	nparents = 0;
-	gitinit();
+	ncwd = strlen(cwd);
+
 	ARGBEGIN{
 	case 'm':	msg = EARGF(usage());	break;
 	case 'n':	name = EARGF(usage());	break;
@@ -385,12 +392,14 @@ main(int argc, char **argv)
 	}
 	if(msg == nil || name == nil)
 		usage();
-	for(i = 0; i < argc; i++)
+	for(i = 0; i < argc; i++){
 		cleanname(argv[i]);
+		if(*argv[i] == '/' && strncmp(argv[i], cwd, ncwd) == 0)
+			argv[i] += ncwd;
+		while(*argv[i] == '/')
+			argv[i]++;
+	}
 
-	gitinit();
-	if(access(".git", AEXIST) != 0)
-		sysfatal("could not find git repo: %r");
 	t = findroot();
 	r = treeify(t, argv, argv + argc, 0, &th);
 	if(r == -1)
