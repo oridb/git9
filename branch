@@ -37,6 +37,15 @@ if not if(test -e .git/$new)
 if not
 	base=`{git/query HEAD}
 
+if(~ $#newbr 0){
+	if(! ~ $#baseref 0)
+		die update would clobber $branch with $baseref
+	baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
+	echo $baseref
+	if(! test -e .git/$new)
+		if(! base=`{git/query $baseref})
+			die could not find branch $branch
+}
 modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
@@ -48,14 +57,6 @@ if(~ $delete 1){
 	rm -f .git/$new
 	echo 'deleted branch' $new
 	exit
-}
-if(~ $#newbr 0){
-	if(! ~ $#baseref 0)
-		die update would clobber $branch with $baseref
-	baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
-	if(! test -e .git/$new)
-		if(! base=`{git/query $baseref})
-			die could not find branch $branch
 }
 commit=`{git/query $base} || die 'branch does not exist:' $base
 if(~ $new */*)
@@ -99,8 +100,10 @@ for(m in $cleanpaths){
 		rm -rf .git/index9/tracked/$m
 	}
 	if(~ $b file){
-		cp  $basedir/tree/$m $m
-		walk -eq $m > .git/index9/tracked/$m
+		if(cp -x -- $basedir/tree/$m $m)
+			walk -eq $m > .git/index9/tracked/$m
+		if not
+			echo -n > .git/index9/tracked/$m
 	}
 }
 

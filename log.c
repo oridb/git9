@@ -282,7 +282,7 @@ void
 main(int argc, char **argv)
 {
 	char path[1024], repo[1024], *p, *r;
-	int i;
+	int i, nrepo;
 
 	ARGBEGIN{
 	case 'e':
@@ -301,15 +301,21 @@ main(int argc, char **argv)
 
 	if(findrepo(repo, sizeof(repo)) == -1)
 		sysfatal("find root: %r");
+	nrepo = strlen(repo);
 	if(argc != 0){
 		if(getwd(path, sizeof(path)) == nil)
 			sysfatal("getwd: %r");
-		if(strlen(path) < strlen(repo))
-			sysfatal("path changed");
-		p = path + strlen(repo);
+		if(strncmp(path, repo, nrepo) != 0)
+			sysfatal("path shifted??");
+		p = path + nrepo;
 		pathfilt = emalloc(sizeof(Pfilt));
 		for(i = 0; i < argc; i++){
-			r = smprint("./%s/%s", p, argv[i]);
+			if(*argv[i] == '/'){
+				if(strncmp(argv[i], repo, nrepo) != 0)
+					continue;
+				r = smprint("./%s", argv[i]+nrepo);
+			}else
+				r = smprint("./%s/%s", p, argv[i]);
 			cleanname(r);
 			filteradd(pathfilt, r);
 			free(r);

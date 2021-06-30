@@ -79,6 +79,7 @@ char *qroot[] = {
 
 char	gitdir[512];
 char	*username;
+char	*groupname;
 char	*mntpt = ".git/fs";
 char	**branches = nil;
 Cache	uqidcache[512];
@@ -164,7 +165,7 @@ obj2dir(Dir *d, Crumb *c, Object *o, char *name)
 	d->mode = c->mode;
 	d->name = estrdup9p(name);
 	d->uid = estrdup9p(username);
-	d->gid = estrdup9p(username);
+	d->gid = estrdup9p(groupname);
 	d->muid = estrdup9p(username);
 	if(o->type == GBlob || o->type == GTag){
 		d->qid.type = 0;
@@ -188,7 +189,7 @@ rootgen(int i, Dir *d, void *p)
 	d->qid.type = strcmp(qroot[i], "ctl") == 0 ? 0 : QTDIR;
 	d->qid.path = qpath(nil, i, i, Qroot);
 	d->uid = estrdup9p(username);
-	d->gid = estrdup9p(username);
+	d->gid = estrdup9p(groupname);
 	d->muid = estrdup9p(username);
 	d->mtime = c->mtime;
 	return 0;
@@ -210,7 +211,7 @@ branchgen(int i, Dir *d, void *p)
 	d->qid.path = qpath(c, i, branchid(aux, aux->refpath), Qbranch | Internal);
 	d->mode = 0555 | DMDIR;
 	d->uid = estrdup9p(username);
-	d->gid = estrdup9p(username);
+	d->gid = estrdup9p(groupname);
 	d->muid = estrdup9p(username);
 	d->mtime = c->mtime;
 	d->atime = c->mtime;
@@ -251,11 +252,10 @@ gtreegen(int i, Dir *d, void *p)
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = qpath(c, i, o->id, aux->qdir);
 	d->mode = m;
-	d->mode |= (o->type == GTree) ? 0755 : 0644;
 	d->atime = c->mtime;
 	d->mtime = c->mtime;
 	d->uid = estrdup9p(username);
-	d->gid = estrdup9p(username);
+	d->gid = estrdup9p(groupname);
 	d->muid = estrdup9p(username);
 	d->name = estrdup9p(e->tree->ent[i].name);
 	d->length = o->size;
@@ -271,7 +271,7 @@ gcommitgen(int i, Dir *d, void *p)
 	c = crumb(p, 0);
 	o = c->obj;
 	d->uid = estrdup9p(username);
-	d->gid = estrdup9p(username);
+	d->gid = estrdup9p(groupname);
 	d->muid = estrdup9p(username);
 	d->mode = 0444;
 	d->atime = o->commit->ctime;
@@ -490,7 +490,7 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 	}else if(o->type == GCommit){
 		q->type = 0;
 		c->mtime = o->commit->mtime;
-		c->mode = 0444;
+		c->mode = 0644;
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
 		if(strcmp(name, "msg") == 0)
 			q->path = qpath(p, 0, o->id, Qcommitmsg);
@@ -804,7 +804,7 @@ gitstat(Req *r)
 	aux = r->fid->aux;
 	c = crumb(aux, 0);
 	r->d.uid = estrdup9p(username);
-	r->d.gid = estrdup9p(username);
+	r->d.gid = estrdup9p(groupname);
 	r->d.muid = estrdup9p(username);
 	r->d.qid = r->fid->qid;
 	r->d.mtime = c->mtime;
@@ -837,6 +837,8 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	Dir *d;
+
 	gitinit();
 	ARGBEGIN{
 	case 'd':
@@ -852,7 +854,12 @@ main(int argc, char **argv)
 	if(argc != 0)
 		usage();
 
-	username = getuser();
+	if((d = dirstat(".git")) == nil)
+		sysfatal("dirstat .git: %r");
+	username = strdup(d->uid);
+	groupname = strdup(d->gid);
+	free(d);
+
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
 	postmountsrv(&gitsrv, nil, mntpt, MCREATE);

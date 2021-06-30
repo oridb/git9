@@ -78,6 +78,7 @@ main(int argc, char **argv)
 		file[nfile++] = ".git/config";
 		if((p = getenv("home")) != nil)
 			file[nfile++] = smprint("%s/lib/git/config", p);
+		file[nfile++] = "/sys/lib/git/config";
 	}
 
 	for(i = 0; i < argc; i++){

@@ -228,13 +228,8 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 		req = 1;
 	}
 	flushpkt(c);
-	if(resolveref(&h, "HEAD") != -1){
-		n = snprint(buf, sizeof(buf), "have %H\n", h);
-		if(writepkt(c, buf, n + 1) == -1)
-			sysfatal("could not send have for %H", have[i]);
-	}
 	for(i = 0; i < nref; i++){
-		if(hasheq(&have[i], &Zhash) || hasheq(&have[i], &h))
+		if(hasheq(&have[i], &Zhash))
 			continue;
 		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
 		if(writepkt(c, buf, n + 1) == -1)

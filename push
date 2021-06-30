@@ -31,7 +31,7 @@ branch=-b^$branch
 if(! ~ $#remove 0)
 	remove=-r^$remove
 for(remote in $remotes){
-	updates=`$nl{git/send $debug $force $branch $remove $remote || die $status}
+	updates=`$nl{git/send $debug $force $branch $remove $remote} || die $status
 	for(ln in $updates){
 		u=`{echo $ln}
 		refpath=`{echo $u(2) | subst '^refs/heads/' '.git/refs/remotes/'$upstream'/'}

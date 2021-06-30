@@ -37,7 +37,7 @@ fn apply @{
 		date=$0
 	}
 	state=="headers" && /^Subject:/{
-		sub(/^Subject:[ \t]*(\[PATCH( [0-9]+\/[0-9]+)?\])*[ \t]*/, "", $0);
+		sub(/^Subject:[ \t]*(\[[^\]]*\][ \t]*)*/, "", $0);
 		gotmsg = 1
 		print > "/env/msg"
 	}
@@ -94,6 +94,14 @@ eval `''{aux/getflags $*} || exec aux/usage
 patches=(/fd/0)
 if(! ~ $#* 0)
 	patches=$*
-for(f in $patches)
-	apply < $f || die $status 
+for(p in $patches){
+	# upas serves the decoded header and body separately,
+	# so we cat them together when applying a upas message.
+	#
+	# this allows mime-encoded or line-wrapped patches.
+	if(test -d $p && test -f $p/header && test -f $p/body)
+		{{cat $p/header; echo; cat $p/body} | apply} || die $status
+	if not
+		apply < $p || die $status
+}
 exit ''

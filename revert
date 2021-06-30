@@ -1,5 +1,5 @@
 #!/bin/rc
-rfork e
+rfork en
 . /sys/lib/git/common.rc
 
 gitup
@@ -11,9 +11,10 @@ commit=$gitfs/HEAD
 if(~ $#query 1)
 	commit=`{git/query -p $query}
 
-for(f in `$nl{cd $commit/tree/ && walk -f ./$gitrel/$*}){
+files=`$nl{cleanname -d $gitrel $*}
+for(f in `$nl{cd $commit/tree/ && walk -f $files}){
 	mkdir -p `{basename -d $f}
-	cp -- $commit/tree/$f $f
+	cp -x -- $commit/tree/$f $f
 	git/add $f
 }
 exit ''
