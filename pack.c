@@ -197,23 +197,22 @@ loadpack(Packf *pf, char *name)
 		}
 	}
 	if((ifd = open(buf, OREAD)) == -1)
-		goto error;
-	if((d = dirfstat(ifd)) == nil)
-		goto error;
+		return -1;
+	if((d = dirfstat(ifd)) == nil){
+		close(ifd);
+		return -1;
+	}
 	pf->nidx = d->length;
 	pf->idx = emalloc(pf->nidx);
 	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx){
+		close(ifd);
 		free(pf->idx);
 		free(d);
-		goto error;
+		return -1;
 	}
+	close(ifd);
 	free(d);
 	return 0;
-
-error:
-	if(ifd != -1)
-		close(ifd);
-	return -1;	
 }
 
 static void

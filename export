@@ -41,7 +41,6 @@ for(c in $commits){
 		if(test -d $cp/tree)
 			bind $cp/tree b
 		
-		echo From $c
 		echo From: `{cat $cp/author}
 		echo Date: `{date -um `{mtime $cp/author | awk '{print $1}'}}
 		<$cp/msg awk '

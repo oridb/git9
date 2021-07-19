@@ -5,7 +5,6 @@
 
 char *fetchbranch;
 char *upstream = "origin";
-char *packtmp = ".git/objects/pack/fetch.tmp";
 int listonly;
 
 int
@@ -111,7 +110,7 @@ mkoutpath(char *path)
 	for(p=strchr(s+1, '/'); p; p=strchr(p+1, '/')){
 		*p = 0;
 		if(access(s, AEXIST) != 0){
-			fd = create(s, OREAD, DMDIR | 0755);
+			fd = create(s, OREAD, DMDIR | 0775);
 			if(fd == -1)
 				return -1;
 			close(fd);
@@ -162,13 +161,30 @@ handlecaps(char *caps)
 	}
 }
 
-int
-fetchpack(Conn *c, int pfd, char *packtmp)
+void
+fail(char *pack, char *idx, char *msg, ...)
 {
-	char buf[Pktmax], idxtmp[256], *sp[3];
+	char buf[ERRMAX];
+	va_list ap;
+
+	va_start(ap, msg);
+	snprint(buf, sizeof(buf), msg, ap);
+	va_end(ap);
+
+	remove(pack);
+	remove(idx);
+	fprint(2, "%s", buf);
+	exits(buf);
+}
+
+int
+fetchpack(Conn *c)
+{
+	char buf[Pktmax], *sp[3];
+	char *packtmp, *idxtmp, **ref;
 	Hash h, *have, *want;
 	int nref, refsz, first;
-	int i, n, req;
+	int i, n, req, pfd;
 	vlong packsz;
 	Object *o;
 
@@ -177,6 +193,7 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 	first = 1;
 	have = eamalloc(refsz, sizeof(have[0]));
 	want = eamalloc(refsz, sizeof(want[0]));
+	ref = eamalloc(refsz, sizeof(ref[0]));
 	while(1){
 		n = readpkt(c, buf, sizeof(buf));
 		if(n == -1)
@@ -197,14 +214,15 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 			continue;
 		if(refsz == nref + 1){
 			refsz *= 2;
-			have = erealloc(have, refsz * sizeof(have[0]));
-			want = erealloc(want, refsz * sizeof(want[0]));
+			have = earealloc(have, refsz, sizeof(have[0]));
+			want = earealloc(want, refsz, sizeof(want[0]));
+			ref = earealloc(ref, refsz, sizeof(ref[0]));
 		}
+		ref[nref] = estrdup(sp[1]);
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if (resolveremote(&have[nref], sp[1]) == -1)
+		if (resolveremote(&have[nref], ref[nref]) == -1)
 			memset(&have[nref], 0, sizeof(have[nref]));
-		print("remote %s %H local %H\n", sp[1], want[nref], have[nref]);
 		nref++;
 	}
 	if(listonly){
@@ -249,6 +267,15 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 		sysfatal("read: %r");
 	buf[n] = 0;
 
+	if((packtmp = smprint(".git/objects/pack/fetch.%d.pack", getpid())) == nil)
+		sysfatal("smprint: %r");
+	if((idxtmp = smprint(".git/objects/pack/fetch.%d.idx", getpid())) == nil)
+		sysfatal("smprint: %r");
+	if(mkoutpath(packtmp) == -1)
+		sysfatal("could not create %s: %r", packtmp);
+	if((pfd = create(packtmp, ORDWR, 0664)) == -1)
+		sysfatal("could not create %s: %r", packtmp);
+
 	fprint(2, "fetching...\n");
 	packsz = 0;
 	while(1){
@@ -259,19 +286,20 @@ fetchpack(Conn *c, int pfd, char *packtmp)
 			sysfatal("fetch packfile: %r");
 		packsz += n;
 	}
+
 	closeconn(c);
 	if(seek(pfd, 0, 0) == -1)
-		sysfatal("packfile seek: %r");
+		fail(packtmp, idxtmp, "packfile seek: %r");
 	if(checkhash(pfd, packsz, &h) == -1)
-		sysfatal("corrupt packfile: %r");
+		fail(packtmp, idxtmp, "corrupt packfile: %r");
 	close(pfd);
-	n = strlen(packtmp) - strlen(".tmp");
-	memcpy(idxtmp, packtmp, n);
-	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
 	if(indexpack(packtmp, idxtmp, h) == -1)
-		sysfatal("could not index fetched pack: %r");
+		fail(packtmp, idxtmp, "could not index fetched pack: %r");
 	if(rename(packtmp, idxtmp, h) == -1)
-		sysfatal("could not rename indexed pack: %r");
+		fail(packtmp, idxtmp, "could not rename indexed pack: %r");
+
+	for(i = 0; i < nref; i++)
+		print("remote %s %H local %H\n", ref[i], want[i], have[i]);
 	return 0;
 }
 
@@ -287,7 +315,6 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int pfd;
 	Conn c;
 
 	ARGBEGIN{
@@ -302,14 +329,9 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	if(mkoutpath(packtmp) == -1)
-		sysfatal("could not create %s: %r", packtmp);
-	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
-		sysfatal("could not create %s: %r", packtmp);
-
 	if(gitconnect(&c, argv[0], "upload") == -1)
 		sysfatal("could not dial %s: %r", argv[0]);
-	if(fetchpack(&c, pfd, packtmp) == -1)
+	if(fetchpack(&c) == -1)
 		sysfatal("fetch failed: %r");
 	closeconn(&c);
 	exits(nil);
