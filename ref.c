@@ -232,6 +232,69 @@ lca(Eval *ev)
 	return 0;
 }
 
+int
+parentof(Eval *ev)
+{
+	Objq *q, *n, *e;
+	Object *p, *c;
+	Objset seen;
+	int i, r;
+
+	print("parentof\n");
+	if(ev->nstk < 2){
+		werrstr("parentof needs 2 objects");
+		return -1;
+	}
+	osinit(&seen);
+	r = 0;
+	p = pop(ev);
+	c = pop(ev);
+	q = emalloc(sizeof(Objq));
+	q->o = ref(p);
+	e = q;
+	if(p->type != GCommit || c->type != GCommit){
+		werrstr("object is not commit");
+		return -1;
+	}
+	while(q != nil){
+		if(oshas(&seen, q->o->hash))
+			goto next; 
+		osadd(&seen, q->o);
+		if(hasheq(&q->o->hash, &c->hash)){
+			push(ev, c);
+			goto out;
+		}
+		for(i = 0; i < q->o->commit->nparent; i++){
+			if((c = readobject(q->o->commit->parent[i])) == nil){
+				r = -1;
+				goto out;
+			}
+			if(c->type != GCommit){
+				fprint(2, "warning: %H does not point at commit\n", c->hash);
+				unref(c);
+				continue;
+			}
+			n = emalloc(sizeof(Objq));
+			n->next = nil;
+			n->o = c;
+			e->next = n;
+			e = n;
+			unref(c);
+		}
+next:
+		n = q->next;
+		free(q);
+		q = n;
+	}
+out:
+	osclear(&seen);
+	for(; q != nil; q = n) {
+		n = q->next;
+		free(q);
+	}
+	return r;
+}
+
 static int
 repaint(Objset *keep, Objset *drop, Object *o)
 {
@@ -352,6 +415,7 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 		}
 next:
 		n = q->next;
+		unref(q->o);
 		free(q);
 		q = n;
 	}
@@ -545,11 +609,16 @@ evalpostfix(Eval *ev)
 
 	while(1){
 		eatspace(ev);
-		switch(ev->p[0]){
+		switch(*ev->p){
 		case '^':
 		case '~':
 			ev->p++;
 			if(parent(ev) == -1)
+				return -1;
+			break;
+		case '<':
+			ev->p++;
+			if(parentof(ev) == -1)
 				return -1;
 			break;
 		case '@':

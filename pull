@@ -75,8 +75,8 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
 if(~ $#quiet 0)
-	git/log -s -e $local'..'$remote >[1=2]
+	git/log -s -e $local'..'$remote
 echo
-echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
+echo $remote':' `{git/query $local} '=>' `{git/query $remote}
 git/branch -mnb $remote $local
 exit ''

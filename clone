@@ -7,7 +7,7 @@ eval `''{aux/getflags $*} || exec aux/usage
 if(~ $debug 1)
 	debug=(-d)
 
-remote=`{echo $1 | subst -g '/*$'}
+remote=`{echo $1 | sed  's@/*$@@'}
 local=$2
 
 if(~ $#remote 0)
@@ -79,19 +79,17 @@ fn clone{
 
 	tree=.git/fs/HEAD/tree
 	lbranch=`{git/branch}
-	rbranch=`{echo $lbranch | subst '^heads' 'remotes/origin'}
+	rbranch=`{echo $lbranch | subst 'heads' 'remotes/origin'}
 	echo checking out repository...
 	if(test -f .git/refs/$rbranch){
 		cp .git/refs/$rbranch .git/refs/$lbranch
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
-		for(f in `$nl{walk -f $tree | subst '^'$tree'/*'}){
-			if(! ~ $#f 0){
-				idx=.git/index9/tracked/$f
-				mkdir -p `$nl{basename -d $idx}
-				walk -eq $f > $idx
-			}
+		for(f in `$nl{walk -f $tree | drop $tree}){
+			idx=.git/index9/tracked/$f
+			mkdir -p `$nl{basename -d $idx}
+			walk -eq ./$f > $idx
 		}
 	}
 	if not{

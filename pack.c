@@ -1676,7 +1676,8 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	for(i = 0; i < nmeta; i++){
 		pct = showprogress((i*100)/nmeta, pct);
 		m = meta[i];
-		if((m->off = Boffset(bfd)) == -1)
+		m->off = Boffset(bfd);
+		if(m->off == -1)
 			goto error;
 		if((o = readobject(m->obj->hash)) == nil)
 			return -1;

@@ -7,13 +7,12 @@ fn merge{
 	basebr=$gitfs/object/$2/tree
 	theirbr=$gitfs/object/$3/tree
 
-	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | \
-		subst -g '^('$ourbr'|'$basebr'|'$theirbr')/*' | sort | uniq}
+	all=`$nl{{git/query -c $1 $2; git/query -c $2 $3} | sed 's/^..//' | sort | uniq}
 	for(f in $all){
 		ours=$ourbr/$f
 		base=$basebr/$f
 		theirs=$theirbr/$f
-		merge1 $f $theirs $base $ours
+		merge1 ./$f $theirs $base $ours
 	}
 }
 

@@ -15,16 +15,18 @@ enum {
 };
 
 int
-gitmode(int m)
+gitmode(Dirent *e)
 {
-	if(m & DMDIR)		/* directory */
-		return 0040000;
-	else if(m & 0111)	/* executable */
-		return 0100755;
-	else if(m != 0)		/* regular */
-		return 0100644;
-	else			/* symlink */
+	if(e->islink)
 		return 0120000;
+	else if(e->ismod)
+		return 0160000;
+	else if(e->mode & DMDIR)
+		return 0040000;
+	else if(e->mode & 0111)
+		return 0100755;
+	else
+		return 0100644;
 }
 
 int
@@ -141,7 +143,7 @@ writetree(Dirent *ent, int nent, Hash *h)
 	for(d = ent; d != ent + nent; d++){
 		if(strlen(d->name) >= 255)
 			sysfatal("overly long filename: %s", d->name);
-		t = seprint(t, etxt, "%o %s", gitmode(d->mode), d->name) + 1;
+		t = seprint(t, etxt, "%o %s", gitmode(d), d->name) + 1;
 		memcpy(t, d->h.h, sizeof(d->h.h));
 		t += sizeof(d->h.h);
 	}

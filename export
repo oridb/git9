@@ -42,7 +42,7 @@ for(c in $commits){
 			bind $cp/tree b
 		
 		echo From: `{cat $cp/author}
-		echo Date: `{date -um `{mtime $cp/author | awk '{print $1}'}}
+		echo Date: `{date -uf'WW, DD MMM YYYY hh:mm:ss Z' `{walk -em $cp/author}}
 		<$cp/msg awk '
 		NR == 1 {
 			n = ENVIRON["n"]

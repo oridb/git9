@@ -32,7 +32,7 @@ if not
 orig=`{git/query HEAD}
 if (~ $#baseref 1)
 	base=`{git/query $baseref} || exit 'bad base'
-if not if(test -e .git/$new)
+if not if(~ $#newbr 0)
 	base=`{git/query $new}
 if not
 	base=`{git/query HEAD}
@@ -41,7 +41,6 @@ if(~ $#newbr 0){
 	if(! ~ $#baseref 0)
 		die update would clobber $branch with $baseref
 	baseref=`$nl{echo -n $new | sed s@refs/heads/@refs/remotes/origin/@}
-	echo $baseref
 	if(! test -e .git/$new)
 		if(! base=`{git/query $baseref})
 			die could not find branch $branch
@@ -119,4 +118,5 @@ if(! ~ $#deleted 0){
 }
 
 echo ref: $new > .git/HEAD
+echo $new: `{git/query $new}
 exit ''

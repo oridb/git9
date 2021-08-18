@@ -218,16 +218,16 @@ fetchpack(Conn *c)
 			want = earealloc(want, refsz, sizeof(want[0]));
 			ref = earealloc(ref, refsz, sizeof(ref[0]));
 		}
-		ref[nref] = estrdup(sp[1]);
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if (resolveremote(&have[nref], ref[nref]) == -1)
+		if (resolveremote(&have[nref], sp[1]) == -1)
 			memset(&have[nref], 0, sizeof(have[nref]));
+		ref[nref] = estrdup(sp[1]);
 		nref++;
 	}
 	if(listonly){
 		flushpkt(c);
-		return 0;
+		goto showrefs;
 	}
 
 	if(writephase(c) == -1)
@@ -298,8 +298,14 @@ fetchpack(Conn *c)
 	if(rename(packtmp, idxtmp, h) == -1)
 		fail(packtmp, idxtmp, "could not rename indexed pack: %r");
 
-	for(i = 0; i < nref; i++)
+showrefs:
+	for(i = 0; i < nref; i++){
 		print("remote %s %H local %H\n", ref[i], want[i], have[i]);
+		free(ref[i]);
+	}
+	free(ref);
+	free(want);
+	free(have);
 	return 0;
 }
 
