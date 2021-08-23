@@ -19,6 +19,17 @@ Git/fs is my daily driver. It's solid, and works well for my needs.
 Getting Started
 ---------------
 
+** USE THE VERSION THAT COMES WITH 9FRONT **
+
+The version that comes with 9front is the most up to date
+version out there. If you are on 9front, you do not need
+this repository.
+
+If you are *NOT* on 9front:
+
+Install the appropriate patches to your system (listed below),
+then:
+
 Get a bootstrap copy:
 
 	% cd /tmp
