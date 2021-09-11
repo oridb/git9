@@ -158,6 +158,7 @@ main(int argc, char **argv)
 	char query[2048], repo[512];
 
 	ARGBEGIN{
+	case 'd':	chattygit++;	break;
 	case 'p':	fullpath++;	break;
 	case 'c':	changes++;	break;
 	case 'r':	reverse ^= 1;	break;

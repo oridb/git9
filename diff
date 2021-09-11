@@ -26,12 +26,22 @@ fn lsdirty {
 		git/query -c $commit HEAD | subst '^..'
 }
 
+showed=()
+mntgen /mnt/scratch
+bind $branch/tree/ /mnt/scratch/a
+bind . /mnt/scratch/b
 for(f in `$nl{lsdirty | sort | uniq}){
-	orig=$branch/tree/$f
-	if(! test -f $orig)
-		orig=/dev/null
-	if(! test -f $f)
-		f=/dev/null
-	diff -u $orig $f
+	if(~ $#showed 0){
+		echo diff `{git/query $commit} uncommitted
+		showed=1
+	}
+	cd /mnt/scratch
+	a=a/$f
+	b=b/$f
+	if(! test -f a/$f)
+		a=/dev/null
+	if(! test -f b/$f)
+		b=/dev/null
+	diff -u $a $b
 }
 exit ''

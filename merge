@@ -12,7 +12,7 @@ fn merge{
 		ours=$ourbr/$f
 		base=$basebr/$f
 		theirs=$theirbr/$f
-		merge1 ./$f $theirs $base $ours
+		merge1 ./$f $ours $base $theirs
 	}
 }
 

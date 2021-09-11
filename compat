@@ -125,6 +125,15 @@ fn cmd_remote{
 	}
 }
 
+fn cmd_ls-remote{
+	if(~ $1 -q)
+		shift
+	remote=`$nl{git/conf 'remote "'$1'".url'}
+	if(~ $#remote 0)
+		remote=$1
+	git/fetch -l $remote | awk '/^remote/{print $3"\t"$2}'
+}
+
 fn cmd_version{
 	echo git version 2.2.0
 }
@@ -154,5 +163,6 @@ if(! test -f '/env/fn#cmd_'$1)
 if(! ~ $1 init && ! ~ $1 clone)
 	gitroot=`{git/conf -r} || die repo
 
+echo $* >/tmp/gitlog
 cmd_$1 $*(2-)
 exit ''

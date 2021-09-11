@@ -321,3 +321,74 @@ showprogress(int x, int pct)
 	}
 	return pct;
 }
+
+void
+qinit(Objq *q)
+{
+	memset(q, 0, sizeof(Objq));
+	q->nheap = 0;
+	q->heapsz = 8;
+	q->heap = eamalloc(q->heapsz, sizeof(Qelt));
+}
+
+void
+qclear(Objq *q)
+{
+	free(q->heap);
+}
+
+void
+qput(Objq *q, Object *o, int color, int dist)
+{
+	Qelt t;
+	int i;
+
+	if(q->nheap == q->heapsz){
+		q->heapsz *= 2;
+		q->heap = earealloc(q->heap, q->heapsz, sizeof(Qelt));
+	}
+	q->heap[q->nheap].o = o;
+	q->heap[q->nheap].color = color;
+	q->heap[q->nheap].dist = dist;
+	q->heap[q->nheap].mtime = o->commit->mtime;
+	for(i = q->nheap; i > 0; i = (i-1)/2){
+		if(q->heap[i].mtime < q->heap[(i-1)/2].mtime)
+			break;
+		t = q->heap[i];
+		q->heap[i] = q->heap[(i-1)/2];
+		q->heap[(i-1)/2] = t;
+	}
+	q->nheap++;
+}
+
+int
+qpop(Objq *q, Qelt *e)
+{
+	int i, l, r, m;
+	Qelt t;
+
+	if(q->nheap == 0)
+		return 0;
+	*e = q->heap[0];
+	if(--q->nheap == 0)
+		return 1;
+
+	i = 0;
+	q->heap[0] = q->heap[q->nheap];
+	while(1){
+		m = i;
+		l = 2*i+1;
+		r = 2*i+2;
+		if(l < q->nheap && q->heap[m].mtime < q->heap[l].mtime)
+			m = l;
+		if(r < q->nheap && q->heap[m].mtime < q->heap[r].mtime)
+			m = r;
+		if(m == i)
+			break;
+		t = q->heap[m];
+		q->heap[m] = q->heap[i];
+		q->heap[i] = t;
+		i = m;
+	}
+	return 1;
+}

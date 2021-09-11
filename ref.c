@@ -5,8 +5,20 @@
 #include "git.h"
 
 typedef struct Eval	Eval;
-typedef struct XObject	XObject;
-typedef struct Objq	Objq;
+typedef struct Lcaq	Lcaq;
+
+struct Lcaq {
+	Objq;
+
+	Hash	*head;
+	Hash	*tail;
+	int	nhead;
+	int	ntail;
+
+	Object	*best;
+	int	dist;
+};
+
 
 enum {
 	Blank,
@@ -22,17 +34,10 @@ struct Eval {
 	int	stksz;
 };
 
-struct XObject {
-	Object	*obj;
-	Object	*mark;
-	XObject	*queue;
-	XObject	*next;
-};
-
-struct Objq {
-	Objq	*next;
-	Object	*o;
-	int	color;
+static char *colors[] = {
+[Keep] "keep",
+[Drop] "drop",
+[Blank] "blank",
 };
 
 static Object zcommit = {
@@ -128,213 +133,98 @@ take(Eval *ev, char *m)
 	return 1;
 }
 
-XObject*
-hnode(XObject *ht[], Object *o)
+static int
+pickbest(Lcaq *q, Qelt *e, int color)
 {
-	XObject *h;
-	int	hh;
+	int i, best, exact;
 
-	hh = o->hash.h[0] & 0xff;
-	for(h = ht[hh]; h; h = h->next)
-		if(hasheq(&o->hash, &h->obj->hash))
-			return h;
-
-	h = emalloc(sizeof(*h));
-	h->obj = o;
-	h->mark = nil;
-	h->queue = nil;
-	h->next = ht[hh];
-	ht[hh] = h;
-	return h;
-}
-
-Object*
-ancestor(Object *a, Object *b)
-{
-	Object *o, *p, *r;
-	XObject *ht[256];
-	XObject *h, *q, *q1, *q2;
-	int i;
-
-	if(a == b)
-		return a;
-	if(a == nil || b == nil)
-		return nil;
-	r = nil;
-	memset(ht, 0, sizeof(ht));
-	q1 = nil;
-
-	h = hnode(ht, a);
-	h->mark = a;
-	h->queue = q1;
-	q1 = h;
-
-	h = hnode(ht, b);
-	h->mark = b;
-	h->queue = q1;
-	q1 = h;
-
-	while(1){
-		q2 = nil;
-		while(q = q1){
-			q1 = q->queue;
-			q->queue = nil;
-			o = q->obj;
-			for(i = 0; i < o->commit->nparent; i++){
-				p = readobject(o->commit->parent[i]);
-				if(p == nil)
-					goto err;
-				h = hnode(ht, p);
-				if(h->mark != nil){
-					if(h->mark != q->mark){
-						r = h->obj;
-						goto done;
-					}
-				} else {
-					h->mark = q->mark;
-					h->queue = q2;
-					q2 = h;
-				}
-			}
+	best = 0;
+	exact = 0;
+	if(color == Blank || e->color == color)
+		return 0;
+	if(e->dist < q->dist){
+		dprint(1, "found best (dist %d < %d): %H\n", e->dist, q->dist, e->o->hash);
+		best = 1;
+	}
+	for(i = 0; i < q->nhead; i++)
+		if(hasheq(&q->head[i], &e->o->hash)){
+			dprint(1, "found best (exact head): %H\n", e->o->hash);
+			best = 1;
+			exact = 1;
 		}
-		if(q2 == nil){
-err:
-			werrstr("no common ancestor");
-			break;
+	for(i = 0; i < q->ntail; i++)
+		if(hasheq(&q->tail[i], &e->o->hash)){
+			dprint(1, "found best (exact tail): %H\n", e->o->hash);
+			best = 1;
+			exact = 1;
 		}
-		q1 = q2;
+	if(best){
+		q->best = e->o;
+		q->dist = e->dist;
 	}
-done:
-	for(i=0; i<nelem(ht); i++){
-		while(h = ht[i]){
-			ht[i] = h->next;
-			free(h);
-		}
-	}
-	return r;
-}
-
-int
-lca(Eval *ev)
-{
-	Object *a, *b, *o;
-
-	if(ev->nstk < 2){
-		werrstr("ancestor needs 2 objects");
-		return -1;
-	}
-	a = pop(ev);
-	b = pop(ev);
-	o = ancestor(a, b);
-	if(o == nil)
-		return -1;
-	push(ev, o);
-	return 0;
-}
-
-int
-parentof(Eval *ev)
-{
-	Objq *q, *n, *e;
-	Object *p, *c;
-	Objset seen;
-	int i, r;
-
-	print("parentof\n");
-	if(ev->nstk < 2){
-		werrstr("parentof needs 2 objects");
-		return -1;
-	}
-	osinit(&seen);
-	r = 0;
-	p = pop(ev);
-	c = pop(ev);
-	q = emalloc(sizeof(Objq));
-	q->o = ref(p);
-	e = q;
-	if(p->type != GCommit || c->type != GCommit){
-		werrstr("object is not commit");
-		return -1;
-	}
-	while(q != nil){
-		if(oshas(&seen, q->o->hash))
-			goto next; 
-		osadd(&seen, q->o);
-		if(hasheq(&q->o->hash, &c->hash)){
-			push(ev, c);
-			goto out;
-		}
-		for(i = 0; i < q->o->commit->nparent; i++){
-			if((c = readobject(q->o->commit->parent[i])) == nil){
-				r = -1;
-				goto out;
-			}
-			if(c->type != GCommit){
-				fprint(2, "warning: %H does not point at commit\n", c->hash);
-				unref(c);
-				continue;
-			}
-			n = emalloc(sizeof(Objq));
-			n->next = nil;
-			n->o = c;
-			e->next = n;
-			e = n;
-			unref(c);
-		}
-next:
-		n = q->next;
-		free(q);
-		q = n;
-	}
-out:
-	osclear(&seen);
-	for(; q != nil; q = n) {
-		n = q->next;
-		free(q);
-	}
-	return r;
+	return exact;
 }
 
 static int
-repaint(Objset *keep, Objset *drop, Object *o)
+repaint(Lcaq *lcaq, Objset *keep, Objset *drop, Object *o, int dist, int ancestor)
 {
+	Lcaq objq;
+	Qelt e;
 	Object *p;
 	int i;
 
-	if(!oshas(keep, o->hash) && !oshas(drop, o->hash)){
-		dprint(2, "repaint: blank => drop %H\n", o->hash);
-		osadd(drop, o);
-		return 0;
+	qinit(&objq);
+	if((o = readobject(o->hash)) == nil)
+		return -1;
+	qput(&objq, o, Drop, dist);
+	while(qpop(&objq, &e)){
+		o = e.o;
+		if(oshas(drop, o->hash))
+			continue;
+		if(ancestor && pickbest(lcaq, &e, Keep))
+			goto out;
+		if(!oshas(keep, o->hash)){
+			dprint(2, "repaint: blank => drop %H\n", o->hash);
+			osadd(drop, o);
+			continue;
+		}
+		for(i = 0; i < o->commit->nparent; i++){
+			if(oshas(drop, o->commit->parent[i]))
+				continue;
+			if((p = readobject(o->commit->parent[i])) == nil)
+				goto out;
+			if(p->type != GCommit){
+				fprint(2, "hash %H not commit\n", p->hash);
+				unref(p);
+			}
+			qput(&objq, p, Drop, e.dist+1);
+		}
+		unref(e.o);
 	}
-	if(oshas(keep, o->hash))
-		dprint(2, "repaint: keep => drop %H\n", o->hash);
-	osadd(drop, o);
-	for(i = 0; i < o->commit->nparent; i++){
-		if((p = readobject(o->commit->parent[i])) == nil)
-			return -1;
-		if(repaint(keep, drop, p) == -1)
-			return -1;
-		unref(p);
-	}
+out:
+	qclear(&objq);
 	return 0;
 }
 
-int
-findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres)
+static int
+paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, int ancestor)
 {
-	Objq *q, *e, *n, **p;
+	Qelt e;
+	Lcaq objq;
 	Objset keep, drop;
 	Object *o, *c;
 	int i, ncolor;
 
-	e = nil;
-	q = nil;
-	p = &q;
 	osinit(&keep);
 	osinit(&drop);
+	qinit(&objq);
+	objq.head = head;
+	objq.nhead = nhead;
+	objq.tail = tail;
+	objq.ntail = ntail;
+	objq.dist = 1<<30;
+
 	for(i = 0; i < nhead; i++){
-		if(hasheq(&head[i], &Zhash))
-			continue;
 		if((o = readobject(head[i])) == nil){
 			fprint(2, "warning: %H does not point at commit\n", o->hash);
 			werrstr("read head %H: %r", head[i]);
@@ -345,17 +235,11 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 			unref(o);
 			continue;
 		}
-		dprint(1, "twixt init: keep %H\n", o->hash);
-		e = emalloc(sizeof(Objq));
-		e->o = o;
-		e->color = Keep;
-		*p = e;
-		p = &e->next;
+		dprint(1, "init: keep %H\n", o->hash);
+		qput(&objq, o, Keep, 0);
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
-		if(hasheq(&tail[i], &Zhash))
-			continue;
 		if((o = readobject(tail[i])) == nil){
 			werrstr("read tail %H: %r", tail[i]);
 			return -1;
@@ -366,76 +250,115 @@ findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres
 			continue;
 		}
 		dprint(1, "init: drop %H\n", o->hash);
-		e = emalloc(sizeof(Objq));
-		e->o = o;
-		e->color = Drop;
-		*p = e;
-		p = &e->next;
+		qput(&objq, o, Drop, 0);
 		unref(o);
 	}
 
 	dprint(1, "finding twixt commits\n");
-	while(q != nil){
-		if(oshas(&drop, q->o->hash))
+	while(qpop(&objq, &e)){
+		if(oshas(&drop, e.o->hash))
 			ncolor = Drop;
-		else if(oshas(&keep, q->o->hash))
+		else if(oshas(&keep, e.o->hash))
 			ncolor = Keep;
 		else
 			ncolor = Blank;
-		if(ncolor == Drop || ncolor == Keep && q->color == Keep)
-			goto next;
-		if(ncolor == Keep && q->color == Drop){
-			if(repaint(&keep, &drop, q->o) == -1)
+		if(ancestor && pickbest(&objq, &e, ncolor))
+			goto exactlca;
+		if(ncolor == Keep && e.color == Keep || ncolor == Drop)
+			continue;
+		if(ncolor == Keep && e.color == Drop){
+			if(repaint(&objq, &keep, &drop, e.o, e.dist, ancestor) == -1)
 				goto error;
 		}else if (ncolor == Blank) {
-			dprint(2, "visit: %s %H\n", q->color == Keep ? "keep" : "drop", q->o->hash);
-			if(q->color == Keep)
-				osadd(&keep, q->o);
+			if(e.color == Keep)
+				osadd(&keep, e.o);
 			else
-				osadd(&drop, q->o);
-			for(i = 0; i < q->o->commit->nparent; i++){
-				if((c = readobject(q->o->commit->parent[i])) == nil)
+				osadd(&drop, e.o);
+			o = readobject(e.o->hash);
+			for(i = 0; i < o->commit->nparent; i++){
+				if((c = readobject(e.o->commit->parent[i])) == nil)
 					goto error;
 				if(c->type != GCommit){
 					fprint(2, "warning: %H does not point at commit\n", c->hash);
 					unref(c);
 					continue;
 				}
-				dprint(2, "enqueue: %s %H\n", q->color == Keep ? "keep" : "drop", c->hash);
-				n = emalloc(sizeof(Objq));
-				n->color = q->color;
-				n->next = nil;
-				n->o = c;
-				e->next = n;
-				e = n;
+				dprint(2, "\tenqueue: %s %H\n", colors[e.color], c->hash);
+				qput(&objq, c, e.color, e.dist+1);
 				unref(c);
 			}
-		}else{
-			sysfatal("oops");
+			unref(o);
 		}
-next:
-		n = q->next;
-		unref(q->o);
-		free(q);
-		q = n;
 	}
-	*res = eamalloc(keep.nobj, sizeof(Object*));
-	*nres = 0;
-	for(i = 0; i < keep.sz; i++){
-		if(keep.obj[i] != nil && !oshas(&drop, keep.obj[i]->hash)){
-			(*res)[*nres] = keep.obj[i];
-			(*nres)++;
+exactlca:
+	if(ancestor){
+		dprint(1, "found ancestor\n");
+		if(objq.best == nil){
+			*nres = 0;
+			*res = nil;
+		}else{
+			*nres = 1;
+			*res = eamalloc(1, sizeof(Object*));
+			(*res)[0] = objq.best;
+		}
+	}else{
+		dprint(1, "found twixt\n");
+		*res = eamalloc(keep.nobj, sizeof(Object*));
+		*nres = 0;
+		for(i = 0; i < keep.sz; i++){
+			if(keep.obj[i] != nil && !oshas(&drop, keep.obj[i]->hash)){
+				(*res)[*nres] = keep.obj[i];
+				(*nres)++;
+			}
 		}
 	}
 	osclear(&keep);
 	osclear(&drop);
 	return 0;
 error:
-	for(; q != nil; q = n) {
-		n = q->next;
-		free(q);
-	}
+	dprint(1, "twixt error: %r\n");
+	free(objq.heap);
 	return -1;
+}
+
+int
+findtwixt(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres)
+{
+	return paint(head, nhead, tail, ntail, res, nres, 0);
+}
+
+Object*
+ancestor(Object *a, Object *b)
+{
+	Object **o, *r;
+	int n;
+
+	if(paint(&a->hash, 1, &b->hash, 1, &o, &n, 1) == -1 || n == 0)
+		return nil;
+	r = o[0];
+	free(o);
+	return ref(r);
+}
+
+int
+lca(Eval *ev)
+{
+	Object *a, *b, **o;
+	int n;
+
+	if(ev->nstk < 2){
+		werrstr("ancestor needs 2 objects");
+		return -1;
+	}
+	n = 0;
+	b = pop(ev);
+	a = pop(ev);
+	paint(&a->hash, 1, &b->hash, 1, &o, &n, 1);
+	if(n == 0)
+		return -1;
+	push(ev, *o);
+	free(o);
+	return 0;
 }
 
 static int
@@ -609,16 +532,11 @@ evalpostfix(Eval *ev)
 
 	while(1){
 		eatspace(ev);
-		switch(*ev->p){
+		switch(ev->p[0]){
 		case '^':
 		case '~':
 			ev->p++;
 			if(parent(ev) == -1)
-				return -1;
-			break;
-		case '<':
-			ev->p++;
-			if(parentof(ev) == -1)
 				return -1;
 			break;
 		case '@':

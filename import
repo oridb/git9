@@ -7,11 +7,13 @@ fn sigexit {
 	rm -f $diffpath
 }
 
+
 fn apply @{
 	git/fs
-	email=''
-	name=''
+	amail=''
+	aname=''
 	msg=''
+	whoami
 	parents='-p'^`{git/query HEAD}
 	branch=`{git/branch}
 	if(test -e $gitfs/branch/$branch/tree)
@@ -26,11 +28,11 @@ fn apply @{
 	}
 	state=="headers" && /^From:/ {
 		sub(/^From:[ \t]*/, "", $0);
-		name=$0;
-		email=$0;
-		sub(/[ \t]*<.*$/, "", name);
-		sub(/.*</, "", email);
-		sub(/>/, "", email);
+		aname=$0;
+		amail=$0;
+		sub(/[ \t]*<.*$/, "", aname);
+		sub(/^[^<]*</, "", amail);
+		sub(/>[^>]*$/, "", amail);
 	}
 	state=="headers" && /^Date:/{
 		sub(/^Date:[ \t]*/, "", $0)
@@ -45,7 +47,7 @@ fn apply @{
 		state="body"
 		next
 	}
-	(state=="headers" || state=="body") && (/^diff/ || /^---[ 	]*$/){
+	(state=="headers" || state=="body") && (/^diff / || /^---( |$)/){
 		state="diff"
 	}
 	state=="body" {
@@ -57,10 +59,10 @@ fn apply @{
 	END{
 		if(state != "diff")
 			exit("malformed patch: " state);
-		if(name == "" || email == "" || date == "" || gotmsg == "")
+		if(aname == "" || amail == "" || date == "" || gotmsg == "")
 			exit("missing headers");
-		printf "%s", name > "/env/name"
-		printf "%s", email > "/env/email"
+		printf "%s", aname > "/env/aname"
+		printf "%s", amail > "/env/amail"
 		printf "%s", date > "/env/date"
 	}
 	' || die 'could not import:' $status
@@ -79,8 +81,8 @@ fn apply @{
 		}
 		git/walk -fRMA $files
 		if(~ $#nocommit 0){
-			hash=`{git/save -n $name -e $email -m $msg -d $date $parents $files}
-			echo $hash > $refpath
+			if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $date $parents $files})
+				echo $hash > $refpath
 		}
 		status=''''
 	'

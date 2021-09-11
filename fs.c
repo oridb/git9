@@ -12,12 +12,13 @@ enum {
 	Qhead,
 	Qbranch,
 	Qcommit,
-	Qcommitmsg,
-	Qcommitparent,
-	Qcommittree,
-	Qcommitdata,
-	Qcommithash,
-	Qcommitauthor,
+		Qmsg,
+		Qparent,
+		Qtree,
+		Qcdata,
+		Qhash,
+		Qauthor,
+		Qcommitter,
 	Qobject,
 	Qctl,
 	Qmax,
@@ -284,23 +285,23 @@ gcommitgen(int i, Dir *d, void *p)
 		d->mode = 0755 | DMDIR;
 		d->name = estrdup9p("tree");
 		d->qid.type = QTDIR;
-		d->qid.path = qpath(c, i, o->id, Qcommittree);
+		d->qid.path = qpath(c, i, o->id, Qtree);
 		break;
 	case 1:
 		d->name = estrdup9p("parent");
-		d->qid.path = qpath(c, i, o->id, Qcommitparent);
+		d->qid.path = qpath(c, i, o->id, Qparent);
 		break;
 	case 2:
 		d->name = estrdup9p("msg");
-		d->qid.path = qpath(c, i, o->id, Qcommitmsg);
+		d->qid.path = qpath(c, i, o->id, Qmsg);
 		break;
 	case 3:
 		d->name = estrdup9p("hash");
-		d->qid.path = qpath(c, i, o->id, Qcommithash);
+		d->qid.path = qpath(c, i, o->id, Qhash);
 		break;
 	case 4:
 		d->name = estrdup9p("author");
-		d->qid.path = qpath(c, i, o->id, Qcommitauthor);
+		d->qid.path = qpath(c, i, o->id, Qauthor);
 		break;
 	default:
 		return -1;
@@ -491,18 +492,20 @@ objwalk1(Qid *q, Object *o, Crumb *p, Crumb *c, char *name, vlong qdir, Gitaux *
 		q->type = 0;
 		c->mtime = o->commit->mtime;
 		c->mode = 0644;
-		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
+		assert(qdir == Qcommit || qdir == Qobject || qdir == Qtree || qdir == Qhead || qdir == Qcommitter);
 		if(strcmp(name, "msg") == 0)
-			q->path = qpath(p, 0, o->id, Qcommitmsg);
+			q->path = qpath(p, 0, o->id, Qmsg);
 		else if(strcmp(name, "parent") == 0)
-			q->path = qpath(p, 1, o->id, Qcommitparent);
+			q->path = qpath(p, 1, o->id, Qparent);
 		else if(strcmp(name, "hash") == 0)
-			q->path = qpath(p, 2, o->id, Qcommithash);
+			q->path = qpath(p, 2, o->id, Qhash);
 		else if(strcmp(name, "author") == 0)
-			q->path = qpath(p, 3, o->id, Qcommitauthor);
+			q->path = qpath(p, 3, o->id, Qauthor);
+		else if(strcmp(name, "committer") == 0)
+			q->path = qpath(p, 3, o->id, Qcommitter);
 		else if(strcmp(name, "tree") == 0){
 			q->type = QTDIR;
-			q->path = qpath(p, 4, o->id, Qcommittree);
+			q->path = qpath(p, 4, o->id, Qtree);
 			unref(c->obj);
 			c->mode = DMDIR | 0755;
 			c->obj = readobject(o->commit->tree);
@@ -640,14 +643,15 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	case Qcommit:
 		e = objwalk1(q, o->obj, o, c, name, Qcommit, aux);
 		break;
-	case Qcommittree:
-		e = objwalk1(q, o->obj, o, c, name, Qcommittree, aux);
+	case Qtree:
+		e = objwalk1(q, o->obj, o, c, name, Qtree, aux);
 		break;
-	case Qcommitparent:
-	case Qcommitmsg:
-	case Qcommitdata:
-	case Qcommithash:
-	case Qcommitauthor:
+	case Qparent:
+	case Qmsg:
+	case Qcdata:
+	case Qhash:
+	case Qauthor:
+	case Qcommitter:
 	case Qctl:
 		return Enodir;
 	default:
@@ -760,18 +764,22 @@ gitread(Req *r)
 		else
 			dirread9p(r, objgen, aux);
 		break;
-	case Qcommitmsg:
+	case Qmsg:
 		readbuf(r, o->commit->msg, o->commit->nmsg);
 		break;
-	case Qcommitparent:
+	case Qparent:
 		readcommitparent(r, o);
 		break;
-	case Qcommithash:
+	case Qhash:
 		snprint(buf, sizeof(buf), "%H\n", o->hash);
 		readstr(r, buf);
 		break;
-	case Qcommitauthor:
+	case Qauthor:
 		snprint(buf, sizeof(buf), "%s\n", o->commit->author);
+		readstr(r, buf);
+		break;
+	case Qcommitter:
+		snprint(buf, sizeof(buf), "%s\n", o->commit->committer);
 		readstr(r, buf);
 		break;
 	case Qctl:
@@ -785,8 +793,8 @@ gitread(Req *r)
 			objread(r, aux);
 		break;
 	case Qcommit:
-	case Qcommittree:
-	case Qcommitdata:
+	case Qtree:
+	case Qcdata:
 		objread(r, aux);
 		break;
 	default:

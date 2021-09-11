@@ -34,7 +34,7 @@ showrefs(Conn *c)
 	refs = nil;
 	names = nil;
 	if(resolveref(&head, "HEAD") != -1)
-		if(fmtpkt(c, "%H HEAD", head) == -1)
+		if(fmtpkt(c, "%H HEAD\n", head) == -1)
 			goto error;
 
 	if((nrefs = listrefs(&refs, &names)) == -1)

@@ -15,10 +15,8 @@ char	*queryexpr;
 char	*commitid;
 int	shortlog;
 
-Object	**heap;
-int	nheap;
-int	heapsz;
 Objset	done;
+Objq	objq;
 Pfilt	*pathfilt;
 
 void
@@ -153,6 +151,9 @@ show(Object *o)
 		tmtime(&tm, o->commit->mtime, tzload("local"));
 		Bprint(out, "Hash:\t%H\n", o->hash);
 		Bprint(out, "Author:\t%s\n", o->commit->author);
+		if(o->commit->committer != nil
+		&& strcmp(o->commit->author, o->commit->committer) != 0)
+			Bprint(out, "Commiter:\t%s\n", o->commit->committer);
 		Bprint(out, "Date:\t%τ\n", tmfmt(&tm, "WW MMM D hh:mm:ss z YYYY"));
 		Bprint(out, "\n");
 		p = o->commit->msg;
@@ -189,64 +190,10 @@ showquery(char *q)
 }
 
 static void
-qput(Object *o)
-{
-	Object *p;
-	int i;
-
-	if(oshas(&done, o->hash))
-		return;
-	osadd(&done, o);
-	if(nheap == heapsz){
-		heapsz *= 2;
-		heap = earealloc(heap, heapsz, sizeof(Object*));
-	}
-	heap[nheap++] = o;
-	for(i = nheap - 1; i > 0; i = (i-1)/2){
-		o = heap[i];
-		p = heap[(i-1)/2];
-		if(o->commit->mtime < p->commit->mtime)
-			break;
-		heap[i] = p;
-		heap[(i-1)/2] = o;
-	}
-}
-
-static Object*
-qpop(void)
-{
-	Object *o, *t;
-	int i, l, r, m;
-
-	if(nheap == 0)
-		return nil;
-
-	i = 0;
-	o = heap[0];
-	t = heap[--nheap];
-	heap[0] = t;
-	while(1){
-		m = i;
-		l = 2*i+1;
-		r = 2*i+2;
-		if(l < nheap && heap[m]->commit->mtime < heap[l]->commit->mtime)
-			m = l;
-		if(r < nheap && heap[m]->commit->mtime < heap[r]->commit->mtime)
-			m = r;
-		else
-			break;
-		t = heap[m];
-		heap[m] = heap[i];
-		heap[i] = t;
-		i = m;
-	}
-	return o;
-}
-
-static void
 showcommits(char *c)
 {
 	Object *o, *p;
+	Qelt e;
 	int i;
 	Hash h;
 
@@ -256,18 +203,20 @@ showcommits(char *c)
 		sysfatal("resolve %s: %r", c);
 	if((o = readobject(h)) == nil)
 		sysfatal("load %H: %r", h);
-	heapsz = 8;
-	heap = eamalloc(heapsz, sizeof(Object*));
+	qinit(&objq);
 	osinit(&done);
-	qput(o);
-	while((o = qpop()) != nil){
-		show(o);
-		for(i = 0; i < o->commit->nparent; i++){
-			if((p = readobject(o->commit->parent[i])) == nil)
+	qput(&objq, o, 0, 0);
+	while(qpop(&objq, &e)){
+		show(e.o);
+		for(i = 0; i < e.o->commit->nparent; i++){
+			if(oshas(&done, e.o->commit->parent[i]))
+				continue;
+			if((p = readobject(e.o->commit->parent[i])) == nil)
 				sysfatal("load %H: %r", o->commit->parent[i]);
-			qput(p);
+			osadd(&done, p);
+			qput(&objq, p, 0, 0);
 		}
-		unref(o);
+		unref(e.o);
 	}
 }
 
