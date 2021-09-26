@@ -194,6 +194,7 @@ loadpack(Packf *pf, char *name)
 			pf->nidx = packf[i].nidx;
 			packf[i].idx = nil;
 			packf[i].pack = nil;
+			return 0;
 		}
 	}
 	if((ifd = open(buf, OREAD)) == -1)

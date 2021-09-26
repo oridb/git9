@@ -18,6 +18,8 @@ typedef struct Idxent	Idxent;
 typedef struct Objlist	Objlist;
 typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
+typedef struct Objq	Objq;
+typedef struct Qelt	Qelt;
 
 enum {
 	Pathmax		= 512,
@@ -149,6 +151,20 @@ struct Objset {
 	Object	**obj;
 	int	nobj;
 	int	sz;
+};
+
+struct Qelt {
+	Object	*o;
+	vlong	mtime;
+	int	color;
+	int	dist;
+};
+
+struct Objq {
+	Qelt	*heap;
+	int	nheap;
+	int	heapsz;
+	int	nkeep;
 };
 
 struct Dtab {
@@ -301,3 +317,9 @@ int	gitconnect(Conn *, char *, char *);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);
+
+/* queues */
+void	qinit(Objq*);
+void	qclear(Objq*);
+void	qput(Objq*, Object*, int, int);
+int	qpop(Objq*, Qelt*);
