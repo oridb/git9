@@ -253,38 +253,51 @@ openpack(Packf *pf)
 	vlong t;
 	int i, best;
 
-	if(pf->pack == nil){
-		if((pf->pack = Bopen(pf->path, OREAD)) == nil)
-			return nil;
-		openpacks++;
+	if(pf->pack != nil){
+		pf->refs++;
+		return pf->pack;
 	}
-	if(openpacks == Npackcache){
-		t = pf->opentm;
+	/*
+	 * If we've got more packs open
+	 * than we want cached, try to
+	 * free up the oldest ones.
+	 *
+	 * If we can't find a slot, this
+	 * isn't fatal; we can just use
+	 * another fd.
+	 */
+	while(openpacks >= Npackcache){
+		t = (1ull<<62)-1;
 		best = -1;
 		for(i = 0; i < npackf; i++){
-			if(packf[i].opentm < t && packf[i].refs > 0){
+			if(&packf[i] != pf
+			&& packf[i].pack != nil
+			&& packf[i].opentm < t
+			&& packf[i].refs == 0){
 				t = packf[i].opentm;
 				best = i;
 			}
 		}
-		if(best != -1){
-			Bterm(packf[best].pack);
-			packf[best].pack = nil;
-			openpacks--;
+		if(best == -1){
+			fprint(2, "no available pack slots\n");
+			break;
 		}
+		Bterm(packf[best].pack);
+		packf[best].pack = nil;
+		openpacks--;
 	}
+	openpacks++;
 	pf->opentm = nsec();
 	pf->refs++;
+	if((pf->pack = Bopen(pf->path, OREAD)) == nil)
+		return nil;
 	return pf->pack;
 }
 
 static void
 closepack(Packf *pf)
 {
-	if(--pf->refs == 0){
-		Bterm(pf->pack);
-		pf->pack = nil;
-	}
+	pf->refs--;
 }
 
 static u32int
@@ -1448,7 +1461,8 @@ pickdeltas(Meta **meta, int nmeta)
 
 	pct = 0;
 	dprint(1, "picking deltas\n");
-	fprint(2, "deltifying %d objects:   0%%", nmeta);
+	if(interactive)
+		fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Meta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
@@ -1491,7 +1505,8 @@ pickdeltas(Meta **meta, int nmeta)
 	}
 	for(i = max(0, nmeta - 10); i < nmeta; i++)
 		dtclear(&meta[i]->dtab);
-	fprint(2, "\b\b\b\b100%%\n");
+	if(interactive)
+		fprint(2, "\b\b\b\b100%%\n");
 }
 
 static int

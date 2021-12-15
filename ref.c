@@ -217,6 +217,7 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 
 	osinit(&keep);
 	osinit(&drop);
+	memset(&objq, 0, sizeof(objq));
 	qinit(&objq);
 	objq.head = head;
 	objq.nhead = nhead;
@@ -335,9 +336,9 @@ ancestor(Object *a, Object *b)
 
 	if(paint(&a->hash, 1, &b->hash, 1, &o, &n, 1) == -1 || n == 0)
 		return nil;
-	r = o[0];
+	r = ref(o[0]);
 	free(o);
-	return ref(r);
+	return r;
 }
 
 int

@@ -98,8 +98,12 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 	while(1){
 		if((n = readpkt(c, pkt, sizeof(pkt))) == -1)
 			goto error;
-		if(n == 0 || strncmp(pkt, "done", 4) == 0)
+		if(strncmp(pkt, "done", 4) == 0)
 			break;
+		if(n == 0){
+			if(!acked && fmtpkt(c, "NAK") == -1)
+					goto error;
+		}
 		if(strncmp(pkt, "have ", 5) != 0){
 			werrstr(" protocol garble %s", pkt);
 			goto error;

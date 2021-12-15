@@ -30,6 +30,7 @@ enum {
 Cache seencache[NCACHE];
 int quiet;
 int printflg;
+char *base;
 char *rstr = "R ";
 char *tstr = "T ";
 char *mstr = "M ";
@@ -209,19 +210,21 @@ mismatch:
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-qbc] [-f filt] [paths...]\n", argv0);
+	fprint(2, "usage: %s [-qbc] [-f filt] [-b base] [paths...]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	char *rpath, *tpath, *bpath, buf[8], repo[512];
+	char *rpath, *tpath, *bpath, *cpath, buf[8], repo[512];
 	char *p, *e;
 	int i, dirty;
+	Hash h;
 	Wres r;
 	Dir *d;
 
+;
 	ARGBEGIN{
 	case 'q':
 		quiet++;
@@ -242,6 +245,9 @@ main(int argc, char **argv)
 			default:	usage();		break;
 		}
 		break;
+	case 'b':
+		base = EARGF(usage());
+		break;
 	default:
 		usage();
 	}ARGEND
@@ -252,6 +258,12 @@ main(int argc, char **argv)
 		sysfatal("chdir: %r");
 	if(access(".git/fs/ctl", AEXIST) != 0)
 		sysfatal("no running git/fs");
+	cpath = HDIR;
+	if(base != nil){
+		if(resolveref(&h, base) == -1)
+			sysfatal("invalid base commit %s", base);
+		cpath = smprint(".git/fs/object/%H/tree", h);
+	}
 	dirty = 0;
 	memset(&r, 0, sizeof(r));
 	if(printflg == 0)
@@ -289,7 +301,7 @@ nextarg:
 			goto next;
 		rpath = smprint(RDIR"/%s", p);
 		tpath = smprint(TDIR"/%s", p);
-		bpath = smprint(HDIR"/%s", p);
+		bpath = smprint("%s/%s", cpath, p);
 		/* Fast path: we don't want to force access to the rpath. */
 		if(d && sameqid(d, tpath)) {
 			if(!quiet && (printflg & Tflg))
