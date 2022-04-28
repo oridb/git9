@@ -3,10 +3,9 @@ rfork en
 . /sys/lib/git/common.rc
 
 fn update{
-	branch=$1
-	upstream=$2
-	url=$3
-	dir=$4
+	upstream=$1
+	url=$2
+	dir=$3
 	dflag=()
 	if(! ~ $#debug 0)
 		dflag='-d'
@@ -27,15 +26,10 @@ fn update{
 
 gitup
 
-flagfmt='a:allbranch, b:branch branch, d:debug,
-	f:fetchonly, u:upstream upstream, q:quiet'
+flagfmt='d:debug, q:quiet, f:fetchonly,
+	u:upstream upstream'
 args=''
 eval `''{aux/getflags $*} || exec aux/usage
-
-if(~ $#branch 0)
-	branch=refs/`{git/branch}
-if(~ $allbranch 1)
-	branch=''
 
 if(~ $#upstream 0)
 	upstream=origin
@@ -45,7 +39,7 @@ if(~ $#remote 0){
 	upstream=THEM
 }
 
-update $branch $upstream $remote
+update $upstream $remote
 if (~ $fetchonly 1)
 	exit
 

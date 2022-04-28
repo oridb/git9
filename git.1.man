@@ -13,9 +13,6 @@ git/pull, git/rm, git/serve
 ]
 .I path...
 .PP
-.B git/rm
-.I path...
-.PP
 .B git/branch
 [
 .B -admns
@@ -69,13 +66,6 @@ git/pull, git/rm, git/serve
 .I file...
 ]
 .PP
-.B git/revert
-[
-.B -c
-.I commit
-]
-.I file...
-.PP
 .B git/export
 [
 .I commits...
@@ -125,13 +115,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/pull
 [
-.B -f
-]
-[
-.B -q
-]
-[
-.B -a
+.B -fq
 ]
 [
 .B -u
@@ -140,7 +124,7 @@ git/pull, git/rm, git/serve
 .PP
 .B git/push
 [
-.B -a
+.B -af
 ]
 [
 .B -u
@@ -155,6 +139,22 @@ git/pull, git/rm, git/serve
 .I branch
 ]
 .PP
+.B git/query
+[
+.B -pcr
+]
+.I query
+.PP
+.B git/revert
+[
+.B -c
+.I commit
+]
+.I file...
+.PP
+.B git/rm
+.I path...
+.PP
 .B git/serve
 [
 .B -w
@@ -163,12 +163,6 @@ git/pull, git/rm, git/serve
 .B -r
 .I path
 ]
-.PP
-.B git/query
-[
-.B -pcr
-]
-.I query
 .PP
 .B git/walk
 [
@@ -261,7 +255,7 @@ When passed the
 option, all branches are pushed.
 When passed the
 .I -u upstream
-option, the changed are pushed to
+option, the changes are pushed to
 .I upstream
 instead of the configured origin.
 When given the
@@ -282,10 +276,17 @@ When passed the
 .I -f
 option, the update of the working copy is suppressed.
 When passed the
+.I -q
+option, the listing of changes is silenced.
+When passed the
 .I -u upstream
 option, the changes are pulled from
 .I upstream
 instead of the configured origin.
+when passed the
+.I -b branch
+option, it only pulls changes related to
+.IR branch .
 
 .PP
 .B Git/serve
@@ -317,7 +318,7 @@ The copy of the file in the repository is left untouched.
 .PP
 .B Git/rm
 is an alias for
-.IR git/add -r .
+.IR git/add\ -r .
 
 .PP
 .B Git/commit
@@ -468,7 +469,7 @@ is a tool for querying the git configuration.
 The configuration key is provided as a dotted string. Spaces
 are accepted. For example, to find the URL of the origin
 repository, one might pass
-.I 'remote "origin".url".
+.I 'remote\ "origin".url'.
 When given the
 .I -r
 option, the root of the current repository is printed.
@@ -513,10 +514,10 @@ M
 Modified since last commit.
 .TP
 R
-Removed from either working directory tracking list.
+This file will be gone in the next commit.
 .TP
 A
-Added, does not yet exist in a commit.
+This file will be present in the next commit.
 
 .PP
 .B Git/compat
@@ -631,20 +632,23 @@ $repo/.git/config
 The configuration file for a repository.
 .TP
 $home/lib/git/config
-The global configuration for git.
+The user-wide configuration for git.
 The contents of this file are used as fallbacks for the per-repository config.
+.TP
+/sys/lib/git/config
+The system-wide configuration for git.
+The contents of this file are used as fallbacks for the per-user config.
 
 .SH SEE ALSO
-.IR hg (1)
-.IR replica (1)
-.IR patch (1)
-.IR gitfs (4)
-.IR diff3
+.IR replica (1),
+.IR patch (1),
+.IR gitfs (4),
+.I diff3
 
 .SH BUGS
 .PP
 Repositories with submodules are effectively read-only.
 .PP
-There are a some of missing commands, features, and tools, such as git/rebase
+There are some missing commands, features, and tools.
 .PP
 git/compat only works within a git repository.
