@@ -48,9 +48,12 @@ if(~ $#newbr 0){
 modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
-if(! ~ $#modified 0 || ! ~ $#deleted 0 && ~ $#merge 0){
-	git/walk -fRMA $modified $deleted || 
-		die 'uncommited changes would be clobbered'
+# if we're not merging, don't clobber existing changes.
+if(~ $#merge 0){
+	if(! ~ $#modified 0 || ! ~ $#deleted 0){
+		git/walk -fRMA $modified $deleted || 
+			die 'uncommitted changes would be clobbered'
+	}
 }
 if(~ $delete 1){
 	rm -f .git/$new
@@ -66,8 +69,6 @@ if(! ~ $#stay 0){
 }
 basedir=`{git/query -p $base}
 dirtypaths=()
-if(! ~ $#modified 0 || ! ~ $#deleted 0)
-	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
 if(! ~ $#modified 0 || ! ~ $#deleted 0)
 	dirtypaths=`$nl{git/walk -cfRMA $modified $deleted}
 if(~ $#dirtypaths 0)
@@ -99,10 +100,9 @@ for(m in $cleanpaths){
 		rm -rf .git/index9/tracked/$m
 	}
 	if(~ $b file){
-		if(cp -x -- $basedir/tree/$m $m)
-			walk -eq $m > .git/index9/tracked/$m
-		if not
-			echo -n > .git/index9/tracked/$m
+		cp -x -- $basedir/tree/$m $m
+		walk -eq $m > .git/index9/tracked/$m
+		touch $m
 	}
 }
 

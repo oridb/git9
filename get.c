@@ -180,12 +180,13 @@ fail(char *pack, char *idx, char *msg, ...)
 int
 fetchpack(Conn *c)
 {
-	char buf[Pktmax], *sp[3];
+	char buf[Pktmax], *sp[3], *ep;
 	char *packtmp, *idxtmp, **ref;
 	Hash h, *have, *want;
 	int nref, refsz, first;
-	int i, n, req, pfd;
+	int i, n, l, req, pfd;
 	vlong packsz;
+	Objset hadobj;
 	Object *o;
 
 	nref = 0;
@@ -246,13 +247,19 @@ fetchpack(Conn *c)
 		req = 1;
 	}
 	flushpkt(c);
+	osinit(&hadobj);
 	for(i = 0; i < nref; i++){
-		if(hasheq(&have[i], &Zhash))
+		if(hasheq(&have[i], &Zhash) || oshas(&hadobj, have[i]))
 			continue;
+		if((o = readobject(have[i])) == nil)
+			sysfatal("missing object we should have: %H", have[i]);
+		osadd(&hadobj, o);
+		unref(o);	
 		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
 		if(writepkt(c, buf, n + 1) == -1)
 			sysfatal("could not send have for %H", have[i]);
 	}
+	osclear(&hadobj);
 	if(!req)
 		flushpkt(c);
 
@@ -260,7 +267,7 @@ fetchpack(Conn *c)
 	if(writepkt(c, buf, n) == -1)
 		sysfatal("write: %r");
 	if(!req)
-		return 0;
+		goto showrefs;
 	if(readphase(c) == -1)
 		sysfatal("read: %r");
 	if((n = readpkt(c, buf, sizeof(buf))) == -1)
@@ -277,9 +284,30 @@ fetchpack(Conn *c)
 		sysfatal("could not create %s: %r", packtmp);
 
 	fprint(2, "fetching...\n");
-	packsz = 0;
+	/*
+	 * Work around torvalds git bug: we get duplicate have lines
+	 * somtimes, even though the protocol is supposed to start the
+	 * pack file immediately.
+	 *
+	 * Skip ahead until we read 'PACK' off the wire
+	 */
 	while(1){
-		n = readn(c->rfd, buf, sizeof buf);
+		if(readn(c->rfd, buf, 4) != 4)
+			sysfatal("fetch packfile: short read");
+		buf[4] = 0;
+		if(strncmp(buf, "PACK", 4) == 0)
+			break;
+		l = strtol(buf, &ep, 16);
+		if(l == 0 || ep != buf + 4)
+			sysfatal("fetch packfile: junk pktline");
+		if(readn(c->rfd, buf, l) != l)
+			sysfatal("fetch packfile: short read");
+	}
+	if(write(pfd, "PACK", 4) != 4)
+		sysfatal("write pack header: %r");
+	packsz = 4;
+	while(1){
+		n = read(c->rfd, buf, sizeof buf);
 		if(n == 0)
 			break;
 		if(n == -1 || write(pfd, buf, n) != n)

@@ -153,7 +153,7 @@ show(Object *o)
 		Bprint(out, "Author:\t%s\n", o->commit->author);
 		if(o->commit->committer != nil
 		&& strcmp(o->commit->author, o->commit->committer) != 0)
-			Bprint(out, "Commiter:\t%s\n", o->commit->committer);
+			Bprint(out, "Committer:\t%s\n", o->commit->committer);
 		Bprint(out, "Date:\t%τ\n", tmfmt(&tm, "WW MMM D hh:mm:ss z YYYY"));
 		Bprint(out, "\n");
 		p = o->commit->msg;
@@ -205,7 +205,7 @@ showcommits(char *c)
 		sysfatal("load %H: %r", h);
 	qinit(&objq);
 	osinit(&done);
-	qput(&objq, o, 0, 0);
+	qput(&objq, o, 0);
 	while(qpop(&objq, &e)){
 		show(e.o);
 		for(i = 0; i < e.o->commit->nparent; i++){
@@ -214,7 +214,7 @@ showcommits(char *c)
 			if((p = readobject(e.o->commit->parent[i])) == nil)
 				sysfatal("load %H: %r", o->commit->parent[i]);
 			osadd(&done, p);
-			qput(&objq, p, 0, 0);
+			qput(&objq, p, 0);
 		}
 		unref(e.o);
 	}

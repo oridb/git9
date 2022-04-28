@@ -70,13 +70,14 @@ char *qroot[] = {
 	"ctl",
 };
 
-#define Eperm	"permission denied";
-#define Eexist	"does not exist";
-#define E2long	"path too long";
-#define Enodir	"not a directory";
-#define Erepo	"unable to read repo";
-#define Egreg	"wat";
-#define Ebadobj	"invalid object";
+#define Eperm	"permission denied"
+#define Eexist	"does not exist"
+#define E2long	"path too long"
+#define Enodir	"not a directory"
+#define Erepo	"unable to read repo"
+#define Eobject "invalid object"
+#define Egreg	"wat"
+#define Ebadobj	"invalid object"
 
 char	gitdir[512];
 char	*username;
@@ -377,18 +378,19 @@ objread(Req *r, Gitaux *aux)
 static void
 readcommitparent(Req *r, Object *o)
 {
-	char *buf, *p;
+	char *buf, *p, *e;
 	int i, n;
 
-	n = o->commit->nparent * (40 + 2);
+	/* 40 bytes per hash, 1 per nl, 1 for terminator */
+	n = o->commit->nparent * (40 + 1) + 1;
 	buf = emalloc(n);
 	p = buf;
+	e = buf + n;
 	for (i = 0; i < o->commit->nparent; i++)
-		p += sprint(p, "%H\n", o->commit->parent[i]);
-	readbuf(r, buf, n);
+		p = seprint(p, e, "%H\n", o->commit->parent[i]);
+	readbuf(r, buf, p - buf);
 	free(buf);
 }
-
 
 static void
 gitattach(Req *r)
@@ -623,9 +625,9 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			e = objwalk1(q, o->obj, o, c, name, Qobject, aux);
 		}else{
 			if(hparse(&h, name) == -1)
-				return "invalid object name";
+				return Eobject;
 			if((c->obj = readobject(h)) == nil)
-				return "could not read object";
+				return Eobject;
 			if(c->obj->type == GBlob || c->obj->type == GTag){
 				c->mode = 0644;
 				q->type = 0;
@@ -804,6 +806,34 @@ gitread(Req *r)
 }
 
 static void
+gitopen(Req *r)
+{
+	Gitaux *aux;
+	Crumb *c;
+
+	aux = r->fid->aux;
+	c = crumb(aux, 0);
+	switch(r->ifcall.mode&3){
+	default:
+		respond(r, "botched mode");
+		break;
+	case OWRITE:
+		respond(r, Eperm);
+		break;
+	case OREAD:
+	case ORDWR:
+		respond(r, nil);
+		break;
+	case OEXEC:
+		if((c->mode & 0111) == 0)
+			respond(r, Eperm);
+		else
+			respond(r, nil);
+		break;
+	}
+}
+
+static void
 gitstat(Req *r)
 {
 	Gitaux *aux;
@@ -829,6 +859,7 @@ Srv gitsrv = {
 	.attach=gitattach,
 	.walk1=gitwalk1,
 	.clone=gitclone,
+	.open=gitopen,
 	.read=gitread,
 	.stat=gitstat,
 	.destroyfid=gitdestroyfid,

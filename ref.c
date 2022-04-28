@@ -5,25 +5,12 @@
 #include "git.h"
 
 typedef struct Eval	Eval;
-typedef struct Lcaq	Lcaq;
-
-struct Lcaq {
-	Objq;
-
-	Hash	*head;
-	Hash	*tail;
-	int	nhead;
-	int	ntail;
-
-	Object	*best;
-	int	dist;
-};
-
 
 enum {
 	Blank,
 	Keep,
 	Drop,
+	Skip,
 };
 
 struct Eval {
@@ -38,6 +25,7 @@ static char *colors[] = {
 [Keep] "keep",
 [Drop] "drop",
 [Blank] "blank",
+[Skip] "skip",
 };
 
 static Object zcommit = {
@@ -49,26 +37,6 @@ eatspace(Eval *ev)
 {
 	while(isspace(ev->p[0]))
 		ev->p++;
-}
-
-int
-objdatecmp(void *pa, void *pb)
-{
-	Object *a, *b;
-	int r;
-
-	a = readobject((*(Object**)pa)->hash);
-	b = readobject((*(Object**)pb)->hash);
-	assert(a->type == GCommit && b->type == GCommit);
-	if(a->commit->mtime == b->commit->mtime)
-		r = 0;
-	else if(a->commit->mtime < b->commit->mtime)
-		r = -1;
-	else
-		r = 1;
-	unref(a);
-	unref(b);
-	return r;
 }
 
 void
@@ -134,96 +102,19 @@ take(Eval *ev, char *m)
 }
 
 static int
-pickbest(Lcaq *q, Qelt *e, int color)
-{
-	int i, best, exact;
-
-	best = 0;
-	exact = 0;
-	if(color == Blank || e->color == color)
-		return 0;
-	if(e->dist < q->dist){
-		dprint(1, "found best (dist %d < %d): %H\n", e->dist, q->dist, e->o->hash);
-		best = 1;
-	}
-	for(i = 0; i < q->nhead; i++)
-		if(hasheq(&q->head[i], &e->o->hash)){
-			dprint(1, "found best (exact head): %H\n", e->o->hash);
-			best = 1;
-			exact = 1;
-		}
-	for(i = 0; i < q->ntail; i++)
-		if(hasheq(&q->tail[i], &e->o->hash)){
-			dprint(1, "found best (exact tail): %H\n", e->o->hash);
-			best = 1;
-			exact = 1;
-		}
-	if(best){
-		q->best = e->o;
-		q->dist = e->dist;
-	}
-	return exact;
-}
-
-static int
-repaint(Lcaq *lcaq, Objset *keep, Objset *drop, Object *o, int dist, int ancestor)
-{
-	Lcaq objq;
-	Qelt e;
-	Object *p;
-	int i;
-
-	qinit(&objq);
-	if((o = readobject(o->hash)) == nil)
-		return -1;
-	qput(&objq, o, Drop, dist);
-	while(qpop(&objq, &e)){
-		o = e.o;
-		if(oshas(drop, o->hash))
-			continue;
-		if(ancestor && pickbest(lcaq, &e, Keep))
-			goto out;
-		if(!oshas(keep, o->hash)){
-			dprint(2, "repaint: blank => drop %H\n", o->hash);
-			osadd(drop, o);
-			continue;
-		}
-		for(i = 0; i < o->commit->nparent; i++){
-			if(oshas(drop, o->commit->parent[i]))
-				continue;
-			if((p = readobject(o->commit->parent[i])) == nil)
-				goto out;
-			if(p->type != GCommit){
-				fprint(2, "hash %H not commit\n", p->hash);
-				unref(p);
-			}
-			qput(&objq, p, Drop, e.dist+1);
-		}
-		unref(e.o);
-	}
-out:
-	qclear(&objq);
-	return 0;
-}
-
-static int
 paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, int ancestor)
 {
 	Qelt e;
-	Lcaq objq;
-	Objset keep, drop;
+	Objq objq;
+	Objset keep, drop, skip;
 	Object *o, *c;
-	int i, ncolor;
+	int i, nskip;
 
 	osinit(&keep);
 	osinit(&drop);
-	memset(&objq, 0, sizeof(objq));
+	osinit(&skip);
 	qinit(&objq);
-	objq.head = head;
-	objq.nhead = nhead;
-	objq.tail = tail;
-	objq.ntail = ntail;
-	objq.dist = 1<<30;
+	nskip = 0;
 
 	for(i = 0; i < nhead; i++){
 		if((o = readobject(head[i])) == nil){
@@ -237,7 +128,7 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 			continue;
 		}
 		dprint(1, "init: keep %H\n", o->hash);
-		qput(&objq, o, Keep, 0);
+		qput(&objq, o, Keep);
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
@@ -251,70 +142,83 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 			continue;
 		}
 		dprint(1, "init: drop %H\n", o->hash);
-		qput(&objq, o, Drop, 0);
+		qput(&objq, o, Drop);
 		unref(o);
 	}
 
 	dprint(1, "finding twixt commits\n");
-	while(qpop(&objq, &e)){
-		if(oshas(&drop, e.o->hash))
-			ncolor = Drop;
-		else if(oshas(&keep, e.o->hash))
-			ncolor = Keep;
-		else
-			ncolor = Blank;
-		if(ancestor && pickbest(&objq, &e, ncolor))
-			goto exactlca;
-		if(ncolor == Keep && e.color == Keep || ncolor == Drop)
+	while(nskip != objq.nheap && qpop(&objq, &e)){
+		if(e.color == Skip)
+			nskip--;
+		if(oshas(&skip, e.o->hash))
 			continue;
-		if(ncolor == Keep && e.color == Drop){
-			if(repaint(&objq, &keep, &drop, e.o, e.dist, ancestor) == -1)
-				goto error;
-		}else if (ncolor == Blank) {
-			if(e.color == Keep)
-				osadd(&keep, e.o);
-			else
-				osadd(&drop, e.o);
-			o = readobject(e.o->hash);
-			for(i = 0; i < o->commit->nparent; i++){
-				if((c = readobject(e.o->commit->parent[i])) == nil)
-					goto error;
-				if(c->type != GCommit){
-					fprint(2, "warning: %H does not point at commit\n", c->hash);
-					unref(c);
-					continue;
-				}
-				dprint(2, "\tenqueue: %s %H\n", colors[e.color], c->hash);
-				qput(&objq, c, e.color, e.dist+1);
-				unref(c);
-			}
-			unref(o);
+		switch(e.color){
+		case Keep:
+			if(oshas(&keep, e.o->hash))
+				continue;
+			if(oshas(&drop, e.o->hash))
+				e.color = Skip;
+			osadd(&keep, e.o);
+			break;
+		case Drop:
+			if(oshas(&drop, e.o->hash))
+				continue;
+			if(oshas(&keep, e.o->hash))
+				e.color = Skip;
+			osadd(&drop, e.o);
+			break;
+		case Skip:
+			osadd(&skip, e.o);
+			break;
 		}
+		o = readobject(e.o->hash);
+		for(i = 0; i < o->commit->nparent; i++){
+			if((c = readobject(e.o->commit->parent[i])) == nil)
+				goto error;
+			if(c->type != GCommit){
+				fprint(2, "warning: %H does not point at commit\n", c->hash);
+				unref(c);
+				continue;
+			}
+			dprint(2, "\tenqueue: %s %H\n", colors[e.color], c->hash);
+			qput(&objq, c, e.color);
+			unref(c);
+			if(e.color == Skip)
+				nskip++;
+		}
+		unref(o);
 	}
-exactlca:
 	if(ancestor){
 		dprint(1, "found ancestor\n");
-		if(objq.best == nil){
+		o = nil;
+		for(i = 0; i < keep.sz; i++){
+			o = keep.obj[i];
+			if(o != nil && oshas(&drop, o->hash) && !oshas(&skip, o->hash))
+				break;
+		}
+		if(i == keep.sz){
 			*nres = 0;
 			*res = nil;
 		}else{
 			*nres = 1;
 			*res = eamalloc(1, sizeof(Object*));
-			(*res)[0] = objq.best;
+			(*res)[0] = o;
 		}
 	}else{
 		dprint(1, "found twixt\n");
 		*res = eamalloc(keep.nobj, sizeof(Object*));
 		*nres = 0;
 		for(i = 0; i < keep.sz; i++){
-			if(keep.obj[i] != nil && !oshas(&drop, keep.obj[i]->hash)){
-				(*res)[*nres] = keep.obj[i];
+			o = keep.obj[i];
+			if(o != nil && !oshas(&drop, o->hash) && !oshas(&skip, o->hash)){
+				(*res)[*nres] = o;
 				(*nres)++;
 			}
 		}
 	}
 	osclear(&keep);
 	osclear(&drop);
+	osclear(&skip);
 	return 0;
 error:
 	dprint(1, "twixt error: %r\n");
@@ -406,7 +310,7 @@ static int
 range(Eval *ev)
 {
 	Object *a, *b, *p, *q, **all;
-	int nall, *idx, mark;
+	int nall, *idx;
 	Objset keep, skip;
 
 	b = pop(ev);
@@ -424,7 +328,6 @@ range(Eval *ev)
 	all = nil;
 	idx = nil;
 	nall = 0;
-	mark = ev->nstk;
 	osinit(&keep);
 	osinit(&skip);
 	osadd(&keep, a);
@@ -459,7 +362,6 @@ range(Eval *ev)
 		nall++;
 	}
 	free(all);
-	qsort(ev->stk + mark, ev->nstk - mark, sizeof(Object*), objdatecmp);
 	return 0;
 error:
 	free(all);

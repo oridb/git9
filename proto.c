@@ -220,14 +220,27 @@ static int
 issmarthttp(Conn *c, char *direction)
 {
 	char buf[Pktmax+1], svc[128];
-	int n;
+	int fd, n;
+
+	if((fd = webopen(c, "contenttype", OREAD)) == -1)
+		return -1;
+	n = readn(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if(n == -1)
+		return -1;
+	buf[n] = '\0';
+	snprint(svc, sizeof(svc), "application/x-git-%s-pack-advertisement", direction);
+	if(strcmp(svc, buf) != 0){
+		werrstr("dumb http protocol not supported");
+		return -1;
+	}
 
 	if((n = readpkt(c, buf, sizeof(buf))) == -1)
 		sysfatal("http read: %r");
 	buf[n] = 0;
 	snprint(svc, sizeof(svc), "# service=git-%s-pack\n", direction);
 	if(strncmp(svc, buf, n) != 0){
-		werrstr("dumb http protocol not supported");
+		werrstr("invalid initial packet line");
 		return -1;
 	}
 	if(readpkt(c, buf, sizeof(buf)) != 0){

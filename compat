@@ -131,7 +131,7 @@ fn cmd_ls-remote{
 	remote=`$nl{git/conf 'remote "'$1'".url'}
 	if(~ $#remote 0)
 		remote=$1
-	git/fetch -l $remote | awk '/^remote/{print $3"\t"$2}'
+	git/get -l $remote | awk '/^remote/{print $3"\t"$2}'
 }
 
 fn cmd_version{

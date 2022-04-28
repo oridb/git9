@@ -134,8 +134,8 @@ sendpack(Conn *c)
 	nmap = nours;
 	map = eamalloc(nmap, sizeof(Map));
 	for(i = 0; i < nmap; i++){
-		map[i].ours = ours[i];
 		map[i].theirs = Zhash;
+		map[i].ours = ours[i];
 		map[i].ref = refs[i];
 	}
 	while(1){
@@ -155,9 +155,15 @@ sendpack(Conn *c)
 		theirs = earealloc(theirs, ntheirs+1, sizeof(Hash));
 		if(hparse(&theirs[ntheirs], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
+		if((idx = findkey(map, nmap, sp[1])) != -1)
+			map[idx].theirs = theirs[ntheirs];
+		/*
+		 * we only keep their ref if we can read the object to add it
+		 * to our reachability; otherwise, discard it; we only care
+		 * that we don't have it, so we can tell whether we need to
+		 * bail out of pushing.
+		 */
 		if((o = readobject(theirs[ntheirs])) != nil){
-			if((idx = findkey(map, nmap, sp[1])) != -1)
-				map[idx].theirs = theirs[ntheirs];
 			ntheirs++;
 			unref(o);
 		}
@@ -180,7 +186,7 @@ sendpack(Conn *c)
 			p = ancestor(a, b);
 		if(!force && !hasheq(&m->theirs, &Zhash) && (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
-			werrstr("force needed");
+			werrstr("remote diverged");
 			flushpkt(c);
 			return -1;
 		}

@@ -45,12 +45,19 @@ fn apply @{
 	}
 	state=="headers" && /^$/ {
 		state="body"
-		next
 	}
 	(state=="headers" || state=="body") && (/^diff / || /^---( |$)/){
 		state="diff"
 	}
+	state=="body" && /^[ 	]*$/ {
+		empty=1
+		next
+	}
 	state=="body" {
+		if(empty)
+			printf "\n" > "/env/msg"
+		empty=0
+		sub(/[ 	]+$/, "")
 		print > "/env/msg"
 	}
 	state=="diff" {

@@ -362,7 +362,7 @@ lockrepo(void)
 int
 updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 {
-	char refpath[512];
+	char refpath[512], buf[128];
 	int i, newidx, hadref, fd, ret, lockfd;
 	vlong newtm;
 	Object *o;
@@ -378,19 +378,19 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	 */
 	newtm = -23811206400;	
 	if((lockfd = lockrepo()) == -1){
-		werrstr("repo locked\n");
+		snprint(buf, sizeof(buf), "repo locked\n");
 		return -1;
 	}
 	for(i = 0; i < nupd; i++){
 		if(resolveref(&h, ref[i]) == 0){
 			hadref = 1;
 			if(!hasheq(&h, &cur[i])){
-				werrstr("old ref changed: %s", ref[i]);
+				snprint(buf, sizeof(buf), "old ref changed: %s", ref[i]);
 				goto error;
 			}
 		}
 		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
-			werrstr("ref path too long: %s", ref[i]);
+			snprint(buf, sizeof(buf), "ref path too long: %s", ref[i]);
 			goto error;
 		}
 		if(hasheq(&upd[i], &Zhash)){
@@ -398,11 +398,11 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 			continue;
 		}
 		if((o = readobject(upd[i])) == nil){
-			werrstr("update to nonexistent hash %H", upd[i]);
+			snprint(buf, sizeof(buf), "update to nonexistent hash %H", upd[i]);
 			goto error;
 		}
 		if(o->type != GCommit){
-			werrstr("not commit: %H", upd[i]);
+			snprint(buf, sizeof(buf), "not commit: %H", upd[i]);
 			goto error;
 		}
 		if(o->commit->mtime > newtm){
@@ -411,11 +411,11 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 		}
 		unref(o);
 		if((fd = create(refpath, OWRITE|OTRUNC, 0644)) == -1){
-			werrstr("open ref: %r");
+			snprint(buf, sizeof(buf), "open ref: %r");
 			goto error;
 		}
 		if(fprint(fd, "%H", upd[i]) == -1){
-			werrstr("upate ref: %r");
+			snprint(buf, sizeof(buf), "upate ref: %r");
 			close(fd);
 			goto error;
 		}
@@ -436,19 +436,20 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	 */
 	if(resolveref(&h, "HEAD") == -1 && hadref == 0 && newidx != -1){
 		if((fd = create(".git/HEAD", OWRITE|OTRUNC, 0644)) == -1){
-			werrstr("open HEAD: %r");
+			snprint(buf, sizeof(buf), "open HEAD: %r");
 			goto error;
 		}
 		if(fprint(fd, "ref: %s", ref[0]) == -1){
-			werrstr("write HEAD ref: %r");
+			snprint(buf, sizeof(buf), "write HEAD ref: %r");
 			goto error;
 		}
 		close(fd);
 	}
 	ret = 0;
 error:
-	fmtpkt(c, "ERR %r");
+	fmtpkt(c, "ERR %s", buf);
 	close(lockfd);
+	werrstr(buf);
 	return ret;
 }
 

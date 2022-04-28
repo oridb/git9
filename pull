@@ -7,13 +7,10 @@ fn update{
 	upstream=$2
 	url=$3
 	dir=$4
-	bflag=()
 	dflag=()
-	if(! ~ $#branch 0)
-		bflag=(-b $branch)
 	if(! ~ $#debug 0)
 		dflag='-d'
-	{git/fetch $dflag $bflag -u $upstream $url >[2=3] || die $status} | awk '
+	{git/get $dflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next

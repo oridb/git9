@@ -101,7 +101,8 @@ fn update{
 }
 
 fn sigexit{
-	rm -f $msgfile $msgfile.tmp
+	if(~ ! $#msgfile 0)
+		rm -f $msgfile $msgfile.tmp
 }
 
 gitup

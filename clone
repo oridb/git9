@@ -33,7 +33,7 @@ fn clone{
 		echo '[remote "origin"]'
 		echo '	url='$remote
 	}
-	{git/fetch  $debug $branchflag $remote >[2=3] | awk '
+	{git/get  $debug $branchflag $remote >[2=3] | awk '
 		BEGIN{
 			headref=""
 			if(ENVIRON["branch"] != "")
