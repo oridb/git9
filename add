@@ -16,11 +16,11 @@ if(~ $remove 1){
 if(~ $#* 0)
 	exec aux/usage
 
-paths=`$nl{cleanname -d $gitrel $*}
+paths=`$nl{cleanname -d $gitrel $* | drop $gitroot}
 if(~ $add tracked)
-	files=`$nl{walk -f $paths}
+	files=`$nl{walk -f ./$paths}
 if not
-	files=`$nl{cd .git/index9/tracked/ && walk -f $paths}
+	files=`$nl{cd .git/index9/tracked/ && walk -f ./$paths}
 
 for(f in $files){
 	if(! ~ `$nl{cleanname $f} .git/*){

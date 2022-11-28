@@ -3,17 +3,13 @@ rfork en
 . /sys/lib/git/common.rc
 
 fn update{
-	branch=$1
-	upstream=$2
-	url=$3
-	dir=$4
-	bflag=()
+	upstream=$1
+	url=$2
+	dir=$3
 	dflag=()
-	if(! ~ $#branch 0)
-		bflag=(-b $branch)
 	if(! ~ $#debug 0)
 		dflag='-d'
-	{git/fetch $dflag $bflag -u $upstream $url >[2=3] || die $status} | awk '
+	{git/get $dflag -u $upstream $url >[2=3] || die $status} | awk '
 	/^remote/{
 		if($2=="HEAD")
 			next
@@ -30,15 +26,10 @@ fn update{
 
 gitup
 
-flagfmt='a:allbranch, b:branch branch, d:debug,
-	f:fetchonly, u:upstream upstream, q:quiet'
+flagfmt='d:debug, q:quiet, f:fetchonly,
+	u:upstream upstream'
 args=''
 eval `''{aux/getflags $*} || exec aux/usage
-
-if(~ $#branch 0)
-	branch=refs/`{git/branch}
-if(~ $allbranch 1)
-	branch=''
 
 if(~ $#upstream 0)
 	upstream=origin
@@ -48,7 +39,7 @@ if(~ $#remote 0){
 	upstream=THEM
 }
 
-update $branch $upstream $remote
+update $upstream $remote
 if (~ $fetchonly 1)
 	exit
 
@@ -75,8 +66,7 @@ if(! ~ `{git/query HEAD $remote @} `{git/query HEAD}){
 # The remote is directly ahead of the local, and we have
 # no local commits that need merging.
 if(~ $#quiet 0)
-	git/log -s -e $local'..'$remote >[1=2]
-echo
-echo $remote':' `{git/query $local} '=>' `{git/query $remote}  >[1=2]
+	git/log -s -e $local'..'$remote
+echo $remote':' `{git/query $local} '=>' `{git/query $remote}
 git/branch -mnb $remote $local
 exit ''

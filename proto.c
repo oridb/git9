@@ -58,8 +58,8 @@ readpkt(Conn *c, char *buf, int nbuf)
 	char *e;
 	int n;
 
-	if(readn(c->rfd, len, 4) == -1)
-		return -1;
+	if(readn(c->rfd, len, 4) != 4)
+		sysfatal("pktline: short read from transport");
 	len[4] = 0;
 	n = strtol(len, &e, 16);
 	if(n == 0){
@@ -91,6 +91,20 @@ writepkt(Conn *c, char *buf, int nbuf)
 		return -1;
 	tracepkt(1, "<=w=", buf, nbuf);
 	return 0;
+}
+
+int
+fmtpkt(Conn *c, char *fmt, ...)
+{
+	char pkt[Pktmax];
+	va_list ap;
+	int n;
+
+	va_start(ap, fmt);
+	n = vsnprint(pkt, sizeof(pkt), fmt, ap);
+	n = writepkt(c, pkt, n);
+	va_end(ap);
+	return n;
 }
 
 int
@@ -220,14 +234,27 @@ static int
 issmarthttp(Conn *c, char *direction)
 {
 	char buf[Pktmax+1], svc[128];
-	int n;
+	int fd, n;
+
+	if((fd = webopen(c, "contenttype", OREAD)) == -1)
+		return -1;
+	n = readn(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if(n == -1)
+		return -1;
+	buf[n] = '\0';
+	snprint(svc, sizeof(svc), "application/x-git-%s-pack-advertisement", direction);
+	if(strcmp(svc, buf) != 0){
+		werrstr("dumb http protocol not supported");
+		return -1;
+	}
 
 	if((n = readpkt(c, buf, sizeof(buf))) == -1)
 		sysfatal("http read: %r");
 	buf[n] = 0;
 	snprint(svc, sizeof(svc), "# service=git-%s-pack\n", direction);
 	if(strncmp(svc, buf, n) != 0){
-		werrstr("dumb http protocol not supported");
+		werrstr("invalid initial packet line");
 		return -1;
 	}
 	if(readpkt(c, buf, sizeof(buf)) != 0){

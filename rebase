@@ -7,8 +7,6 @@ flagfmt='a:abort, r:resume, i:interactive'; args='onto'
 eval `''{aux/getflags $*} || exec aux/usage
 
 tmp=_rebase.working
-if(! git/walk -q)
-	die dirty working tree
 if(~ $#abort 1){
 	if(! test -f .git/rebase.todo)
 		die no rebase to abort
@@ -31,7 +29,7 @@ if not{
 	src=`{git/branch}
 	dst=`{git/query $1}
 	echo $src > .git/rebase.src
-	git/log -se $dst' '$src' @ .. '$src | sed 's/^/pick /' >.git/rebase.todo
+	git/log -se $dst'..'$src | sed 's/^/pick /' >.git/rebase.todo
 	if(! ~ $#interactive 0){
 		giteditor=`{git/conf core.editor}
 		if(~ $#editor 0)

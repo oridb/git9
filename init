@@ -20,7 +20,7 @@ if(~ $#upstream 0){
 }
 
 mkdir -p $dir/.git/refs/^(heads remotes)
-mkdir -p $dir/.git/fs
+mkdir -p $dir/.git/^(fs objects)
 >$dir/.git/config {
 	echo '[core]'
 	echo '	repositoryformatversion = p9.0'

@@ -4,12 +4,14 @@ rfork e
 
 opts=()
 args=()
+nl='
+'
 
 fn cmd_init{
-	while(~ $#* 0){
+	while(! ~ $#* 0){
 		switch($1){
 		case --bare
-			opts=(-b)
+			# ignore
 		case -- 
 			# go likes to use these
 		case -*
@@ -19,7 +21,6 @@ fn cmd_init{
 		}
 		shift
 	}
-	ls >[1=2]
 	git/init $opts $args
 }
 
@@ -94,7 +95,7 @@ fn cmd_rev-parse{
 			echo `{dcmd git9/branch | sed s@^heads/@@g}
 			shift
 		case *
-			dprint option $opt
+			die unknown option $opt
 		}
 		shift
 	}
@@ -112,6 +113,15 @@ fn cmd_show-ref{
 		echo `{cat $gitroot/.git/refs/$b} refs/$b 
 }
 
+fn cmd_rev-parse{
+	switch($1){
+	case --git-dir
+		echo `{git/conf -r}^/.git
+	case *
+		die 'unknown rev-parse '$*
+	}
+}
+
 fn cmd_remote{
 	if({! ~ $#* 3 && ! ~ $#* 4} || ! ~ $1 add)
 		die unimplemented remote cmd $*
@@ -125,10 +135,60 @@ fn cmd_remote{
 	}
 }
 
+fn cmd_log{
+	count=()
+	format=''
+	while(~ $1 -*){
+		switch($1){
+		case --format
+			format=$2
+			shift
+		case '--format='*
+			format=`{echo $1 | sed 's/--format=//g'}
+		case -n
+			count=-n$2
+			shift
+		case -n*
+			count=$1
+		case *
+			dprint option $opt
+		}
+		shift
+	}
+	@{cd $gitroot && git/fs}
+	switch($format){
+	case ''
+		git/log $count
+	case '%H:%ct'
+		for(c in `{git/log -s $count| awk '{print $1}'})
+			echo $c:`{mtime $gitroot/.git/fs/object/$c/msg}
+	case '%h %cd'
+		for(c in `{git/log -s $count| awk '{print $1}'})
+			echo $c `{date `{mtime $gitroot/.git/fs/object/$c/msg}}
+	}
+
+}
+
+fn cmd_show{
+	cmd_log -n1 $*
+}
+
+fn cmd_ls-remote{
+	if(~ $1 -q)
+		shift
+	remote=`$nl{git/conf 'remote "'$1'".url'}
+	if(~ $#remote 0)
+		remote=$1
+	git/get -l $remote | awk '/^remote/{print $3"\t"$2}'
+}
+
 fn cmd_version{
 	echo git version 2.2.0
 }
 
+fn cmd_status{
+	echo
+}
 
 fn usage{
 	echo 'git <command> <args>' >[1=2]
@@ -149,10 +209,20 @@ if(~ $0 *compat){
 	exec rc
 }
 
+if(~ $#gitcompatdebug 1)
+	echo running  $* >>/tmp/gitlog
+
+if(~ $1 -c)
+	shift 2
+if(~ $1 -c*)
+	shift 1
 if(! test -f '/env/fn#cmd_'$1)
 	die git $1: commmand not implemented
 if(! ~ $1 init && ! ~ $1 clone)
 	gitroot=`{git/conf -r} || die repo
 
-cmd_$1 $*(2-)
+if(~ $#gitcompatdebug 1)
+	cmd_$1 $*(2-) | tee >>/tmp/gitlog
+if not
+	cmd_$1 $*(2-)
 exit ''

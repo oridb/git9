@@ -7,7 +7,6 @@ enum {
 	Minchunk	= 128,
 	Maxchunk	= 8192,
 	Splitmask	= (1<<8)-1,
-	
 };
 
 static u32int geartab[] = {
@@ -48,9 +47,7 @@ static u32int geartab[] = {
 static u64int
 hash(void *p, int n)
 {
-	uchar buf[SHA1dlen];
-	sha1((uchar*)p, n, buf, nil);
-	return GETBE64(buf);
+	return murmurhash2(p, n);
 }
 
 static void
@@ -172,23 +169,26 @@ emitdelta(Delta **pd, int *nd, int cpy, int off, int len)
 static int
 stretch(Dtab *dt, Dblock *b, uchar *s, uchar *e, int n)
 {
-	uchar *p, *q, *eb;
+	uchar *p0, *p, *q, *eb;
 
 	if(b == nil)
 		return n;
 	p = s + n;
 	q = dt->base + b->off + n;
-	eb = dt->base + dt->nbase;
-	while(n < (1<<24)-1){
+	p0 = p;
+	if(dt->nbase < (1<<24)-1)
+		eb = dt->base + dt->nbase;
+	else
+		eb = dt->base + (1<<24)-1;
+	while(1){
 		if(p == e || q == eb)
 			break;
 		if(*p != *q)
 			break;
 		p++;
 		q++;
-		n++;
 	}
-	return n;
+	return n + (p - p0);
 }
 
 Delta*

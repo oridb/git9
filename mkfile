@@ -3,7 +3,7 @@
 BIN=/$objtype/bin/git
 TARG=\
 	conf\
-	fetch\
+	get\
 	fs\
 	log\
 	query\
@@ -21,6 +21,7 @@ RC=\
 	compat\
 	diff\
 	export\
+	hist\
 	import\
 	init\
 	merge\

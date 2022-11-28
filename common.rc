@@ -11,35 +11,60 @@ fn usage{
 	exit 'usage'
 }
 
-# subst [-g] this [that]
-fn subst{
-	awk 'BEGIN{
-		global = 0
-		for(i = 1; ARGV[i] ~ /^-/; i++){
-			if(ARGV[i] == "-g")
-				global = 1
-			ARGC--
-		}
-		this = ARGV[i++]; ARGC--
-		that = ARGV[i++]; ARGC--
-	}
-	{
-		if(global) gsub(this, that)
-		else sub(this, that)
-		print
-	}' $*
+fn subst {
+	awk '
+	BEGIN{ARGC=0}
+	{sub(ARGV[1], ARGV[2]); print}
+	' $*
 }
 
-fn present {
+fn drop {
+	awk '
+	BEGIN{ARGC=0}
+	{
+		if(index($0, ARGV[1]) == 1)
+			$0=substr($0, length(ARGV[1])+1)
+		print
+	}
+	' $*
+}
+
+fn mergeperm {
 	if(~ $1 /dev/null && cmp $2 $3>/dev/null)
 		status=gone
 	if not if (~ $3 /dev/null && cmp $1 $2>/dev/null)
 		status=gone
-	if not
+	if not {
+		mergedperms='-x'
+		if(test -x $2){
+			if(test -x $1 -a -x $3)
+				mergedperms='+x'
+		}
+		if not{
+			if(test -x $1 -o -x $3)
+				mergedperms='+x'
+		}
 		status=()
+	}
 }
 
-# merge1 out theirs base ours
+fn whoami{
+	name=`$nl{git/conf user.name}
+	email=`$nl{git/conf user.email}
+	if(test -f /adm/keys.who){
+		if(~ $name '')
+			name=`$nl{awk -F'|' '$1=="'$user'" {x=$3} END{print x}' </adm/keys.who}
+		if(~ $email '')
+			email=`$nl{awk -F'|' '$1=="'$user'" {x=$5} END{print x}' </adm/keys.who}
+	}
+	if(~ $name '')
+		name=$user
+	if(~ $email '')
+		email=$user@$sysname
+	status=''
+}
+
+# merge1 out ours base theirs
 fn merge1 {@{
 	rfork e
 	n=$pid
@@ -62,9 +87,10 @@ fn merge1 {@{
 	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
 		echo merge needed: $out >[1=2]
 
-	if(present $ours $base $theirs){
+	if(mergeperm $ours $base $theirs){
 		mv $tmp $out
 		git/add $out
+		chmod $mergedperms $out
 	}
 	if not {
 		rm -f $tmp $out
@@ -77,13 +103,13 @@ fn gitup{
 	if(~ $#gitroot 0)
 		die 'not a git repository'
 	gitfs=$gitroot/.git/fs
-	gitrel=`{pwd | subst '^'$"gitroot'/?'}
+	gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
 	if(~ $#gitrel 0)
 		gitrel='.'
-	cd $gitroot
+	if(! cd $gitroot)
+		die cd $gitroot: no repo there
 	startfs=()
-	if(! test -d $gitfs)
-		mkdir -p $gitfs
+	mkdir -p $gitfs
 	if(! test -e $gitfs/ctl)
 		startfs=true
 	if(! grep -s '^repo '$gitroot'$' $gitfs/ctl >[2]/dev/null)

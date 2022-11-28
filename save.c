@@ -14,17 +14,27 @@ enum {
 	Maxparents = 16,
 };
 
+char	*authorname;
+char	*authoremail;
+char	*committername;
+char	*committeremail;
+char	*commitmsg;
+Hash	parents[Maxparents];
+int	nparents;
+
 int
-gitmode(int m)
+gitmode(Dirent *e)
 {
-	if(m & DMDIR)		/* directory */
-		return 0040000;
-	else if(m & 0111)	/* executable */
-		return 0100755;
-	else if(m != 0)		/* regular */
-		return 0100644;
-	else			/* symlink */
+	if(e->islink)
 		return 0120000;
+	else if(e->ismod)
+		return 0160000;
+	else if(e->mode & DMDIR)
+		return 0040000;
+	else if(e->mode & 0111)
+		return 0100755;
+	else
+		return 0100644;
 }
 
 int
@@ -141,7 +151,7 @@ writetree(Dirent *ent, int nent, Hash *h)
 	for(d = ent; d != ent + nent; d++){
 		if(strlen(d->name) >= 255)
 			sysfatal("overly long filename: %s", d->name);
-		t = seprint(t, etxt, "%o %s", gitmode(d->mode), d->name) + 1;
+		t = seprint(t, etxt, "%o %s", gitmode(d), d->name) + 1;
 		memcpy(t, d->h.h, sizeof(d->h.h));
 		t += sizeof(d->h.h);
 	}
@@ -297,7 +307,7 @@ err:
 
 
 void
-mkcommit(Hash *c, char *msg, char *name, char *email, vlong date, Hash *parents, int nparents, Hash tree)
+mkcommit(Hash *c, vlong date, Hash tree)
 {
 	char *s, h[64];
 	int ns, nh, i;
@@ -307,10 +317,10 @@ mkcommit(Hash *c, char *msg, char *name, char *email, vlong date, Hash *parents,
 	fmtprint(&f, "tree %H\n", tree);
 	for(i = 0; i < nparents; i++)
 		fmtprint(&f, "parent %H\n", parents[i]);
-	fmtprint(&f, "author %s <%s> %lld +0000\n", name, email, date);
-	fmtprint(&f, "committer %s <%s> %lld +0000\n", name, email, date);
+	fmtprint(&f, "author %s <%s> %lld +0000\n", authorname, authoremail, date);
+	fmtprint(&f, "committer %s <%s> %lld +0000\n", committername, committeremail, date);
 	fmtprint(&f, "\n");
-	fmtprint(&f, "%s", msg);
+	fmtprint(&f, "%s", commitmsg);
 	s = fmtstrflush(&f);
 
 	ns = strlen(s);
@@ -344,9 +354,9 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	Hash th, ch, parents[Maxparents];
-	char *msg, *name, *email, *dstr, cwd[1024];
-	int i, r, ncwd, nparents;
+	Hash th, ch;
+	char *dstr, cwd[1024];
+	int i, r, ncwd;
 	vlong date;
 	Object *t;
 
@@ -355,19 +365,29 @@ main(int argc, char **argv)
 		sysfatal("could not find git repo: %r");
 	if(getwd(cwd, sizeof(cwd)) == nil)
 		sysfatal("getcwd: %r");
-	msg = nil;
-	name = nil;
-	email = nil;
 	dstr = nil;
 	date = time(nil);
-	nparents = 0;
 	ncwd = strlen(cwd);
 
 	ARGBEGIN{
-	case 'm':	msg = EARGF(usage());	break;
-	case 'n':	name = EARGF(usage());	break;
-	case 'e':	email = EARGF(usage());	break;
-	case 'd':	dstr = EARGF(usage());	break;
+	case 'm':
+		commitmsg = EARGF(usage());
+		break;
+	case 'n':
+		authorname = EARGF(usage());
+		break;
+	case 'e':
+		authoremail = EARGF(usage());
+		break;
+	case 'N':
+		committername = EARGF(usage());
+		break;
+	case 'E':
+		committeremail = EARGF(usage());
+		break;
+	case 'd':
+		dstr = EARGF(usage());
+		break;
 	case 'p':
 		if(nparents >= Maxparents)
 			sysfatal("too many parents");
@@ -376,21 +396,26 @@ main(int argc, char **argv)
 		break;
 	default:
 		usage();
+		break;
 	}ARGEND;
 
-	if(!msg)
+	if(commitmsg == nil)
 		sysfatal("missing message");
-	if(!name)
+	if(authorname == nil)
 		sysfatal("missing name");
-	if(!email)
+	if(authoremail == nil)
 		sysfatal("missing email");
+	if((committername == nil) != (committeremail == nil))
+		sysfatal("partially specified committer");
+	if(committername == nil && committeremail == nil){
+		committername = authorname;
+		committeremail = authoremail;
+	}
 	if(dstr){
 		date=strtoll(dstr, &dstr, 10);
 		if(strlen(dstr) != 0)
 			sysfatal("could not parse date %s", dstr);
 	}
-	if(msg == nil || name == nil)
-		usage();
 	for(i = 0; i < argc; i++){
 		cleanname(argv[i]);
 		if(*argv[i] == '/' && strncmp(argv[i], cwd, ncwd) == 0)
@@ -403,7 +428,7 @@ main(int argc, char **argv)
 	r = treeify(t, argv, argv + argc, 0, &th);
 	if(r == -1)
 		sysfatal("could not commit: %r\n");
-	mkcommit(&ch, msg, name, email, date, parents, nparents, th);
+	mkcommit(&ch, date, th);
 	print("%H\n", ch);
 	exits(nil);
 }

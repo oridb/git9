@@ -10,6 +10,10 @@ Hash Zhash;
 int chattygit;
 int interactive = 1;
 
+enum {
+	Seed		= 2928213749ULL
+};
+
 Object*
 emptydir(void)
 {
@@ -320,4 +324,121 @@ showprogress(int x, int pct)
 		fprint(2, "\b\b\b\b%3d%%", pct);
 	}
 	return pct;
+}
+
+void
+qinit(Objq *q)
+{
+	memset(q, 0, sizeof(Objq));
+	q->nheap = 0;
+	q->heapsz = 8;
+	q->heap = eamalloc(q->heapsz, sizeof(Qelt));
+}
+
+void
+qclear(Objq *q)
+{
+	free(q->heap);
+}
+
+void
+qput(Objq *q, Object *o, int color)
+{
+	Qelt t;
+	int i;
+
+	if(q->nheap == q->heapsz){
+		q->heapsz *= 2;
+		q->heap = earealloc(q->heap, q->heapsz, sizeof(Qelt));
+	}
+	q->heap[q->nheap].o = o;
+	q->heap[q->nheap].color = color;
+	q->heap[q->nheap].ctime = o->commit->ctime;
+	for(i = q->nheap; i > 0; i = (i-1)/2){
+		if(q->heap[i].ctime < q->heap[(i-1)/2].ctime)
+			break;
+		t = q->heap[i];
+		q->heap[i] = q->heap[(i-1)/2];
+		q->heap[(i-1)/2] = t;
+	}
+	q->nheap++;
+}
+
+int
+qpop(Objq *q, Qelt *e)
+{
+	int i, l, r, m;
+	Qelt t;
+
+	if(q->nheap == 0)
+		return 0;
+	*e = q->heap[0];
+	if(--q->nheap == 0)
+		return 1;
+
+	i = 0;
+	q->heap[0] = q->heap[q->nheap];
+	while(1){
+		m = i;
+		l = 2*i+1;
+		r = 2*i+2;
+		if(l < q->nheap && q->heap[m].ctime < q->heap[l].ctime)
+			m = l;
+		if(r < q->nheap && q->heap[m].ctime < q->heap[r].ctime)
+			m = r;
+		if(m == i)
+			break;
+		t = q->heap[m];
+		q->heap[m] = q->heap[i];
+		q->heap[i] = t;
+		i = m;
+	}
+	return 1;
+}
+
+u64int
+murmurhash2(void *pp, usize n)
+{
+	u32int m = 0x5bd1e995;
+	u32int r = 24;
+	u32int h, k;
+	u32int *w, *e;
+	uchar *p;
+	
+	h = Seed ^ n;
+	e = pp;
+	e += (n / 4);
+	for (w = pp; w != e; w++) {
+		/*
+		 * NB: this is endian dependent.
+		 * This is fine for use in git, since the
+		 * hashes computed here are only ever used
+		 * for in memory data structures.
+		 *
+		 * Pack files will differ when packed on
+		 * machines with different endianness,
+		 * but the results will still be correct.
+		 */
+		k = *w;
+		k *= m;
+		k ^= k >> r;
+		k *= m;
+
+		h *= m;
+		h ^= k;
+	}
+
+	p = (uchar*)w;
+	switch (n & 0x3) {
+	case 3:	h ^= p[2] << 16;
+	case 2:	h ^= p[1] << 8;
+	case 1:	h ^= p[0] << 0;
+		h *= m;
+	}
+
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
 }

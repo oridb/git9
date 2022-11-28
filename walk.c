@@ -295,10 +295,12 @@ nextarg:
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
 		}else{
-			if(d == nil || access(rpath, AEXIST) == 0){
-				dirty |= Rflg;
-				if(!quiet && (printflg & Rflg))
-					print("%s%s\n", rstr, p);
+			if(d == nil || access(rpath, AEXIST) == 0 ){
+				if(access(bpath, AEXIST) == 0){
+					dirty |= Rflg;
+					if(!quiet && (printflg & Rflg))
+						print("%s%s\n", rstr, p);
+				}
 			}else if(access(bpath, AEXIST) == -1) {
 				dirty |= Aflg;
 				if(!quiet && (printflg & Aflg))

@@ -20,7 +20,7 @@ struct Metavec {
 
 struct Meta {
 	Object	*obj;
-	char	*path;
+	vlong	path;
 	vlong	mtime;
 
 	/* The best delta we picked */
@@ -65,8 +65,8 @@ static Object	*readidxobject(Biobuf *, Hash, int);
 Objset objcache;
 Object *lruhead;
 Object *lrutail;
-int	ncache;
-int	cachemax = 4096;
+vlong	ncache;
+vlong	cachemax = 512*MiB;
 Packf	*packf;
 int	npackf;
 int	openpacks;
@@ -158,7 +158,7 @@ cache(Object *o)
 	if(!(o->flag & Ccache)){
 		o->flag |= Ccache;
 		ref(o);
-		ncache++;
+		ncache += o->size;
 	}
 	while(ncache > cachemax && lrutail != nil){
 		p = lrutail;
@@ -168,8 +168,8 @@ cache(Object *o)
 		p->flag &= ~Ccache;
 		p->prev = nil;
 		p->next = nil;
+		ncache -= p->size;
 		unref(p);
-		ncache--;
 	}		
 }
 
@@ -194,26 +194,26 @@ loadpack(Packf *pf, char *name)
 			pf->nidx = packf[i].nidx;
 			packf[i].idx = nil;
 			packf[i].pack = nil;
+			return 0;
 		}
 	}
 	if((ifd = open(buf, OREAD)) == -1)
-		goto error;
-	if((d = dirfstat(ifd)) == nil)
-		goto error;
+		return -1;
+	if((d = dirfstat(ifd)) == nil){
+		close(ifd);
+		return -1;
+	}
 	pf->nidx = d->length;
 	pf->idx = emalloc(pf->nidx);
 	if(readn(ifd, pf->idx, pf->nidx) != pf->nidx){
+		close(ifd);
 		free(pf->idx);
 		free(d);
-		goto error;
+		return -1;
 	}
+	close(ifd);
 	free(d);
 	return 0;
-
-error:
-	if(ifd != -1)
-		close(ifd);
-	return -1;	
 }
 
 static void
@@ -253,38 +253,51 @@ openpack(Packf *pf)
 	vlong t;
 	int i, best;
 
-	if(pf->pack == nil){
-		if((pf->pack = Bopen(pf->path, OREAD)) == nil)
-			return nil;
-		openpacks++;
+	if(pf->pack != nil){
+		pf->refs++;
+		return pf->pack;
 	}
-	if(openpacks == Npackcache){
-		t = pf->opentm;
+	/*
+	 * If we've got more packs open
+	 * than we want cached, try to
+	 * free up the oldest ones.
+	 *
+	 * If we can't find a slot, this
+	 * isn't fatal; we can just use
+	 * another fd.
+	 */
+	while(openpacks >= Npackcache){
+		t = (1ull<<62)-1;
 		best = -1;
 		for(i = 0; i < npackf; i++){
-			if(packf[i].opentm < t && packf[i].refs > 0){
+			if(&packf[i] != pf
+			&& packf[i].pack != nil
+			&& packf[i].opentm < t
+			&& packf[i].refs == 0){
 				t = packf[i].opentm;
 				best = i;
 			}
 		}
-		if(best != -1){
-			Bterm(packf[best].pack);
-			packf[best].pack = nil;
-			openpacks--;
+		if(best == -1){
+			fprint(2, "no available pack slots\n");
+			break;
 		}
+		Bterm(packf[best].pack);
+		packf[best].pack = nil;
+		openpacks--;
 	}
+	openpacks++;
 	pf->opentm = nsec();
 	pf->refs++;
+	if((pf->pack = Bopen(pf->path, OREAD)) == nil)
+		return nil;
 	return pf->pack;
 }
 
 static void
 closepack(Packf *pf)
 {
-	if(--pf->refs == 0){
-		Bterm(pf->pack);
-		pf->pack = nil;
-	}
+	pf->refs--;
 }
 
 static u32int
@@ -871,6 +884,8 @@ parsecommit(Object *o)
 		}else if(strcmp(buf, "gpgsig") == 0){
 			/* just drop it */
 			if((t = strstr(p, "-----END PGP SIGNATURE-----")) == nil)
+			if((t = strstr(p, "-----END SSH SIGNATURE-----")) == nil)
+			if((t = strstr(p, "-----END SIGNED MESSAGE-----")) == nil)
 				sysfatal("malformed gpg signature");
 			np -= t - p;
 			p = t;
@@ -1023,7 +1038,6 @@ retry:
 			return obj;
 		}
 	}
-			
 
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
@@ -1272,17 +1286,18 @@ static int
 deltaordercmp(void *pa, void *pb)
 {
 	Meta *a, *b;
-	int cmp;
+	vlong cmp;
 
 	a = *(Meta**)pa;
 	b = *(Meta**)pb;
 	if(a->obj->type != b->obj->type)
 		return a->obj->type - b->obj->type;
-	cmp = strcmp(a->path, b->path);
+	cmp = (b->path - a->path);
 	if(cmp != 0)
-		return cmp;
-	if(a->mtime != b->mtime)
-		return a->mtime - b->mtime;
+		return (cmp < 0) ? -1 : 1;
+	cmp = a->mtime - b->mtime;
+	if(cmp != 0)
+		return (cmp < 0) ? -1 : 1;
 	return memcmp(a->obj->hash.h, b->obj->hash.h, sizeof(a->obj->hash.h));
 }
 
@@ -1305,7 +1320,7 @@ writeordercmp(void *pa, void *pb)
 }
 
 static void
-addmeta(Metavec *v, Objset *has, Object *o, char *path, vlong mtime)
+addmeta(Metavec *v, Objset *has, Object *o, vlong pathid, vlong mtime)
 {
 	Meta *m;
 
@@ -1316,7 +1331,7 @@ addmeta(Metavec *v, Objset *has, Object *o, char *path, vlong mtime)
 		return;
 	m = emalloc(sizeof(Meta));
 	m->obj = o;
-	m->path = estrdup(path);
+	m->path = pathid;
 	m->mtime = mtime;
 
 	if(v->nmeta == v->metasz){
@@ -1330,7 +1345,6 @@ static void
 freemeta(Meta *m)
 {
 	free(m->delta);
-	free(m->path);
 	free(m);
 }
 
@@ -1339,8 +1353,9 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 {
 	Object *t, *o;
 	Dirent *e;
+	vlong dh, eh;
+	int i, k, r;
 	char *p;
-	int i, k;
 
 	if(oshas(has, tree))
 		return 0;
@@ -1351,7 +1366,8 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 		unref(t);
 		return 0;
 	}
-	addmeta(v, has, t, dpath, mtime);
+	dh = murmurhash2(dpath, strlen(dpath));
+	addmeta(v, has, t, dh, mtime);
 	for(i = 0; i < t->tree->nent; i++){
 		e = &t->tree->ent[i];
 		if(oshas(has, e->h))
@@ -1360,14 +1376,16 @@ loadtree(Metavec *v, Objset *has, Hash tree, char *dpath, vlong mtime)
 			continue;
 		k = (e->mode & DMDIR) ? GTree : GBlob;
 		o = clearedobject(e->h, k);
-		p = smprint("%s/%s", dpath, e->name);
-		if(k == GBlob)
-			addmeta(v, has, o, p, mtime);
-		else if(loadtree(v, has, e->h, p, mtime) == -1){
+		if(k == GTree){
+			p = smprint("%s/%s", dpath, e->name);
+			r = loadtree(v, has, e->h, p, mtime);
 			free(p);
-			return -1;
+			if(r == -1)
+				return -1;
+		}else{
+			eh = murmurhash2(e->name, strlen(e->name));
+			addmeta(v, has, o, dh^eh, mtime);
 		}
-		free(p);
 	}
 	unref(t);
 	return 0;
@@ -1388,7 +1406,7 @@ loadcommit(Metavec *v, Objset *has, Hash h)
 		unref(c);
 		return 0;
 	}
-	addmeta(v, has, c, "", c->commit->ctime);
+	addmeta(v, has, c, 0, c->commit->ctime);
 	r = loadtree(v, has, c->commit->tree, "", c->commit->ctime);
 	unref(c);
 	return r;
@@ -1448,7 +1466,8 @@ pickdeltas(Meta **meta, int nmeta)
 
 	pct = 0;
 	dprint(1, "picking deltas\n");
-	fprint(2, "deltifying %d objects:   0%%", nmeta);
+	if(interactive)
+		fprint(2, "deltifying %d objects:   0%%", nmeta);
 	qsort(meta, nmeta, sizeof(Meta*), deltaordercmp);
 	for(i = 0; i < nmeta; i++){
 		m = meta[i];
@@ -1491,7 +1510,8 @@ pickdeltas(Meta **meta, int nmeta)
 	}
 	for(i = max(0, nmeta - 10); i < nmeta; i++)
 		dtclear(&meta[i]->dtab);
-	fprint(2, "\b\b\b\b100%%\n");
+	if(interactive)
+		fprint(2, "\b\b\b\b100%%\n");
 }
 
 static int
@@ -1677,7 +1697,8 @@ genpack(int fd, Meta **meta, int nmeta, Hash *h, int odelta)
 	for(i = 0; i < nmeta; i++){
 		pct = showprogress((i*100)/nmeta, pct);
 		m = meta[i];
-		if((m->off = Boffset(bfd)) == -1)
+		m->off = Boffset(bfd);
+		if(m->off == -1)
 			goto error;
 		if((o = readobject(m->obj->hash)) == nil)
 			return -1;

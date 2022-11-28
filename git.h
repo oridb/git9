@@ -4,6 +4,7 @@
 #include <flate.h>
 #include <regexp.h>
 
+typedef struct Capset	Capset;
 typedef struct Conn	Conn;
 typedef struct Hash	Hash;
 typedef struct Delta	Delta;
@@ -18,12 +19,16 @@ typedef struct Idxent	Idxent;
 typedef struct Objlist	Objlist;
 typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
+typedef struct Objq	Objq;
+typedef struct Qelt	Qelt;
 
 enum {
 	Pathmax		= 512,
 	Npackcache	= 32,
 	Hashsz		= 20,
 	Pktmax		= 65536,
+	KiB		= 1024,
+	MiB		= 1024*KiB,
 };
 
 enum {
@@ -151,6 +156,18 @@ struct Objset {
 	int	sz;
 };
 
+struct Qelt {
+	Object	*o;
+	vlong	ctime;
+	int	color;
+};
+
+struct Objq {
+	Qelt	*heap;
+	int	nheap;
+	int	heapsz;
+};
+
 struct Dtab {
 	Object	*o;
 	uchar	*base;
@@ -225,9 +242,9 @@ struct Delta {
 
 extern Reprog	*authorpat;
 extern Objset	objcache;
+extern vlong	cachemax;
 extern Hash	Zhash;
 extern int	chattygit;
-extern int	cachemax;
 extern int	interactive;
 
 #pragma varargck type "H" Hash
@@ -286,6 +303,7 @@ int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 int	findrepo(char *, int);
 int	showprogress(int, int);
+u64int	murmurhash2(void*, usize);
 
 /* packing */
 void	dtinit(Dtab *, Object*);
@@ -295,9 +313,16 @@ Delta*	deltify(Object*, Dtab*, int*);
 /* proto handling */
 int	readpkt(Conn*, char*, int);
 int	writepkt(Conn*, char*, int);
+int	fmtpkt(Conn*, char*, ...);
 int	flushpkt(Conn*);
 void	initconn(Conn*, int, int);
 int	gitconnect(Conn *, char *, char *);
 int	readphase(Conn *);
 int	writephase(Conn *);
 void	closeconn(Conn *);
+
+/* queues */
+void	qinit(Objq*);
+void	qclear(Objq*);
+void	qput(Objq*, Object*, int);
+int	qpop(Objq*, Qelt*);
