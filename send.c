@@ -75,9 +75,11 @@ readours(Hash **tailp, char ***refp)
 			sysfatal("smprint: %r");
 		if((idx = findref(ref, nu, r)) == -1)
 			idx = nu++;
+		else
+			free(ref[idx]);
 		assert(idx < nremoved + nbranch);
 		memcpy(&tail[idx], &Zhash, sizeof(Hash));
-		free(r);
+		ref[idx] = r;
 	}
 	dprint(1, "nu: %d\n", nu);
 	for(i = 0; i < nu; i++)
@@ -184,7 +186,10 @@ sendpack(Conn *c)
 		p = nil;
 		if(a != nil && b != nil)
 			p = ancestor(a, b);
-		if(!force && !hasheq(&m->theirs, &Zhash) && (a == nil || p != a)){
+		if(!force
+		&& !hasheq(&m->theirs, &Zhash)
+		&& !hasheq(&m->ours, &Zhash)
+		&& (a == nil || p != a)){
 			fprint(2, "remote has diverged\n");
 			werrstr("remote diverged");
 			flushpkt(c);

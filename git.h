@@ -10,6 +10,7 @@ typedef struct Hash	Hash;
 typedef struct Delta	Delta;
 typedef struct Cinfo	Cinfo;
 typedef struct Tinfo	Tinfo;
+typedef struct Ginfo	Ginfo;
 typedef struct Object	Object;
 typedef struct Objset	Objset;
 typedef struct Pack	Pack;
@@ -21,6 +22,7 @@ typedef struct Dtab	Dtab;
 typedef struct Dblock	Dblock;
 typedef struct Objq	Objq;
 typedef struct Qelt	Qelt;
+typedef struct Idxent	Idxent;
 
 enum {
 	Pathmax		= 512,
@@ -128,6 +130,7 @@ struct Object {
 	union {
 		Cinfo	*commit;
 		Tinfo	*tree;
+		Ginfo	*tag;
 	};
 };
 
@@ -144,6 +147,18 @@ struct Cinfo {
 	Hash	tree;
 	char	*author;
 	char	*committer;
+	char	*msg;
+	int	nmsg;
+	vlong	ctime;
+	vlong	mtime;
+};
+
+struct Ginfo {
+	/* Tag */
+	Hash	object;
+	char	*tagger;
+	char	*type;
+	char	*tag;
 	char	*msg;
 	int	nmsg;
 	vlong	ctime;
@@ -190,6 +205,13 @@ struct Delta {
 	int	len;
 };
 
+struct Idxent {
+	char	*path;
+	Qid	qid;
+	int	mode;
+	int	order;
+	char	state;
+};
 
 #define GETBE16(b)\
 		((((b)[0] & 0xFFul) <<  8) | \
@@ -301,9 +323,10 @@ int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
-int	findrepo(char *, int);
+int	findrepo(char *, int, int*);
 int	showprogress(int, int);
 u64int	murmurhash2(void*, usize);
+Qid	parseqid(char*);
 
 /* packing */
 void	dtinit(Dtab *, Object*);

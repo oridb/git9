@@ -192,8 +192,10 @@ Qfmt(Fmt *fmt)
 	Qid q;
 
 	q = va_arg(fmt->args, Qid);
-	return fmtprint(fmt, "Qid{path=0x%llx(dir:%d,obj:%lld), vers=%ld, type=%d}",
-	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
+	if(q.path == ~0ULL && q.vers == ~0UL && q.type == 0xff)
+		return fmtprint(fmt, "NOQID");
+	else
+		return fmtprint(fmt, "%llux.%lud.%hhx", q.path, q.vers, q.type);
 }
 
 void
@@ -205,7 +207,7 @@ gitinit(void)
 	fmtinstall('Q', Qfmt);
 	inflateinit();
 	deflateinit();
-	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+]?[0-9]+)");
+	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]*([\\-+]?[0-9]+)?");
 	osinit(&objcache);
 }
 
@@ -294,7 +296,7 @@ _dprint(char *fmt, ...)
 
 /* Finds the directory containing the git repo. */
 int
-findrepo(char *buf, int nbuf)
+findrepo(char *buf, int nbuf, int *nrel)
 {
 	char *p, *suff;
 
@@ -302,12 +304,14 @@ findrepo(char *buf, int nbuf)
 	if(getwd(buf, nbuf - strlen(suff) - 1) == nil)
 		return -1;
 
+	*nrel = 0;
 	for(p = buf + strlen(buf); p != nil; p = strrchr(buf, '/')){
 		strcpy(p, suff);
 		if(access(buf, AEXIST) == 0){
 			p[p == buf] = '\0';
 			return 0;
 		}
+		*nrel += 1;
 		*p = '\0';
 	}
 	werrstr("not a git repository");
@@ -347,6 +351,7 @@ qput(Objq *q, Object *o, int color)
 	Qelt t;
 	int i;
 
+	assert(o->type == GCommit);
 	if(q->nheap == q->heapsz){
 		q->heapsz *= 2;
 		q->heap = earealloc(q->heap, q->heapsz, sizeof(Qelt));
@@ -441,4 +446,25 @@ murmurhash2(void *pp, usize n)
 	h ^= h >> 15;
 
 	return h;
+}
+
+Qid
+parseqid(char *s)
+{
+	char *e;
+	Qid q;
+
+	if(strcmp(s, "NOQID") == 0)
+		return (Qid){-1, -1, -1};		
+	e = s;
+	q.path = strtoull(e, &e, 16);
+	if(*e != '.')
+		sysfatal("corrupt qid: %s (%s)\n", s, e);
+	q.vers = strtoul(e+1, &e, 10);
+	if(*e != '.')
+		sysfatal("corrupt qid: %s (%s)\n", s, e);
+	q.type = strtoul(e+1, &e, 16);
+	if(*e != '\0')
+		sysfatal("corrupt qid: %s (%x)\n", s, *e);
+	return q;
 }

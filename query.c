@@ -152,10 +152,10 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int i, j, n;
+	char *query, repo[512];
+	char *p, *e, *objpfx;
+	int i, j, n, nrel;
 	Hash *h;
-	char *p, *e, *s, *objpfx;
-	char query[2048], repo[512];
 
 	ARGBEGIN{
 	case 'd':	chattygit++;	break;
@@ -170,25 +170,26 @@ main(int argc, char **argv)
 
 	if(argc == 0)
 		usage();
-	if(findrepo(repo, sizeof(repo)) == -1)
+	if(findrepo(repo, sizeof(repo), &nrel) == -1)
 		sysfatal("find root: %r");
 	if(chdir(repo) == -1)
 		sysfatal("chdir: %r");
 	if((objpfx = smprint("%s/.git/fs/object/", repo)) == nil)
 		sysfatal("smprint: %r");
-	s = "";
+	for(i = 0, n = 0; i < argc; i++)
+		n += strlen(argv[i]) + 1;
+	query = emalloc(n+1);
 	p = query;
-	e = query + nelem(query);
-	for(i = 0; i < argc; i++){
-		p = seprint(p, e, "%s%s", s, argv[i]);
-		s = " ";
-	}
-	if((n = resolverefs(&h, query)) == -1)
+	e = query + n;
+	for(i = 0; i < argc; i++)
+		p = seprint(p, e, "%s ", argv[i]);
+	n = resolverefs(&h, query);
+	free(query);
+	if(n == -1)
 		sysfatal("resolve: %r");
 	if(changes){
-		if(n != 2)
-			sysfatal("diff: need 2 commits, got %d", n);
-		diffcommits(h[0], h[1]);
+		for(i = 1; i < n; i++)
+			diffcommits(h[0], h[i]);
 	}else{
 		p = (fullpath ? objpfx : "");
 		for(j = 0; j < n; j++)

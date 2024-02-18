@@ -207,6 +207,8 @@ showcommits(char *c)
 		sysfatal("resolve %s: %r", c);
 	if((o = readobject(h)) == nil)
 		sysfatal("load %H: %r", h);
+	if(o->type != GCommit)
+		sysfatal("%s: not a commit", c);
 	qinit(&objq);
 	osinit(&done);
 	qput(&objq, o, 0);
@@ -239,7 +241,7 @@ void
 main(int argc, char **argv)
 {
 	char path[1024], repo[1024], *p, *r;
-	int i, nrepo;
+	int i, nrel, nrepo;
 
 	ARGBEGIN{
 	case 'e':
@@ -259,7 +261,7 @@ main(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	if(findrepo(repo, sizeof(repo)) == -1)
+	if(findrepo(repo, sizeof(repo), &nrel) == -1)
 		sysfatal("find root: %r");
 	nrepo = strlen(repo);
 	if(argc != 0){
@@ -291,5 +293,6 @@ main(int argc, char **argv)
 		showquery(queryexpr);
 	else
 		showcommits(commitid);
+	Bterm(out);
 	exits(nil);
 }

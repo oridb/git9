@@ -7,28 +7,12 @@
 
 char	*pathpfx = nil;
 int	allowwrite;
-int	report;
-
-int
-parsecaps(char *caps)
-{
-	char *p, *n;
-
-	for(p = caps; p != nil; p = n){
-		if((n = strchr(p, ' ')) != nil)
-			*n++ = 0;
-		if(strcmp(p, "report-status") == 0)
-			report = 1;
-	}
-	return 0;
-}
 
 int
 showrefs(Conn *c)
 {
 	int i, ret, nrefs;
 	Hash head, *refs;
-	char *p, *e, pkt[Pktmax];
 	char **names;
 
 	ret = -1;
@@ -44,14 +28,7 @@ showrefs(Conn *c)
 	for(i = 0; i < nrefs; i++){
 		if(strncmp(names[i], "heads/", strlen("heads/")) != 0)
 			continue;
-		p = pkt;
-		e = pkt+sizeof(pkt);
-		p = seprint(p, e, "%H refs/%s\n", refs[i], names[i]);
-		if(i == 0){
-			*p++ = 0;
-			p = seprint(p, e, "report-status");
-		}
-		if(writepkt(c, pkt, p-pkt) == -1)
+		if(fmtpkt(c, "%H refs/%s\n", refs[i], names[i]) == -1)
 			goto error;
 	}
 	if(flushpkt(c) == -1)
@@ -68,8 +45,8 @@ error:
 int
 servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 {
-	char *sp[3], pkt[Pktmax];
-	int n, nsp, acked;
+	char pkt[Pktmax];
+	int n, acked;
 	Object *o;
 	Hash h;
 
@@ -85,20 +62,12 @@ servnegotiate(Conn *c, Hash **head, int *nhead, Hash **tail, int *ntail)
 			goto error;
 		if(n == 0)
 			break;
-		if((nsp = getfields(pkt, sp, nelem(sp), 1, " \t")) < 2){
-			werrstr("protocol garble %s", pkt);
-			goto error;
-		}
-		if(strcmp(sp[0], "want") != 0){
+		if(strncmp(pkt, "want ", 5) != 0){
 			werrstr(" protocol garble %s", pkt);
 			goto error;
 		}
-		if(hparse(&h, sp[1]) == -1){
+		if(hparse(&h, &pkt[5]) == -1){
 			werrstr(" garbled want");
-			goto error;
-		}
-		if(nsp > 2 && parsecaps(sp[2]) == -1){
-			werrstr("garbled caps %s", sp[2]);
 			goto error;
 		}
 		if((o = readobject(h)) == nil){
@@ -182,7 +151,7 @@ recvnegotiate(Conn *c, Hash **cur, Hash **upd, char ***ref, int *nupd)
 {
 	char pkt[Pktmax], *sp[4];
 	Hash old, new;
-	int l, n, i;
+	int n, i;
 
 	if(showrefs(c) == -1)
 		return -1;
@@ -195,11 +164,6 @@ recvnegotiate(Conn *c, Hash **cur, Hash **upd, char ***ref, int *nupd)
 			goto error;
 		if(n == 0)
 			break;
-		l = strlen(pkt);
-		if(n > l+1 && parsecaps(pkt+l+1) == -1){
-			fmtpkt(c, "ERR  protocol garble %s\n", pkt);
-			goto error;
-		}
 		if(getfields(pkt, sp, nelem(sp), 1, " \t\n\r") != 3){
 			fmtpkt(c, "ERR  protocol garble %s\n", pkt);
 			goto error;
@@ -350,26 +314,21 @@ updatepack(Conn *c)
 		packsz += n;
 	}
 	if(checkhash(pfd, packsz, &h) == -1){
-		werrstr("hash mismatch\n");
+		dprint(1, "hash mismatch\n");
 		goto error1;
 	}
 	if(indexpack(packtmp, idxtmp, h) == -1){
-		werrstr("indexing failed: %r\n");
+		dprint(1, "indexing failed: %r\n");
 		goto error1;
 	}
 	if(rename(packtmp, idxtmp, h) == -1){
-		werrstr("rename failed: %r\n");
+		dprint(1, "rename failed: %r\n");
 		goto error2;
 	}
-	if(report)
-		fmtpkt(c, "unpack ok");
 	return 0;
 
 error2:	remove(idxtmp);
 error1:	remove(packtmp);
-	dprint(1, "update pack: %r");
-	if(report)
-		fmtpkt(c, "unpack %r");
 	return -1;
 }	
 
@@ -389,13 +348,12 @@ lockrepo(void)
 int
 updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 {
-	char refpath[512];
-	int i, j, newidx, hadref, fd, ret, lockfd;
+	char refpath[512], buf[128];
+	int i, newidx, hadref, fd, ret, lockfd;
 	vlong newtm;
 	Object *o;
 	Hash h;
 
-	i = 0;
 	ret = -1;
 	hadref = 0;
 	newidx = -1;
@@ -406,32 +364,32 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	 */
 	newtm = -23811206400;	
 	if((lockfd = lockrepo()) == -1){
-		werrstr("repo locked\n");
-		goto out;
+		snprint(buf, sizeof(buf), "repo locked\n");
+		return -1;
 	}
 	for(i = 0; i < nupd; i++){
 		if(resolveref(&h, ref[i]) == 0){
 			hadref = 1;
 			if(!hasheq(&h, &cur[i])){
-				werrstr("old ref changed: %s", ref[i]);
-				goto out;
+				snprint(buf, sizeof(buf), "old ref changed: %s", ref[i]);
+				goto error;
 			}
 		}
 		if(snprint(refpath, sizeof(refpath), ".git/%s", ref[i]) == sizeof(refpath)){
-			werrstr("ref path too long: %s", ref[i]);
-			goto out;
+			snprint(buf, sizeof(buf), "ref path too long: %s", ref[i]);
+			goto error;
 		}
 		if(hasheq(&upd[i], &Zhash)){
 			remove(refpath);
 			continue;
 		}
 		if((o = readobject(upd[i])) == nil){
-			werrstr("update to nonexistent hash %H", upd[i]);
-			goto out;
+			snprint(buf, sizeof(buf), "update to nonexistent hash %H", upd[i]);
+			goto error;
 		}
 		if(o->type != GCommit){
-			werrstr("not commit: %H", upd[i]);
-			goto out;
+			snprint(buf, sizeof(buf), "not commit: %H", upd[i]);
+			goto error;
 		}
 		if(o->commit->mtime > newtm){
 			newtm = o->commit->mtime;
@@ -439,13 +397,13 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 		}
 		unref(o);
 		if((fd = create(refpath, OWRITE|OTRUNC, 0644)) == -1){
-			werrstr("open ref: %r");
-			goto out;
+			snprint(buf, sizeof(buf), "open ref: %r");
+			goto error;
 		}
 		if(fprint(fd, "%H", upd[i]) == -1){
-			werrstr("upate ref: %r");
+			snprint(buf, sizeof(buf), "upate ref: %r");
 			close(fd);
-			goto out;
+			goto error;
 		}
 		close(fd);
 	}
@@ -462,30 +420,22 @@ updaterefs(Conn *c, Hash *cur, Hash *upd, char **ref, int nupd)
 	 * use. This should make us pick a useful default in
 	 * those cases, instead of silently failing.
 	 */
-	i = 0;
 	if(resolveref(&h, "HEAD") == -1 && hadref == 0 && newidx != -1){
 		if((fd = create(".git/HEAD", OWRITE|OTRUNC, 0644)) == -1){
-			werrstr("open HEAD: %r");
-			goto out;
+			snprint(buf, sizeof(buf), "open HEAD: %r");
+			goto error;
 		}
-		if(fprint(fd, "ref: %s", ref[i]) == -1){
-			werrstr("write HEAD ref: %r");
-			goto out;
+		if(fprint(fd, "ref: %s", ref[0]) == -1){
+			snprint(buf, sizeof(buf), "write HEAD ref: %r");
+			goto error;
 		}
 		close(fd);
 	}
 	ret = 0;
-out:
-	if(report){
-		for(j = 0; j < nupd; j++){
-			if(i != j || ret == 0)
-				fmtpkt(c, "ok %s", ref[i]);
-			else
-				fmtpkt(c, "ng %s %r\n", ref[i]);
-		}
-	}
-	if(lockfd != -1)
-		close(lockfd);
+error:
+	fmtpkt(c, "ERR %s", buf);
+	close(lockfd);
+	werrstr(buf);
 	return ret;
 }
 

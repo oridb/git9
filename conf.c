@@ -59,7 +59,7 @@ void
 main(int argc, char **argv)
 {
 	char repo[512], *p, *s;
-	int i, j;
+	int i, j, nrel;
 
 	ARGBEGIN{
 	case 'f':	file[nfile++]=EARGF(usage());	break;
@@ -69,7 +69,7 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	if(findroot){
-		if(findrepo(repo, sizeof(repo)) == -1)
+		if(findrepo(repo, sizeof(repo), &nrel) == -1)
 			sysfatal("%r");
 		print("%s\n", repo);
 		exits(nil);

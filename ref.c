@@ -125,8 +125,10 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 	nskip = 0;
 
 	for(i = 0; i < nhead; i++){
+		if(hasheq(&head[i], &Zhash))
+			continue;
 		if((o = readobject(head[i])) == nil){
-			fprint(2, "warning: %H does not point at commit\n", o->hash);
+			fprint(2, "warning: %H does not point at commit\n", head[i]);
 			werrstr("read head %H: %r", head[i]);
 			return -1;
 		}
@@ -140,6 +142,8 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 		unref(o);
 	}		
 	for(i = 0; i < ntail; i++){
+		if(hasheq(&tail[i], &Zhash))
+			continue;
 		if((o = readobject(tail[i])) == nil){
 			werrstr("read tail %H: %r", tail[i]);
 			return -1;
@@ -184,6 +188,10 @@ paint(Hash *head, int nhead, Hash *tail, int ntail, Object ***res, int *nres, in
 			break;
 		}
 		o = readobject(e.o->hash);
+		if(o->type != GCommit){
+			werrstr("not a commit: %H", o->hash);
+			goto error;
+		}
 		for(i = 0; i < o->commit->nparent; i++){
 			if((c = readobject(e.o->commit->parent[i])) == nil)
 				goto error;
@@ -301,6 +309,10 @@ parent(Eval *ev)
 	Object *o, *p;
 
 	o = pop(ev);
+	if(o->type != GCommit){
+		werrstr("not a commit: %H", o->hash);
+		return -1;
+	}
 	/* Special case: first commit has no parent. */
 	if(o->commit->nparent == 0)
 		p = emptydir();

@@ -66,7 +66,7 @@ Objset objcache;
 Object *lruhead;
 Object *lrutail;
 vlong	ncache;
-vlong	cachemax = 512*MiB;
+vlong	cachemax = 128*MiB;
 Packf	*packf;
 int	npackf;
 int	openpacks;
@@ -160,7 +160,7 @@ cache(Object *o)
 		ref(o);
 		ncache += o->size;
 	}
-	while(ncache > cachemax && lrutail != nil){
+	while(ncache > cachemax && lrutail != lruhead){
 		p = lrutail;
 		lrutail = p->prev;
 		if(lrutail != nil)
@@ -825,6 +825,7 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 {
 	char buf[128];
 	Resub m[4];
+	vlong tz;
 	char *p;
 	int n, nm;
 
@@ -845,10 +846,16 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 	memcpy(*name, m[1].sp, nm);
 	buf[nm] = 0;
 	
+	nm = m[3].ep - m[3].sp;
+	memcpy(buf, m[3].sp, nm);
+	buf[nm] = 0;
+	tz = atoll(buf);
+
 	nm = m[2].ep - m[2].sp;
 	memcpy(buf, m[2].sp, nm);
 	buf[nm] = 0;
-	*time = atoll(buf);
+	*time = atoll(buf) + 3600*(tz/100) + 60*(tz%100);
+
 	return 0;
 }
 
@@ -889,6 +896,46 @@ parsecommit(Object *o)
 				sysfatal("malformed gpg signature");
 			np -= t - p;
 			p = t;
+		}
+		nextline(&p, &np);
+	}
+	while (np && isspace(*p)) {
+		p++;
+		np--;
+	}
+	o->commit->msg = p;
+	o->commit->nmsg = np;
+}
+
+static void
+parsetag(Object *o)
+{
+	char *p, buf[128];
+	int np;
+
+	p = o->data;
+	np = o->size;
+	o->tag = emalloc(sizeof(Ginfo));
+	while(1){
+		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+			break;
+		if(strcmp(buf, "object") == 0){
+			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+				sysfatal("invalid commit: tree missing");
+			if(hparse(&o->tag->object, buf) == -1)
+				sysfatal("invalid commit: garbled tree");
+		}else if(strcmp(buf, "tagger") == 0){
+			parseauthor(&p, &np, &o->commit->author, &o->tag->mtime);
+		}else if(strcmp(buf, "type") == 0){
+			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+				sysfatal("bad tag type");
+			if((o->tag->type = strdup(buf)) == nil)
+				sysfatal("strdup: %r");
+		}else if(strcmp(buf, "tag") == 0){
+			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+				sysfatal("bad tag type");
+			if((o->tag->type = strdup(buf)) == nil)
+				sysfatal("strdup: %r");
 		}
 		nextline(&p, &np);
 	}
@@ -954,12 +1001,6 @@ parsetree(Object *o)
 	o->tree->ent = ent;
 	o->tree->nent = nent;
 }
-
-static void
-parsetag(Object *)
-{
-}
-
 void
 parseobject(Object *o)
 {
@@ -1210,10 +1251,8 @@ indexpack(char *pack, char *idx, Hash ph)
 			if(objectcrc(f, o) == -1)
 				return -1;
 		}
-		if(n == nvalid){
+		if(n == nvalid)
 			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
-			goto error;
-		}
 		nvalid = n;
 	}
 	if(interactive)

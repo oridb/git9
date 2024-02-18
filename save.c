@@ -10,6 +10,7 @@ struct Objbuf {
 	char *dat;
 	int ndat;
 };
+
 enum {
 	Maxparents = 16,
 };
@@ -21,7 +22,9 @@ char	*committeremail;
 char	*commitmsg;
 Hash	parents[Maxparents];
 int	nparents;
-
+Idxent	*idx;
+int	idxsz;
+int	nidx;
 int
 gitmode(Dirent *e)
 {
@@ -31,10 +34,24 @@ gitmode(Dirent *e)
 		return 0160000;
 	else if(e->mode & DMDIR)
 		return 0040000;
-	else if(e->mode & 0111)
+	else if(e->mode & 0100)
 		return 0100755;
 	else
 		return 0100644;
+}
+
+int
+idxcmp(void *pa, void *pb)
+{
+	Idxent *a, *b;
+	int c;
+
+	a = (Idxent*)pa;
+	b = (Idxent*)pb;
+	if((c = strcmp(a->path, b->path)) != 0)
+		return c;
+	assert(a->order != b->order);
+	return a-> order < b->order ? -1 : 1;
 }
 
 int
@@ -184,27 +201,21 @@ blobify(Dir *d, char *path, int *mode, Hash *bh)
 int
 tracked(char *path)
 {
-	char ipath[256];
-	Dir *d;
+	int r, lo, hi, mid;
 
-	/* Explicitly removed. */
-	snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path);
-	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
-		sysfatal("path %s leaves index", ipath);
-	d = dirstat(ipath);
-	if(d != nil && d->qid.type != QTDIR){
-		free(d);
-		return 0;
+	lo = 0;
+	hi = nidx-1;
+	while(lo <= hi){
+		mid = (hi + lo) / 2;
+		r = strcmp(path, idx[mid].path);
+		if(r < 0)
+			hi = mid-1;
+		else if(r > 0)
+			lo = mid+1;
+		else
+			return idx[mid].state != 'R';
 	}
-
-	/* Explicitly added. */
-	snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path);
-	if(strstr(cleanname(ipath), ".git/index9/tracked") != ipath)
-		sysfatal("path %s leaves index", ipath);
-	if(access(ipath, AEXIST) == 0)
-		return 1;
-
-	return 0;
+	return 0; 
 }
 
 int
@@ -354,10 +365,11 @@ usage(void)
 void
 main(int argc, char **argv)
 {
+	char *ln, *dstr, *parts[4], cwd[1024];
+	int i, r, line, ncwd;
 	Hash th, ch;
-	char *dstr, cwd[1024];
-	int i, r, ncwd;
 	vlong date;
+	Biobuf *f;
 	Object *t;
 
 	gitinit();
@@ -425,6 +437,33 @@ main(int argc, char **argv)
 	}
 
 	t = findroot();
+	nidx = 0;
+	idxsz = 32;
+	idx = emalloc(idxsz*sizeof(Idxent));
+	if((f = Bopen(".git/INDEX9", OREAD)) == nil)
+		sysfatal("open index: %r");
+	line = 0;
+	while((ln = Brdstr(f, '\n', 1)) != nil){
+		line++;
+		if(ln[0] == 0 || ln[0] == '\n')
+			continue;
+		if(getfields(ln, parts, nelem(parts), 0, " \t") != nelem(parts))
+			sysfatal(".git/INDEX9:%d: corrupt index", line);
+		if(nidx == idxsz){
+			idxsz += idxsz/2;
+			idx = realloc(idx, idxsz*sizeof(Idxent));
+		}
+		cleanname(parts[3]);
+		idx[nidx].state = *parts[0];
+		idx[nidx].qid = parseqid(parts[1]);
+		idx[nidx].mode = strtol(parts[2], nil, 8);
+		idx[nidx].path = strdup(parts[3]);
+		idx[nidx].order = nidx;
+		nidx++;
+		free(ln);
+	}
+	Bterm(f);
+	qsort(idx, nidx, sizeof(Idxent), idxcmp);
 	r = treeify(t, argv, argv + argc, 0, &th);
 	if(r == -1)
 		sysfatal("could not commit: %r\n");
