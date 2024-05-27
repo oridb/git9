@@ -219,8 +219,6 @@ fetchpack(Conn *c)
 			return -1;
 		if(n == 0)
 			break;
-		if(strncmp(buf, "ERR ", 4) == 0)
-			sysfatal("%s", buf + 4);
 
 		if(first && n > strlen(buf))
 			handlecaps(buf + strlen(buf) + 1);

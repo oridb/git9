@@ -17,8 +17,8 @@ if(~ $#local 0)
 if(~ $#branch 1)
 	branchflag=(-b $branch)
 
-if(test -e $local)
-	die 'repository already exists:' $local
+if(test -e $local && ~ `{ls $local | sed 1q | wc -l} 1)
+	die 'destination already exists:' $local
 
 fn clone{
 	flag +e
@@ -67,7 +67,7 @@ fn clone{
 				refdir = headref;
 				gsub("/?[^/]*/?$", "", refdir)
 				gsub("^refs/remotes/origin", "refs/heads", headref)
-				system("mkdir -p .git/"refdir);
+				system("mkdir -p `{basename -d .git/"headref"}");
 				system("cp .git/" remote " .git/" headref)
 				print "ref: " headref > ".git/HEAD"
 			}else if(headhash != ""){
@@ -82,15 +82,13 @@ fn clone{
 	rbranch=`{echo $lbranch | subst 'heads' 'remotes/origin'}
 	echo checking out repository...
 	if(test -f .git/refs/$rbranch){
+		mkdir -p `{basename -d .git/refs/$lbranch}
 		cp .git/refs/$rbranch .git/refs/$lbranch
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0} \
 			|| die 'checkout failed:' $status
-		for(f in `$nl{walk -f $tree | drop $tree}){
-			idx=.git/index9/tracked/$f
-			mkdir -p `$nl{basename -d $idx}
-			walk -eq ./$f > $idx
-		}
+		{for(f in `$nl{cd $tree && walk -f})
+			echo 'T NOQID 0 '$f} > .git/INDEX9
 	}
 	if not{
 		echo no default branch >[1=2]
@@ -100,6 +98,7 @@ fn clone{
 
 fn sigint {
 	echo cancelled clone $remote: cleaning $local >[1=2]
+	unmount $local/.git/fs >[2]/dev/null
 	rm -rf $local
 	exit interrupted
 }
@@ -108,6 +107,7 @@ fn sigint {
 st=$status
 if(! ~ $st ''){
 	echo failed to clone $remote: cleaning $local >[1=2]
+	unmount $local/.git/fs >[2]/dev/null
 	rm -rf $local
 	exit $st
 }

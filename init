@@ -31,7 +31,7 @@ mkdir -p $dir/.git/^(fs objects)
 	echo '[branch "'$branch'"]'
 	echo '	remote = origin'
 }
-
+>$dir/.git/INDEX9
 >$dir/.git/HEAD {
 	echo ref: refs/heads/$branch
 }

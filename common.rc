@@ -84,10 +84,11 @@ fn merge1 {@{
 		base=/dev/null
 	if(! test -f $theirs)
 		theirs=/dev/null
-	if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
-		echo merge needed: $out >[1=2]
 
 	if(mergeperm $ours $base $theirs){
+		mkdir -p `{basename -d $tmp}
+		if(! ape/diff3 -3 -m $ours $base $theirs > $tmp)
+			echo merge needed: $out >[1=2]
 		mv $tmp $out
 		git/add $out
 		chmod $mergedperms $out
@@ -99,9 +100,14 @@ fn merge1 {@{
 }}
 
 fn gitup{
-	gitroot=`{git/conf -r >[2]/dev/null}
+	gitroot=`$nl{git/conf -r >[2]/dev/null}
 	if(~ $#gitroot 0)
 		die 'not a git repository'
+	gitwork=`$nl{git/conf work.dir}
+	if(~ $#gitwork 1)
+		bind -c $gitwork/objects $gitroot/.git/objects
+	if(~ $#workdir 1)
+		bind $workdir .git/objects
 	gitfs=$gitroot/.git/fs
 	gitrel=`{pwd | drop $gitroot | sed 's@^/@@'}
 	if(~ $#gitrel 0)

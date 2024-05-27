@@ -4,7 +4,7 @@ rfork en
 
 gitup
 
-flagfmt='a:listall, b:baseref ref, d:delete, n:newbr, s:stay, m:merge'
+flagfmt='a:listall, b:baseref ref, d:delete, n:newbr, s:stay, m:merge, M:nomod'
 args='[branch]'
 eval `''{aux/getflags $*} || exec aux/usage
 
@@ -48,8 +48,11 @@ if(~ $#newbr 0){
 modified=`$nl{git/query -c HEAD $base | grep '^[^-]' | subst '^..'}
 deleted=`$nl{git/query -c HEAD $base | grep '^-' | subst '^..'}
 
+# if we delete the current branch without switching, bad things happen
+if(~ $delete 1 && ~ `{git/query HEAD} `{git/query $branch})
+	die 'cannot delete current branch'
 # if we're not merging, don't clobber existing changes.
-if(~ $#merge 0){
+if(~ $#merge 0 && ~ $#delete 0){
 	if(! ~ $#modified 0 || ! ~ $#deleted 0){
 		git/walk -fRMA $modified $deleted || 
 			die 'uncommitted changes would be clobbered'
@@ -84,7 +87,6 @@ echo $commit > .git/$new
 for(m in $cleanpaths){
 	d=`$nl{basename -d $m}
 	mkdir -p $d
-	mkdir -p .git/index9/tracked/$d
 	# Modifications can turn a file into
 	# a directory, or vice versa, so we
 	# need to delete and copy the files
@@ -97,11 +99,11 @@ for(m in $cleanpaths){
 		b=file
 	if(! ~ $a $b){
 		rm -rf $m
-		rm -rf .git/index9/tracked/$m
+		echo R NOQID 0 $m >> .git/INDEX9
 	}
 	if(~ $b file){
 		cp -x -- $basedir/tree/$m $m
-		walk -eq $m > .git/index9/tracked/$m
+		echo T NOQID 0 $m >> .git/INDEX9
 		touch $m
 	}
 }
@@ -112,9 +114,11 @@ for(ours in $dirtypaths){
 	merge1 $ours $ours $common $theirs
 }
 
-if(! ~ $#deleted 0){
-	rm -f $deleted
-	rm -f .git/index9/tracked/$deleted
+for(d in $deleted){
+	if(! test -d $d){
+		rm -f $d
+		echo R NOQID 0 $d >> .git/INDEX9
+	}
 }
 
 echo ref: $new > .git/HEAD

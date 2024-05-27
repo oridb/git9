@@ -75,6 +75,12 @@ readpkt(Conn *c, char *buf, int nbuf)
 		sysfatal("pktline: undersize buffer");
 	if(readn(c->rfd, buf, n) != n)
 		return -1;
+	if(n > 4 && strncmp(buf, "ERR ", 4) == 0){
+		if((e = strrchr(buf, '\n')) != nil)
+			*e = '\0';
+		werrstr("%s", buf + 4);
+		return -1;
+	}
 	buf[n] = 0;
 	tracepkt(1, "=r=>", buf, n);
 	return n;

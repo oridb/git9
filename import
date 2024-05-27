@@ -98,7 +98,8 @@ fn apply @{
 		if(~ $#nocommit 0){
 			if(hash=`{git/save -n $aname -e $amail -N $name -E $email -m $msg -d $date $parents $files}){
 				echo $hash > $refpath
-				rm -f .git/index9/removed/$files
+				for(f in $files)
+					echo T NOQID 0 $f >> .git/INDEX9
 			}
 		}
 		status=''''

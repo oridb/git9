@@ -4,33 +4,32 @@ rfork ne
 
 gitup
 
-flagfmt='c:commit branch, s:summarize'; args='[file ...]'
+flagfmt='c:commit branch, s:summarize, u:uncommitted'; args='[file ...]'
 eval `''{aux/getflags $*} || exec aux/usage
 
-if(~ $#commit 0)
+if(~ $#commit 0){
 	commit=HEAD
+	cparam=()
+}
 
 files=()
+filt=MAR
+if(~ $#uncommitted 1)
+	filt=MARU
 if(! ~ $#* 0)
 	files=`{cleanname -d $gitrel $*}
 
 branch=`{git/query -p $commit}
-if(~ $summarize 1){
-	git/walk -fMAR $files
+if(~ $summarize 1 || ~ $uncommitted 1){
+	git/walk -f$filt $cparam $files
 	exit
-}
-
-fn lsdirty {
-	git/walk -c -fRMA $files
-	if(! ~ $commit HEAD)
-		git/query -c $commit HEAD | subst '^..'
 }
 
 showed=()
 mntgen /mnt/scratch
 bind $branch/tree/ /mnt/scratch/a
 bind . /mnt/scratch/b
-for(f in `$nl{lsdirty | sort | uniq}){
+for(f in `$nl{git/walk -c -f$filt $cparam $files}){
 	if(~ $#showed 0){
 		echo diff `{git/query $commit} uncommitted
 		showed=1

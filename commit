@@ -65,8 +65,8 @@ fn editmsg{
 fn parents{
 	if(! ~ $#revise 0)
 		parents=`{cat $gitfs/HEAD/parent}
-	if not if(test -f .git/index9/merge-parents)
-		parents=`{cat .git/index9/merge-parents | sort | uniq}
+	if not if(test -f .git/merge-parents)
+		parents=`{cat .git/merge-parents | sort | uniq}
 	if not if(~ $initial true)
 		parents=()
 	if not
@@ -78,7 +78,7 @@ fn commit{
 	if(! ~ $#parents 0)
 		pflags='-p'^$parents
 	hash=`{git/save -n $"name -e $"email -m $"msg $pflags $files || die $status}
-	rm -f .git/index9/merge-parents
+	rm -f .git/merge-parents
 }
 
 fn update{
@@ -89,14 +89,10 @@ fn update{
 	echo $branch: $hash
 	echo $hash > $refpath
 	for(f in $files){
-		if(test -e .git/index9/removed/$f || ! test -e $f){
-			rm -f .git/index9/removed/$f
-			rm -f .git/index9/tracked/$f
-		}
-		if not{
-			mkdir -p `{basename -d $f}
-			walk -eq $f > .git/index9/tracked/$f
-		}
+		if(! test -e $f && ! test -e .git/object/$hash/tree/$f)
+			echo R NOQID 0 $f >> .git/INDEX9
+		if not
+			echo T NOQID 0 $f >> .git/INDEX9
 	}
 }
 
@@ -120,10 +116,12 @@ if not if(~ $#revise 1){
 }
 
 files=()
+if(test -f .git/merge-parents)
+	files=`$nl{git/query -c `{cat .git/merge-parents} | sed 's/^..//'}
 if(! ~ $#* 0)
-	files=`$nl{git/walk -c `$nl{cleanname -d $gitrel $*}}
-if(~ $status '' || ~ $#files 0 && ! test -f .git/index9/merge-parents && ~ $#revise 0)
-	die 'nothing to commit' $status
+	files=($files `$nl{git/walk -c `$nl{cleanname -d $gitrel $*}})
+if(~ $status '' || ~ $#files 0 && ! test -f .git/merge-parents && ~ $#revise 0)
+	die 'nothing to commit'
 @{
 	flag e +
 	whoami

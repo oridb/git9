@@ -149,8 +149,6 @@ sendpack(Conn *c)
 		if(first && n > strlen(buf))
 			parsecaps(buf + strlen(buf) + 1, &cs);
 		first = 0;
-		if(strncmp(buf, "ERR ", 4) == 0)
-			sysfatal("%s", buf + 4);
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\r\n") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);

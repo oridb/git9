@@ -908,46 +908,6 @@ parsecommit(Object *o)
 }
 
 static void
-parsetag(Object *o)
-{
-	char *p, buf[128];
-	int np;
-
-	p = o->data;
-	np = o->size;
-	o->tag = emalloc(sizeof(Ginfo));
-	while(1){
-		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
-			break;
-		if(strcmp(buf, "object") == 0){
-			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
-				sysfatal("invalid commit: tree missing");
-			if(hparse(&o->tag->object, buf) == -1)
-				sysfatal("invalid commit: garbled tree");
-		}else if(strcmp(buf, "tagger") == 0){
-			parseauthor(&p, &np, &o->commit->author, &o->tag->mtime);
-		}else if(strcmp(buf, "type") == 0){
-			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
-				sysfatal("bad tag type");
-			if((o->tag->type = strdup(buf)) == nil)
-				sysfatal("strdup: %r");
-		}else if(strcmp(buf, "tag") == 0){
-			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
-				sysfatal("bad tag type");
-			if((o->tag->type = strdup(buf)) == nil)
-				sysfatal("strdup: %r");
-		}
-		nextline(&p, &np);
-	}
-	while (np && isspace(*p)) {
-		p++;
-		np--;
-	}
-	o->commit->msg = p;
-	o->commit->nmsg = np;
-}
-
-static void
 parsetree(Object *o)
 {
 	int m, a, entsz, nent;
@@ -1001,6 +961,12 @@ parsetree(Object *o)
 	o->tree->ent = ent;
 	o->tree->nent = nent;
 }
+
+static void
+parsetag(Object *)
+{
+}
+
 void
 parseobject(Object *o)
 {
