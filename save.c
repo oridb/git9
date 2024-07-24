@@ -459,6 +459,8 @@ main(int argc, char **argv)
 		idx[nidx].mode = strtol(parts[2], nil, 8);
 		idx[nidx].path = strdup(parts[3]);
 		idx[nidx].order = nidx;
+		if(idx[nidx].path == nil)
+			sysfatal("strdup: memory allocation failed");
 		nidx++;
 		free(ln);
 	}

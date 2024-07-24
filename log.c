@@ -30,7 +30,8 @@ filteradd(Pfilt *pf, char *path)
 		p = smprint("%.*s", (int)(e - path), path);
 	else
 		p = strdup(path);
-
+	if(p == nil)
+		sysfatal("Memory allocation failed");
 	while(e != nil && *e == '/')
 		e++;
 	for(i = 0; i < pf->nsub; i++){

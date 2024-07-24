@@ -904,6 +904,8 @@ main(int argc, char **argv)
 		sysfatal("dirstat .git: %r");
 	username = strdup(d->uid);
 	groupname = strdup(d->gid);
+	if(username == nil || groupname == nil)
+		sysfatal("strdup: memory allocation failed");
 	free(d);
 
 	branches = emalloc(sizeof(char*));
